@@ -1,0 +1,49 @@
+403 Forbidden — navodila za popravek
+=====================================
+
+Na posnetku je mapa /strele/ na strežniku, vendar NOTRI verjetno NI datotek
+(WinSCP kaže koren /, ne vsebino mape strele).
+
+
+KORAK 1 — Preveri v WinSCP
+--------------------------
+1. Dvoklikni mapo  strele  (desni panel)
+2. Moraš videti:
+
+     embed.html
+     index.html
+     index.php
+     .htaccess
+     data/embed-regije.json
+
+3. Če je mapa PRAZNA ali vidiš podmapo  vreme-podnebje  → napačno naloženo.
+
+
+KORAK 2 — Pravilno nalaganje
+----------------------------
+Na računalniku odpri mapo:
+  web/public/vreme-podnebje/
+
+Na FTP naloži VSEBINO te mape (ne samo prazno mapo strele) v /strele/:
+
+  NAPAČNO:  /strele/vreme-podnebje/embed.html
+  PRAVILNO: /strele/embed.html
+
+
+KORAK 3 — Preveri v brskalniku
+------------------------------
+  https://vreme-podnebje.si/strele/index.html
+  https://vreme-podnebje.si/strele/embed.html?chart=daily&source=meteoinfo
+
+Prvi URL mora odpreti predogled (ne 403).
+
+
+KORAK 4 — Pravice (WinSCP)
+--------------------------
+  mape:   755  (rwxr-xr-x)
+  datoteke: 644  (rw-r--r--)
+
+
+Če še vedno 403
+---------------
+Pošlji posnetek vsebine mape /strele/ (notri, ne koren).

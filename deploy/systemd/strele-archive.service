@@ -1,0 +1,15 @@
+[Unit]
+Description=Strele arhiv (strele2 FastAPI)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/maximus/projects/strele2
+EnvironmentFile=/home/maximus/projects/strele2/.env
+ExecStart=/home/maximus/projects/strele2/.venv-linux/bin/python -m strele_archive.server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

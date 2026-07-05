@@ -1,0 +1,75 @@
+VGRADNJA GRAFOV NA SPLETNO STRAN
+================================
+
+1) IFRAME (najpreprosteje)
+--------------------------
+Dnevni graf (30 dni):
+
+  <iframe
+    src="https://TVoj-STREŽNIK/public/embed?chart=daily&days=30&controls=0"
+    title="Strele po dnevih"
+    width="100%"
+    height="320"
+    style="border:0"
+    loading="lazy">
+  </iframe>
+
+Urni profil (zadnji dan):
+
+  <iframe
+    src="https://TVoj-STREŽNIK/public/embed?chart=hourly&controls=0"
+    height="280"
+    style="border:0;width:100%"
+    loading="lazy">
+  </iframe>
+
+Regije (zadnjih 30 dni):
+
+  <iframe
+    src="https://TVoj-STREŽNIK/public/embed?chart=regions&period=30&controls=0"
+    height="380"
+    style="border:0;width:100%"
+    loading="lazy">
+  </iframe>
+
+Vsi trije grafi skupaj (klik na dnevni stolpec posodobi spodnja dva):
+
+  <iframe
+    src="https://TVoj-STREŽNIK/public/embed?chart=all&days=30&controls=1"
+    height="900"
+    style="border:0;width:100%"
+    loading="lazy">
+  </iframe>
+
+
+2) SKRIPTA embed.js (samodejna višina)
+--------------------------------------
+  <div data-strele-chart="daily" data-strele-days="30" data-strele-controls="0"></div>
+
+  <script
+    src="https://TVoj-STREŽNIK/public/embed.js"
+    data-strele-api="https://TVoj-STREŽNIK">
+  </script>
+
+
+3) PARAMETRI (?chart=…)
+-------------------------
+  chart     daily | hourly | regions | all
+  days      7 | 14 | 30 | 90          (dnevni graf)
+  day       YYYY-MM-DD                (urni / regije)
+  period    30                        (agregat zadnjih 30 dni)
+  api       URL API strežnika         (če iframe gostuje drugje)
+  controls  0 | 1                     (privzeto 0 — brez gumbov)
+  stats     0 | 1                     (prikaži številke nad grafom)
+  title     0 | 1                     (naslov panela)
+  theme     dark | light
+  height    višina grafa v px
+  refresh   1                         (osveževanje vsakih 5 min)
+  credit    0                         (skrij povezavo na vir)
+
+
+4) API NA DRUGEM HOSTU
+----------------------
+Na API strežniku v .env nastavi CORS_ORIGINS na domeno strani, kjer vgrajuješ iframe.
+
+Če kopiraš samo HTML na drug strežnik, v URL dodaj &api=https://TVoj-API-STREŽNIK

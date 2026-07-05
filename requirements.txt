@@ -1,0 +1,6 @@
+psycopg[binary]>=3.2
+requests>=2.32
+shapely>=2.0
+python-dotenv>=1.0
+fastapi>=0.115
+uvicorn[standard]>=0.32

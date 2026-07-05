@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyc.backup
+.Python
+.venv/
+.venv*/
+venv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+
+# Cursor / IDE
+.cursor/
+
+# Logs and runtime markers
+*.log
+.ingest-heartbeat
+
+# OS
+.DS_Store
+
+# Editor / recovery artifacts
+*.recovered

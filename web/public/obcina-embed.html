@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Udari strel v občini — Strelko</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link href="https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.css" rel="stylesheet" />
+  <style>
+    [data-theme="dark"] {
+      --bg: #333333;
+      --bg-soft: rgba(0, 0, 0, 0.25);
+      --bg-map: #1a1a1a;
+      --text: #f2f2f2;
+      --text-muted: #999999;
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #fbb006;
+      --accent-soft: rgba(5, 165, 206, 0.15);
+      --accent-text: #fbb006;
+      --cyan: #05a5ce;
+      --radius: 16px;
+      --shadow: none;
+      --font: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --map-boundary: #05a5ce;
+      --map-boundary-fill: rgba(5, 165, 206, 0.15);
+    }
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --bg-soft: rgba(0, 0, 0, 0.04);
+      --bg-map: #eef1f4;
+      --text: #1f2933;
+      --text-muted: #5c6670;
+      --border: rgba(0, 0, 0, 0.08);
+      --accent: #fbb006;
+      --accent-soft: rgba(5, 165, 206, 0.12);
+      --accent-text: #c48700;
+      --cyan: #0588a8;
+      --radius: 16px;
+      --shadow: none;
+      --font: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --map-boundary: #0588a8;
+      --map-boundary-fill: rgba(5, 136, 168, 0.1);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+    #root {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+    }
+    .widget {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: visible;
+      width: 100%;
+      max-width: 100%;
+      padding: 1.25rem 1.5rem;
+      text-align: left;
+    }
+    .widget--compact { max-width: 450px; }
+    .widget--full { max-width: 960px; }
+
+    .widget-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0 0 1rem;
+      background: transparent;
+    }
+    .widget-logo {
+      flex-shrink: 0;
+      display: block;
+      height: 40px;
+      width: auto;
+      object-fit: contain;
+    }
+    .widget-head-text { flex: 1; min-width: 0; }
+    .widget-subtitle {
+      margin: 0;
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--text-muted);
+    }
+    .widget-muni {
+      margin: 0.25rem 0 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1.2;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .widget-title {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1.2;
+      color: var(--text);
+    }
+
+    .widget-desc {
+      margin: 0.35rem 0 0;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .widget-body { padding: 0 0 1rem; }
+    .widget-state {
+      padding: 0.5rem 0;
+      text-align: left;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .widget-state--error { color: #b42318; }
+    .widget-state .spinner {
+      width: 28px;
+      height: 28px;
+      margin: 0 0 0.65rem;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .stats-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .widget--compact .stats-grid { grid-template-columns: 1fr; }
+    .widget--full .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .stat-card {
+      background: var(--bg-soft);
+      border: none;
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: left;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin: 0 0 0.25rem;
+    }
+    .stat-value {
+      margin: 0;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent-text);
+      line-height: 1.15;
+    }
+    .stat-value--zero {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .widget-map-section { padding: 0 0 1rem; }
+    .widget-visual-section { padding: 0 0 1rem; }
+    .widget-visual-tabs {
+      display: flex;
+      gap: 0.35rem;
+      margin: 0 0 0.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.35rem;
+    }
+    .widget-visual-tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-radius: 8px 8px 0 0;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 0.45rem 0.65rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .widget-visual-tab:hover:not(.widget-visual-tab--active) {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+    [data-theme="light"] .widget-visual-tab:hover:not(.widget-visual-tab--active) {
+      background: rgba(0, 0, 0, 0.04);
+    }
+    .widget-visual-tab--active {
+      background: rgba(5, 165, 206, 0.16);
+      color: var(--cyan);
+    }
+    .widget-visual-panel[hidden] { display: none !important; }
+    .widget-visual-caption {
+      margin: 0 0 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+    .widget-map-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg-map);
+      position: relative;
+      width: 100%;
+      min-height: 180px;
+      height: 220px;
+      max-height: min(300px, 42vh);
+    }
+    .widget-map-wrap #map {
+      width: 100%;
+      height: 100%;
+      min-height: 180px;
+    }
+    .widget-chart-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg-map);
+      position: relative;
+      width: 100%;
+      height: 220px;
+      padding: 0.65rem 0.5rem 0.45rem;
+    }
+    .widget-chart-wrap canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      touch-action: pan-y;
+    }
+    .map-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 220px;
+      padding: 1rem;
+      text-align: left;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .leaflet-container { font-family: var(--font); background: var(--bg-map); cursor: default; }
+    .widget-map-wrap .leaflet-control-zoom,
+    .widget-map-wrap .leaflet-control-attribution,
+    .widget-map-wrap .leaflet-control-user-location-wrap,
+    .widget-map-wrap .maptiler-ctrl,
+    .widget-map-wrap .maptiler-ctrl-group,
+    .widget-map-wrap .maptiler-ctrl-top-right,
+    .widget-map-wrap .maptiler-ctrl-top-left,
+    .widget-map-wrap .maptiler-ctrl-bottom-right,
+    .widget-map-wrap .maptiler-ctrl-bottom-left,
+    .widget-map-wrap .maplibregl-ctrl,
+    .widget-map-wrap .maplibregl-ctrl-top-right,
+    .widget-map-wrap .maplibregl-ctrl-top-left,
+    .widget-map-wrap .maplibregl-ctrl-bottom-right,
+    .widget-map-wrap .maplibregl-ctrl-bottom-left,
+    #map .maplibregl-ctrl,
+    #map .maptiler-ctrl {
+      display: none !important;
+    }
+
+    .widget-actions { padding: 0 0 1rem; }
+    .btn-detail {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      padding: 0.65rem 1rem;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #1a1a1a;
+      font: inherit;
+      font-size: 0.92rem;
+      font-weight: 800;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .btn-detail:hover { filter: brightness(1.04); }
+    .btn-detail:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
+    .widget-foot {
+      padding: 0.75rem 0 0;
+      border-top: 1px solid var(--border);
+      background: transparent;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      text-align: left;
+    }
+    .widget-foot strong { color: var(--text-muted); font-weight: 600; }
+    .widget-disclaimer {
+      margin: 0.45rem 0 0;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body data-theme="dark">
+<div id="root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.umd.min.js"></script>
+<script src="https://cdn.maptiler.com/leaflet-maptilersdk/v4.1.0/leaflet-maptilersdk.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const params = new URLSearchParams(location.search);
+  const cfg = window.OBCINA_WIDGET_CONFIG || {};
+
+  const size = (params.get("size") || cfg.size || "compact").toLowerCase() === "full" ? "full" : "compact";
+  const themeParam = (params.get("theme") || cfg.theme || "dark").toLowerCase();
+  const theme = themeParam === "dark" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", theme);
+  document.body.setAttribute("data-theme", theme);
+
+  const obMidParam = parseInt(params.get("ob_mid") || cfg.obMid || "0", 10) || null;
+  let lat = parseFloat(params.get("lat") || cfg.lat);
+  let lon = parseFloat(params.get("lon") || cfg.lon);
+  let municipalityName = (params.get("municipalityName") || params.get("label") || cfg.municipalityName || "").trim();
+  const detailUrlParam = (params.get("detailUrl") || cfg.detailUrl || "").trim();
+  const REFRESH_MS = (parseInt(params.get("refresh") || "300", 10) || 300) * 1000;
+  const PERIOD_DAYS = 30;
+
+  const API_BASE = params.get("api") || cfg.api || window.STRELE_API_BASE || "";
+  const WIDGET_API = API_BASE
+    ? API_BASE.replace(/\/$/, "")
+    : (location.origin + "/widget/api");
+  const STRELKO_SITE = "https://strelko.meteoinfo.si";
+  const fmt = new Intl.NumberFormat("sl-SI");
+
+  const MAPTILER_KEY = "49h4zzj96Wh7pGHWjiId";
+  const STYLE_BASE_LIGHT = "019cde7d-3f45-7c4a-974c-c31f0757f24d";
+  const STYLE_KRAJI_LIGHT = "019cf131-5fa7-7706-ab76-3b3fa0899d6e";
+  const STYLE_BASE_DARK = "019c91be-c9e9-7eac-9e88-83d4e8cf7691";
+  const STYLE_KRAJI_DARK = "019cdeec-2c48-7778-9774-ad2176fec7cd";
+  const STYLE_BASE = theme === "dark" ? STYLE_BASE_DARK : STYLE_BASE_LIGHT;
+  const STYLE_KRAJI = theme === "dark" ? STYLE_KRAJI_DARK : STYLE_KRAJI_LIGHT;
+  const MAP_ATTRIBUTION =
+    '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">MapTiler</a> ' +
+    '&copy; <a href="https://www.openstreetmap.org/copyright/" target="_blank" rel="noopener">OpenStreetMap</a>';
+
+  let map = null;
+  let baseLayer = null;
+  let strikeLayer = null;
+  let boundaryLayer = null;
+  let labelsLayer = null;
+  let obLiteCache = null;
+  let mapBounds = null;
+  let mapResizeObserver = null;
+  let dailyChart = null;
+  let userVisualPanel = null;
+  let currentView = null;
+  let chartResizeObserver = null;
+
+  function defaultVisualPanel(strikesLast24h) {
+    return strikesLast24h > 0 ? "map" : "chart";
+  }
+
+  function activeVisualPanel(view) {
+    return userVisualPanel || defaultVisualPanel(view.strikesLast24h);
+  }
+
+  function formatChartDayLabel(dateStr) {
+    if (!dateStr) return "";
+    const parts = String(dateStr).slice(0, 10).split("-");
+    if (parts.length !== 3) return dateStr;
+    return `${Number(parts[2])}.${Number(parts[1])}.`;
+  }
+
+  function destroyChartResizeObserver() {
+    if (chartResizeObserver) {
+      chartResizeObserver.disconnect();
+      chartResizeObserver = null;
+    }
+  }
+
+  function observeChartResize() {
+    destroyChartResizeObserver();
+    const wrap = document.querySelector(".widget-chart-wrap");
+    if (!wrap) return;
+    chartResizeObserver = new ResizeObserver(function () {
+      if (dailyChart) dailyChart.resize();
+      notifyResize();
+    });
+    chartResizeObserver.observe(wrap);
+  }
+
+  function isMobileChart() {
+    return window.matchMedia("(max-width: 639px)").matches;
+  }
+
+  function destroyDailyChart() {
+    if (dailyChart) {
+      dailyChart.destroy();
+      dailyChart = null;
+    }
+    destroyChartResizeObserver();
+  }
+
+  function renderDailyChart(daily, attempt) {
+    attempt = attempt || 0;
+    const canvas = document.getElementById("daily-chart");
+    if (!canvas) return;
+    if (typeof Chart === "undefined") {
+      if (attempt < 40) setTimeout(function () { renderDailyChart(daily, attempt + 1); }, 100);
+      return;
+    }
+
+    const wrap = canvas.closest(".widget-chart-wrap");
+    if (wrap && (wrap.clientWidth < 2 || wrap.clientHeight < 2)) {
+      if (attempt < 80) requestAnimationFrame(function () { renderDailyChart(daily, attempt + 1); });
+      return;
+    }
+
+    destroyDailyChart();
+
+    const rows = (daily || []).slice(-PERIOD_DAYS);
+    const labels = rows.map((row) => formatChartDayLabel(row.datum));
+    const values = rows.map((row) => Number(row.stevilo) || 0);
+    const accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#fbb006";
+    const muted = getComputedStyle(document.body).getPropertyValue("--text-muted").trim() || "#999999";
+    const grid = theme === "dark" ? "#4d4d4d" : "rgba(0, 0, 0, 0.08)";
+
+    Chart.defaults.color = muted;
+    Chart.defaults.borderColor = grid;
+    Chart.defaults.font.family = '"Nunito Sans", system-ui, sans-serif';
+    Chart.defaults.font.size = 11;
+
+    const mobileChart = isMobileChart();
+    if (wrap) wrap.style.touchAction = "pan-y";
+    canvas.style.touchAction = "pan-y";
+
+    dailyChart = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Udari strel",
+          data: values,
+          backgroundColor: accent,
+          borderColor: accent,
+          borderWidth: 0,
+          borderRadius: 3,
+          maxBarThickness: 14,
+        }],
+      },
+      options: {
+        events: mobileChart ? [] : undefined,
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 4, right: 4, left: 0, bottom: 0 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: !mobileChart,
+            callbacks: {
+              title(items) {
+                const idx = items[0]?.dataIndex;
+                const row = rows[idx];
+                return row ? formatDateSl(row.datum) : "";
+              },
+              label(ctx) {
+                return `Udari: ${fmt.format(ctx.parsed.y)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: muted,
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 10,
+            },
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: grid },
+            ticks: {
+              color: muted,
+              precision: 0,
+              maxTicksLimit: 6,
+            },
+          },
+        },
+      },
+    });
+    observeChartResize();
+  }
+
+  function panelContainerSelector(panel) {
+    return panel === "map" ? ".widget-map-wrap" : ".widget-chart-wrap";
+  }
+
+  function whenPanelReady(panel, cb, attempts) {
+    attempts = attempts == null ? 80 : attempts;
+    const el = document.querySelector(panelContainerSelector(panel));
+    if (!el) {
+      if (attempts > 0) requestAnimationFrame(function () { whenPanelReady(panel, cb, attempts - 1); });
+      else cb();
+      return;
+    }
+    if (el.clientWidth > 0 && el.clientHeight > 0) {
+      cb();
+      return;
+    }
+    if (attempts <= 0) {
+      cb();
+      return;
+    }
+    requestAnimationFrame(function () { whenPanelReady(panel, cb, attempts - 1); });
+  }
+
+  function scheduleVisualPanel(view, panel) {
+    currentView = view;
+    setVisualPanel(panel, view);
+  }
+
+  function initObcinaMapPanel(view) {
+    if (!view || !view.obMid) return;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(async function () {
+        try {
+          const feature = await fetchObcinaGeometry(view.obMid);
+          if (!feature) return;
+          renderObcinaMap(view.strikes, feature);
+          [100, 350, 800].forEach(function (delay) {
+            setTimeout(function () {
+              fitMunicipalityView();
+              notifyResize();
+            }, delay);
+          });
+        } catch (_) {}
+      });
+    });
+  }
+
+  function setVisualPanel(panel, view) {
+    const mapPanel = document.getElementById("visual-panel-map");
+    const chartPanel = document.getElementById("visual-panel-chart");
+    const tabs = document.querySelectorAll("[data-visual-tab]");
+    if (!mapPanel || !chartPanel) return;
+
+    tabs.forEach(function (tab) {
+      const active = tab.dataset.visualTab === panel;
+      tab.classList.toggle("widget-visual-tab--active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+
+    mapPanel.hidden = panel !== "map";
+    chartPanel.hidden = panel !== "chart";
+
+    if (panel === "map") {
+      destroyDailyChart();
+      whenPanelReady("map", function () {
+        initObcinaMapPanel(view);
+      });
+    } else {
+      teardownMap();
+      whenPanelReady("chart", function () {
+        renderDailyChart(view ? view.daily : []);
+        notifyResize();
+      });
+    }
+  }
+
+  function bindVisualTabs() {
+    document.querySelectorAll("[data-visual-tab]").forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        const panel = tab.dataset.visualTab;
+        if (!panel || !currentView || panel === activeVisualPanel(currentView)) return;
+        userVisualPanel = panel;
+        scheduleVisualPanel(currentView, panel);
+      });
+    });
+  }
+
+  function mountVisualPanel(view) {
+    currentView = view;
+    bindVisualTabs();
+    setVisualPanel(activeVisualPanel(view), view);
+  }
+
+  function applyMapFrame(bounds) {
+    const wrap = document.querySelector(".widget-map-wrap");
+    if (!wrap || !bounds || !bounds.isValid()) return;
+    mapBounds = bounds;
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    const latSpan = Math.max(ne.lat - sw.lat, 0.005);
+    const lonSpan = Math.max(ne.lon - sw.lon, 0.005);
+    const avgLat = (ne.lat + sw.lat) / 2;
+    const geoW = lonSpan * Math.cos((avgLat * Math.PI) / 180);
+    const geoH = latSpan;
+    let ratio = geoW / geoH;
+    ratio = Math.max(1.25, Math.min(2.15, ratio));
+    wrap.style.height = "auto";
+    wrap.style.aspectRatio = ratio.toFixed(3);
+  }
+
+  function fitMunicipalityView() {
+    if (!map || !mapBounds || !mapBounds.isValid()) return;
+    map.invalidateSize();
+    const wrap = document.querySelector(".widget-map-wrap");
+    const padX = wrap ? Math.max(14, Math.round(wrap.clientWidth * 0.05)) : 18;
+    const padY = wrap ? Math.max(10, Math.round(wrap.clientHeight * 0.07)) : 14;
+    map.fitBounds(mapBounds, { padding: [padY, padX], animate: false });
+    const z = map.getZoom();
+    map.setMinZoom(z);
+    map.setMaxZoom(z);
+    map.setView(mapBounds.getCenter(), z, { animate: false });
+  }
+
+  function observeMapResize() {
+    const wrap = document.querySelector(".widget-map-wrap");
+    if (!wrap) return;
+    if (mapResizeObserver) mapResizeObserver.disconnect();
+    mapResizeObserver = new ResizeObserver(function () {
+      fitMunicipalityView();
+      notifyResize();
+    });
+    mapResizeObserver.observe(wrap);
+  }
+
+  function teardownMap() {
+    if (mapResizeObserver) {
+      mapResizeObserver.disconnect();
+      mapResizeObserver = null;
+    }
+    mapBounds = null;
+    if (map) {
+      map.remove();
+      map = null;
+    }
+    baseLayer = null;
+    boundaryLayer = null;
+    strikeLayer = null;
+    labelsLayer = null;
+  }
+
+  async function fetchObcinaGeometry(obMid) {
+    try {
+      return await fetchJson(`${WIDGET_API}/obcina-geometry?ob_mid=${obMid}`);
+    } catch (_) {}
+    try {
+      if (!obLiteCache) {
+        obLiteCache = await fetchJson("/widget/public/data/OB-lite.geojson");
+      }
+      const f = (obLiteCache.features || []).find(
+        (x) => Number(x.properties && x.properties.OB_MID) === Number(obMid)
+      );
+      if (!f) return null;
+      return {
+        type: "Feature",
+        properties: { ob_mid: obMid, name: f.properties.OB_UIME || "" },
+        geometry: f.geometry,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function fetchJson(url, opts) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(url, { ...opts, signal: ctrl.signal });
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function lastStrikeDateFromDaily(daily) {
+    let last = null;
+    for (const row of daily || []) {
+      if ((row.stevilo || 0) < 1 || !row.datum) continue;
+      if (!last || row.datum > last) last = row.datum;
+    }
+    return last;
+  }
+
+  async function loadData() {
+    if (cfg.strikesLast24h != null && obMidParam) {
+      return {
+        total_24h: cfg.strikesLast24h,
+        strikes: cfg.strikes || [],
+        obcina: cfg.municipalityName || "Občina",
+        period_total: cfg.periodTotal != null ? cfg.periodTotal : 0,
+        last_strike_time: cfg.lastStrikeTime || null,
+        daily: cfg.daily || [],
+        period_days: cfg.periodDays || PERIOD_DAYS,
+      };
+    }
+
+    const obMid = obMidParam;
+    if (!obMid) throw new Error("Manjka ob_mid občine.");
+
+    const data = await fetchJson(`${WIDGET_API}/obcina-widget?ob_mid=${obMid}`);
+    const b = data.bounds;
+    if (b && b.length >= 2) {
+      if (!Number.isFinite(lat)) lat = (b[0][0] + b[1][0]) / 2;
+      if (!Number.isFinite(lon)) lon = (b[0][1] + b[1][1]) / 2;
+    }
+    if (!municipalityName) municipalityName = data.obcina || "Občina";
+    if (!data.last_strike_time) {
+      try {
+        data.daily_last = await fetchJson(`${WIDGET_API}/obcina-daily?ob_mid=${obMid}&days=365`);
+      } catch {
+        data.daily_last = [];
+      }
+    }
+    return data;
+  }
+
+  function buildViewFromData(data) {
+    const strikes24h = data.strikes || [];
+    const strikesLast24h = data.total_24h != null ? data.total_24h : strikes24h.length;
+    const periodDays = data.period_days || PERIOD_DAYS;
+
+    let lastStrikeTime = null;
+    let lastStrikeDate = null;
+    if (data.last_strike_time) {
+      lastStrikeTime = new Date(data.last_strike_time);
+      if (isNaN(lastStrikeTime.getTime())) lastStrikeTime = null;
+    }
+    if (!lastStrikeTime) {
+      lastStrikeDate = lastStrikeDateFromDaily(data.daily_last || data.daily);
+    }
+
+    const periodTotal = data.period_total != null ? data.period_total : 0;
+    return {
+      strikesLast24h,
+      lastStrikeTime,
+      lastStrikeDate,
+      thirdLabel: `V zadnjih ${periodDays} dneh`,
+      thirdValue: fmt.format(periodTotal),
+      thirdIsZero: periodTotal === 0,
+      strikes: strikes24h,
+      daily: data.daily || [],
+      periodDays,
+    };
+  }
+
+  function formatTimeSl(d) {
+    if (!d || isNaN(d.getTime())) return "—";
+    const datePart = d.toLocaleDateString("sl-SI", {
+      day: "numeric", month: "numeric", year: "numeric",
+    });
+    const hour = d.getHours();
+    const minute = String(d.getMinutes()).padStart(2, "0");
+    return `${datePart}, ${hour}.${minute}`;
+  }
+
+  function formatDateSl(dateStr) {
+    if (!dateStr) return "—";
+    const d = new Date(String(dateStr).slice(0, 10) + "T12:00:00");
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("sl-SI", {
+      day: "numeric", month: "numeric", year: "numeric",
+    });
+  }
+
+  function formatLastStrike(lastStrikeTime, lastStrikeDate) {
+    if (lastStrikeTime && !isNaN(lastStrikeTime.getTime())) return formatTimeSl(lastStrikeTime);
+    if (lastStrikeDate) return formatDateSl(lastStrikeDate);
+    return "—";
+  }
+
+  const MAPTILER_NO_CONTROLS = {
+    navigationControl: false,
+    geolocateControl: false,
+    terrainControl: false,
+    projectionControl: false,
+    scaleControl: false,
+  };
+
+  const WIDGET_LOGO_URL = `${STRELKO_SITE}/assets/strelko-logo-mark.png`;
+  const WIDGET_LOGO_HTML = `<img src="${WIDGET_LOGO_URL}" alt="" class="widget-logo" width="45" height="40" decoding="async">`;
+
+  function buildDetailUrl() {
+    if (detailUrlParam) return detailUrlParam;
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      const q = new URLSearchParams({ lat: String(lat), lon: String(lon), radius_km: "20" });
+      if (municipalityName) q.set("label", municipalityName);
+      return `${STRELKO_SITE}/?${q.toString()}`;
+    }
+    return STRELKO_SITE;
+  }
+
+  function renderLoading() {
+    document.getElementById("root").innerHTML = `
+      <article class="widget widget--${size}" aria-busy="true" aria-live="polite">
+        <div class="widget-state">
+          <div class="spinner" role="status" aria-label="Nalaganje"></div>
+          Nalaganje podatkov o strelah …
+        </div>
+      </article>`;
+  }
+
+  function renderError() {
+    document.getElementById("root").innerHTML = `
+      <article class="widget widget--${size}" aria-live="polite">
+        <header class="widget-head">
+          ${WIDGET_LOGO_HTML}
+          <div class="widget-head-text">
+            <h1 class="widget-title">Udari strel v občini</h1>
+          </div>
+        </header>
+        <div class="widget-state widget-state--error">
+          Podatkov trenutno ni mogoče naložiti.
+        </div>
+        <footer class="widget-foot">
+          Informativni prikaz zagotavlja <strong>Meteoinfo d.o.o.</strong> / <strong>Strelko</strong>.
+        </footer>
+      </article>`;
+  }
+
+  function renderWidget(view) {
+    const showVisual = view.showMap;
+    const panel = activeVisualPanel(view);
+    const visualBlock = showVisual ? `
+      <section class="widget-visual-section" aria-label="Prikaz udarov strel">
+        <div class="widget-visual-tabs" role="tablist" aria-label="Preklop prikaza">
+          <button type="button" class="widget-visual-tab${panel === "map" ? " widget-visual-tab--active" : ""}"
+                  role="tab" data-visual-tab="map" aria-selected="${panel === "map" ? "true" : "false"}">
+            Zemljevid
+          </button>
+          <button type="button" class="widget-visual-tab${panel === "chart" ? " widget-visual-tab--active" : ""}"
+                  role="tab" data-visual-tab="chart" aria-selected="${panel === "chart" ? "true" : "false"}">
+            Graf
+          </button>
+        </div>
+        <div id="visual-panel-map" class="widget-visual-panel widget-visual-panel--map"${panel !== "map" ? " hidden" : ""}>
+          <p class="widget-visual-caption">Lokacije udarov v zadnjih 24 urah</p>
+          <div class="widget-map-wrap">
+            <div id="map" role="img" aria-label="Zemljevid udarov strel v zadnjih 24 urah"></div>
+          </div>
+        </div>
+        <div id="visual-panel-chart" class="widget-visual-panel widget-visual-panel--chart"${panel !== "chart" ? " hidden" : ""}>
+          <p class="widget-visual-caption">Dnevni udari v zadnjih ${view.periodDays} dneh</p>
+          <div class="widget-chart-wrap">
+            <canvas id="daily-chart" role="img" aria-label="Graf dnevnih udarov strel v zadnjih ${view.periodDays} dneh"></canvas>
+          </div>
+        </div>
+      </section>` : "";
+
+    document.getElementById("root").innerHTML = `
+      <article class="widget widget--${size}" aria-live="polite">
+        <header class="widget-head">
+          ${WIDGET_LOGO_HTML}
+          <div class="widget-head-text">
+            <p class="widget-subtitle">Udari strel v občini</p>
+            ${view.municipalityName ? `<h1 class="widget-muni">${escapeHtml(view.municipalityName)}</h1>` : `<h1 class="widget-title">Udari strel v občini</h1>`}
+          </div>
+        </header>
+        <div class="widget-body">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <p class="stat-label">Zadnjih 24 ur</p>
+              <p class="stat-value" aria-label="Število udarov v zadnjih 24 urah">${fmt.format(view.strikesLast24h)}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">Zadnja zaznana strela</p>
+              <p class="stat-value${view.lastStrikeTime || view.lastStrikeDate ? "" : " stat-value--zero"}">${formatLastStrike(view.lastStrikeTime, view.lastStrikeDate)}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">${escapeHtml(view.thirdLabel)}</p>
+              <p class="stat-value">${view.thirdValue}</p>
+            </div>
+          </div>
+        </div>
+        ${visualBlock}
+        <div class="widget-actions">
+          <a class="btn-detail" href="${escapeAttr(view.detailUrl)}" target="_blank" rel="noopener noreferrer"
+             aria-label="Odpri podroben pregled strel na Strelko">
+            Odpri pregled strel
+          </a>
+        </div>
+        <footer class="widget-foot">
+          Informativni prikaz zagotavlja <strong>Meteoinfo d.o.o.</strong> / <strong>Strelko</strong>.
+          <p class="widget-disclaimer">Podatki so informativne narave in se lahko razlikujejo od uradnih evidenc.</p>
+        </footer>
+      </article>`;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/'/g, "&#39;");
+  }
+
+  function maptilerStyleUrl(styleId) {
+    return `https://api.maptiler.com/maps/${styleId}/style.json?key=${encodeURIComponent(MAPTILER_KEY)}`;
+  }
+
+  function canUseMaptilerPlugin() {
+    return !!(MAPTILER_KEY && L.maptiler && typeof L.maptiler.maptilerLayer === "function");
+  }
+
+  function createBaseLayer() {
+    return L.tileLayer(
+      `https://api.maptiler.com/maps/${STYLE_BASE}/{z}/{x}/{y}.png?key=${encodeURIComponent(MAPTILER_KEY)}`,
+      {
+        attribution: MAP_ATTRIBUTION,
+        maxZoom: 14,
+        tileSize: 512,
+        zoomOffset: -1,
+      }
+    );
+  }
+
+  function createKrajiLayer() {
+    if (!canUseMaptilerPlugin()) return null;
+    try {
+      return L.maptiler.maptilerLayer({
+        apiKey: MAPTILER_KEY,
+        style: maptilerStyleUrl(STYLE_KRAJI),
+        attribution: MAP_ATTRIBUTION,
+        attributionControl: false,
+        pane: "maptilerOverlayPane",
+        ...MAPTILER_NO_CONTROLS,
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function renderObcinaMap(strikes, feature) {
+    const el = document.getElementById("map");
+    if (!el || !feature || !feature.geometry) return;
+
+    const wrap = el.closest(".widget-map-wrap");
+    if (wrap && wrap.clientHeight < 2) wrap.style.height = "220px";
+
+    if (!map) {
+      map = L.map(el, {
+        zoomControl: false,
+        attributionControl: true,
+        dragging: false,
+        touchZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        scrollWheelZoom: false,
+      });
+      map.createPane("maptilerOverlayPane");
+      map.getPane("maptilerOverlayPane").style.zIndex = 450;
+      map.createPane("boundaryPane");
+      map.getPane("boundaryPane").style.zIndex = 480;
+
+      baseLayer = createBaseLayer();
+      baseLayer.addTo(map);
+
+      labelsLayer = createKrajiLayer();
+      if (labelsLayer) labelsLayer.addTo(map);
+    }
+
+    if (boundaryLayer) map.removeLayer(boundaryLayer);
+    boundaryLayer = L.geoJSON(feature, {
+      pane: "boundaryPane",
+      style: {
+        color: getComputedStyle(document.body).getPropertyValue("--map-boundary").trim() || "#0588a8",
+        weight: 2,
+        fillColor: getComputedStyle(document.body).getPropertyValue("--map-boundary").trim() || "#0588a8",
+        fillOpacity: theme === "dark" ? 0.15 : 0.1,
+      },
+      interactive: false,
+    }).addTo(map);
+
+    if (strikeLayer) map.removeLayer(strikeLayer);
+    strikeLayer = L.layerGroup();
+    (strikes || []).forEach((s) => {
+      if (s.lat == null || s.lon == null) return;
+      L.circleMarker([s.lat, s.lon], {
+        radius: 5,
+        color: "#e8a008",
+        fillColor: "#e8a008",
+        fillOpacity: 0.9,
+        weight: 1,
+      }).addTo(strikeLayer);
+    });
+    strikeLayer.addTo(map);
+
+    const bounds = boundaryLayer.getBounds();
+    if (bounds.isValid()) {
+      applyMapFrame(bounds);
+      requestAnimationFrame(function () {
+        fitMunicipalityView();
+        observeMapResize();
+        notifyResize();
+      });
+    }
+  }
+
+  let loadedOnce = false;
+
+  async function load() {
+    if (!loadedOnce) renderLoading();
+    try {
+      const data = await loadData();
+      if (!municipalityName) municipalityName = data.obcina || "Občina";
+
+      const stats = buildViewFromData(data);
+      const showMap = size === "full";
+      if (showMap) {
+        teardownMap();
+        destroyDailyChart();
+      }
+
+      const view = {
+        municipalityName,
+        showMap,
+        strikesLast24h: stats.strikesLast24h,
+        lastStrikeTime: stats.lastStrikeTime,
+        lastStrikeDate: stats.lastStrikeDate,
+        thirdLabel: stats.thirdLabel,
+        thirdValue: stats.thirdValue,
+        thirdIsZero: stats.thirdIsZero,
+        detailUrl: buildDetailUrl(),
+        strikes: stats.strikes,
+        daily: stats.daily,
+        periodDays: stats.periodDays,
+        obMid: data.ob_mid || obMidParam,
+      };
+
+      renderWidget(view);
+      loadedOnce = true;
+
+      if (showMap) {
+        mountVisualPanel(view);
+      } else {
+        userVisualPanel = null;
+      }
+
+      notifyResize();
+    } catch (e) {
+      if (!loadedOnce) renderError();
+      notifyResize();
+    }
+  }
+
+  function notifyResize() {
+    if (window.parent === window) return;
+    window.parent.postMessage({
+      type: "strele-embed-resize",
+      height: document.documentElement.scrollHeight,
+    }, "*");
+  }
+
+  window.addEventListener("load", function () {
+    notifyResize();
+    if (currentView && size === "full") {
+      scheduleVisualPanel(currentView, activeVisualPanel(currentView));
+    }
+  });
+
+  load();
+  setInterval(load, REFRESH_MS);
+})();
+</script>
+</body>
+</html>

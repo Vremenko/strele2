@@ -1,0 +1,12 @@
+DirectoryIndex index.html index.php
+Options -Indexes +FollowSymLinks
+
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|json)$">
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+</IfModule>

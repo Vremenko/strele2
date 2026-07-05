@@ -1,0 +1,66 @@
+NALAGANJE NA ftp.vreme-podnebje.si
+==================================
+
+POMEMBNO — 403 Forbidden
+------------------------
+Napaka pomeni, da je mapa /strele/ prazna ali datoteke niso na pravem mestu.
+Glej tudi: 403-POPRAVEK.txt
+
+
+1) FTP (WinSCP)
+---------------
+  Strežnik:  ftp.vreme-podnebje.si
+  1. Pojdi v mapo  strele/  (dvoklik v desnem panelu)
+  2. Iz lokalne mape  vreme-podnebje/  naloži VSE datoteke NOTRI:
+
+  embed.html
+  index.html
+  index.php
+  meteoinfo-data.php   ← NOVO — pravilni podatki (občine, kot lokalni arhiv)
+  meteoinfo-proxy.php
+  .htaccess
+  data/embed-regije.json
+
+  NE naloži podmape vreme-podnebje — datoteke morajo biti neposredno v /strele/
+
+  Pravilna struktura na strežniku:
+
+    /strele/embed.html
+    /strele/index.html
+    /strele/data/embed-regije.json
+
+  Napačna struktura:
+
+    /strele/vreme-podnebje/embed.html   ← NE
+
+
+2) PREVERI
+----------
+  https://vreme-podnebje.si/strele/index.html
+  https://vreme-podnebje.si/strele/embed.html?chart=daily&source=meteoinfo
+
+
+3) WORDPRESS STRAN
+------------------
+  Blok „Prilagojeni HTML“ → prilepi vsebino iz wp-vsi-grafi.html
+
+
+4) CORS (Meteoinfo)
+-------------------
+  Prosi Meteoinfo, da dovoli:
+
+    https://vreme-podnebje.si
+    https://www.vreme-podnebje.si
+
+  Brez tega brskalnik blokira klice na test.meteoinfo.si.
+
+
+5) DRUGA POT NA STREŽNIKU?
+--------------------------
+  Če mapo naložiš drugam (npr. public_html/strele-arhiv/),
+  popravi URL v wp-*.html:
+
+    https://vreme-podnebje.si/TVA-POT/embed.html?...
+
+
+Vir podatkov: https://test.meteoinfo.si (parameter source=meteoinfo)

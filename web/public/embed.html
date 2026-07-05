@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Strele — graf</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/brand.css">
+  <link rel="stylesheet" href="/static/charts-shared.css">
+  <style>
+    :root {
+      --bg: var(--mi-gray-950, #1a1a1a);
+      --panel: var(--mi-gray-900, #333333);
+      --text: var(--mi-gray-100, #f2f2f2);
+      --muted: var(--mi-gray-500, #999999);
+      --accent: var(--mi-yellow, #fbb006);
+      --accent2: var(--mi-cyan, #05a5ce);
+      --border: var(--mi-gray-800, #4d4d4d);
+    }
+    :root[data-theme="light"] {
+      --bg: #f2f2f2;
+      --panel: #ffffff;
+      --text: #1a1a1a;
+      --muted: #4d4d4d;
+      --accent: #d99a05;
+      --accent2: #0380a0;
+      --border: #cccccc;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font, "Nunito Sans", system-ui, -apple-system, sans-serif);
+      line-height: 1.4;
+    }
+    html.embed-framed-root,
+    body.embed.embed-framed {
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: transparent;
+    }
+    html.embed-framed-root {
+      background: transparent;
+    }
+    body.embed.embed-framed:not(.embed-compact) {
+      padding: 0;
+      background: transparent;
+    }
+    body.embed:not(.embed-framed):not(.embed-compact) {
+      padding: 0.5rem;
+    }
+    body.embed.embed-framed .chart-wrap canvas {
+      touch-action: pan-y;
+    }
+    /* Parent page overlays native select on mobile — hide duplicate chevron */
+    @media (max-width: 899px) {
+      body.embed.embed-framed .panel-head-actions #daysSelect {
+        opacity: 0;
+        pointer-events: none;
+      }
+    }
+    body.embed.embed-compact {
+      padding: 0.75rem 0.85rem 0;
+      background: var(--panel);
+    }
+    body.embed-compact .chart-wrap {
+      background: var(--panel);
+      line-height: 0;
+    }
+    body.embed-compact .chart-wrap canvas {
+      display: block;
+    }
+    html.embed-compact-root {
+      background: var(--panel);
+    }
+    body.embed-compact .panel--flat {
+      border: none;
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+    body.embed-compact .chart-toolbar-inline {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 0.5rem;
+    }
+    body.embed-compact .chart-toolbar-inline .toolbar-field {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    body.embed-compact .toolbar-label {
+      text-transform: none;
+      font-size: 0.8125rem;
+      font-weight: 400;
+      letter-spacing: 0;
+      color: var(--muted);
+    }
+    body.embed-compact .toolbar-field select {
+      min-height: 34px;
+      min-width: 7.5rem;
+      padding: 0.35rem 0.5rem;
+      font-size: 0.875rem;
+    }
+    .credit {
+      margin-top: 0.35rem;
+      font-size: 0.6875rem;
+      color: var(--muted);
+      text-align: right;
+    }
+    .credit a { color: var(--muted); }
+    .chart-lock-block {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      min-height: 280px;
+    }
+    .chart-lock-fake {
+      filter: blur(6px);
+      opacity: 0.42;
+      pointer-events: none;
+      user-select: none;
+      padding: 1rem 0.85rem;
+    }
+    .fake-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+    .fake-bar-label {
+      width: 4.5rem;
+      height: 0.65rem;
+      border-radius: 4px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .fake-bar-fill {
+      height: 1.05rem;
+      border-radius: 4px;
+      background: linear-gradient(90deg, rgba(251, 176, 6, 0.65), rgba(251, 176, 6, 0.28));
+    }
+    .chart-lock-cta {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 1.25rem 1rem;
+      background: rgba(26, 26, 26, 0.84);
+      backdrop-filter: blur(2px);
+    }
+    :root[data-theme="light"] .chart-lock-cta {
+      background: rgba(255, 255, 255, 0.88);
+    }
+    .chart-lock-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+      margin-bottom: 0.35rem;
+    }
+    .chart-lock-cta h3 {
+      margin: 0 0 0.35rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .chart-lock-cta p {
+      margin: 0 0 0.85rem;
+      max-width: 22rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .chart-lock-btn {
+      background: var(--accent);
+      color: #1a1a1a;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1.1rem;
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 0.5rem;
+    }
+    .chart-lock-btn:hover {
+      filter: brightness(1.05);
+    }
+    .chart-lock-link {
+      color: var(--accent2);
+      font-size: 0.8125rem;
+      text-decoration: none;
+    }
+    .chart-lock-link:hover {
+      text-decoration: underline;
+    }
+    @media (max-width: 639px) {
+      body.embed:not(.embed-framed):not(.embed-compact) {
+        padding: 0.35rem;
+        padding-left: max(0.35rem, env(safe-area-inset-left));
+        padding-right: max(0.35rem, env(safe-area-inset-right));
+        padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+      }
+    }
+  </style>
+</head>
+<body class="embed">
+  <div id="root"></div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const METEOINFO_DEFAULT = "https://test.meteoinfo.si";
+    const EMBED = {
+      chart: params.get("chart") || "daily",
+      days: params.get("days") || "30",
+      day: params.get("day") || "",
+      period30: params.get("period") === "30",
+      api: params.get("api") || window.STRELE_API_BASE || "",
+      source: params.get("source") || "",
+      controls: params.get("controls") === "1",
+      stats: params.get("stats") === "1",
+      title: params.get("title") !== "0",
+      refresh: params.get("refresh") !== "0",
+      refreshSec: Math.max(60, parseInt(params.get("refresh_sec") || "600", 10) || 600),
+      theme: params.get("theme") === "light" ? "light" : "dark",
+      credit: params.get("credit") !== "0",
+      height: parseInt(params.get("height") || "0", 10) || 0,
+      regijeData: params.get("regije-data") || "",
+      obcine: params.get("obcine") === "1",
+      locked: params.get("locked") === "1",
+      compact: params.get("compact") === "1",
+    };
+    if (window.parent !== window) {
+      document.documentElement.classList.add("embed-framed-root");
+      document.body.classList.add("embed-framed");
+    }
+    if (!EMBED.source && /meteoinfo\.si/i.test(EMBED.api)) {
+      EMBED.source = "meteoinfo";
+    }
+    if (EMBED.source === "meteoinfo" && !EMBED.api) {
+      EMBED.api = METEOINFO_DEFAULT;
+    }
+    const useMeteoinfo = EMBED.source === "meteoinfo";
+
+    function shouldUseMeteoinfoProxy() {
+      if (params.get("proxy") === "0") return false;
+      if (params.get("proxy") === "1") return true;
+      return useMeteoinfo && !/meteoinfo\.si$/i.test(location.hostname);
+    }
+
+    function meteoinfoProxyUrl() {
+      return new URL("meteoinfo-proxy.php", location.href).href.split("?")[0];
+    }
+
+    function meteoinfoDataUrl() {
+      return new URL("meteoinfo-data.php", location.href).href.split("?")[0];
+    }
+
+    async function fetchMeteoinfoData(action, extra = {}) {
+      const q = new URLSearchParams({ action, ...extra });
+      const res = await fetch(`${meteoinfoDataUrl()}?${q}`);
+      if (!res.ok) throw new Error(`Meteoinfo data HTTP ${res.status}`);
+      return res.json();
+    }
+
+    const fmt = new Intl.NumberFormat("sl-SI", { useGrouping: true });
+    const fmtGostota = new Intl.NumberFormat("sl-SI", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    function slAxisTick(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return String(value ?? "");
+      return fmt.format(n);
+    }
+    function countAxisTicks(size) {
+      return {
+        precision: 0,
+        font: { size: scaledSize(size, 8) },
+        callback: slAxisTick,
+      };
+    }
+    function isMobile() {
+      return window.matchMedia("(max-width: 639px)").matches;
+    }
+    function chartHeightScale() {
+      const w = window.innerWidth;
+      if (w >= 400) return 1;
+      return Math.max(0.72, w / 480);
+    }
+    function scaledHeight(px) {
+      return Math.round(px * chartHeightScale());
+    }
+    function scaledSize(px, min = 1) {
+      return Math.max(min, Math.round(px * chartHeightScale()));
+    }
+    function chartMetrics() {
+      const m = isMobile();
+      const w = window.innerWidth;
+      return {
+        font: scaledSize(m ? 10 : 12, 8),
+        fontSm: scaledSize(m ? 9 : 11, 8),
+        fontXs: scaledSize(m ? 9 : 10, 7),
+        fontRegion: scaledSize(m ? 10 : 11, 8),
+        padLg: scaledSize(m ? 4 : 8, 2),
+        padSm: scaledSize(m ? 2 : 4, 1),
+        padTop: scaledSize(4, 2),
+        padBottom: scaledSize(w < 768 ? 4 : 6, 2),
+        xSkipPad: scaledSize(w < 768 ? 12 : 8, 4),
+        barDaily: scaledSize(m ? 12 : 42, 6),
+        barHoriz: scaledSize(m ? 14 : 24, 8),
+        barHorizSm: scaledSize(m ? 14 : 20, 8),
+        radius: scaledSize(4, 2),
+        borderW: Math.max(1, scaledSize(1, 1)),
+        lineW: Math.max(1.5, Math.round((m ? 2 : 2.5) * chartHeightScale() * 10) / 10),
+        pointHit: scaledSize(14, 8),
+        tooltipPad: scaledSize(m ? 12 : 8, 6),
+        tooltipFont: scaledSize(m ? 14 : 12, 11),
+        tooltipTitleFont: scaledSize(m ? 15 : 12, 12),
+      };
+    }
+    function tooltipFontOpts(cx) {
+      const m = isMobile();
+      return {
+        titleFont: { size: cx.tooltipTitleFont || cx.font },
+        bodyFont: { size: cx.tooltipFont || cx.font },
+        padding: cx.tooltipPad,
+        boxWidth: m ? 16 : 12,
+        boxHeight: m ? 16 : 12,
+        caretSize: m ? 8 : 6,
+      };
+    }
+    function mobileBarMetrics(perBarMobile, perBarDesktop, baseMobile, baseDesktop, minMobile, minDesktop) {
+      const m = isMobile();
+      const scale = chartHeightScale();
+      const perBar = Math.round((m ? perBarMobile : perBarDesktop) * scale);
+      const base = Math.round((m ? baseMobile : baseDesktop) * scale);
+      const minH = Math.round((m ? minMobile : minDesktop) * scale);
+      return { perBar, base, minH };
+    }
+    Chart.defaults.font.size = isMobile() ? 10 : 12;
+    const HOURLY_Y_MAX = 2000;
+    const charts = {};
+    let rangeDays = Number(EMBED.days) || 30;
+    let detailMode = "range";
+    let selectedDay = "";
+    let dailyChartDates = [];
+    let dailyCountsByDay = new Map();
+    let linkedDay = null;
+    const DAILY_BAR_BG = "rgba(251, 176, 6, 0.75)";
+    const DAILY_BAR_BORDER = "#fbb006";
+    const DAILY_BAR_SEL_BG = "rgba(5, 165, 206, 0.85)";
+    const DAILY_BAR_SEL_BORDER = "#05a5ce";
+
+    function updateDailyBarHighlight() {
+      if (!charts.daily) return;
+      const ds = charts.daily.data.datasets[0];
+      ds.backgroundColor = dailyChartDates.map((d) =>
+        d === linkedDay ? DAILY_BAR_SEL_BG : DAILY_BAR_BG,
+      );
+      ds.borderColor = dailyChartDates.map((d) =>
+        d === linkedDay ? DAILY_BAR_SEL_BORDER : DAILY_BAR_BORDER,
+      );
+      charts.daily.update("none");
+    }
+
+    function getRangeDays() {
+      const sel = document.getElementById("daysSelect");
+      return sel ? Number(sel.value) : rangeDays;
+    }
+
+    function isDetailRange() {
+      return detailMode === "range";
+    }
+
+    function periodQuery() {
+      if (isDetailRange()) return `days=${getRangeDays()}`;
+      return `day=${selectedDay}`;
+    }
+
+    function detailScopeLabel() {
+      return isDetailRange() ? `Skupaj (${getRangeDays()} dni)` : "Skupaj";
+    }
+
+    function detailEmptyMessage(kind) {
+      if (isDetailRange()) {
+        return `Za zadnjih ${getRangeDays()} dni še ni ${kind}.`;
+      }
+      return `Za izbrani datum še ni ${kind}.`;
+    }
+
+    function syncFilterUi() {
+      linkedDay = detailMode === "day" && selectedDay ? selectedDay : null;
+      updateScopeLabels();
+      updateDailyBarHighlight();
+    }
+
+    async function reloadDetailCharts() {
+      const mode = EMBED.chart;
+      const tasks = [];
+      let hourlyTotal = null;
+      if (mode === "hourly" || mode === "all") {
+        hourlyTotal = await loadHourly();
+      }
+      if (mode === "regions" || mode === "all") tasks.push(loadRegions());
+      if (EMBED.obcine && !EMBED.locked) tasks.push(loadObcineCharts());
+      await Promise.all(tasks);
+      return hourlyTotal ?? 0;
+    }
+
+    async function selectDay(day) {
+      if (!day) return;
+      if (dailyCountsByDay.get(day) === 0) {
+        clearSelectedDay();
+        return;
+      }
+      selectedDay = day;
+      detailMode = "day";
+      syncFilterUi();
+      const hourlyTotal = await reloadDetailCharts();
+      if (hourlyTotal === 0) {
+        clearSelectedDay();
+      }
+    }
+
+    function clearSelectedDay() {
+      detailMode = "range";
+      syncFilterUi();
+      void reloadDetailCharts();
+    }
+
+    function apiUrl(path) {
+      return EMBED.api + path;
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(apiUrl(url));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    async function fetchPrivateJson(url) {
+      const headers = {};
+      const token = localStorage.getItem("strelko_token");
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(apiUrl(url), { credentials: "include", headers });
+      if (res.status === 401) throw new Error("auth_required");
+      if (res.status === 403) throw new Error("forbidden");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    if (EMBED.theme === "light") {
+      document.documentElement.dataset.theme = "light";
+      Chart?.defaults && (Chart.defaults.color = "#4d4d4d");
+      Chart?.defaults && (Chart.defaults.borderColor = "#cccccc");
+    } else {
+      document.documentElement.dataset.theme = "dark";
+      Chart?.defaults && (Chart.defaults.color = "#999999");
+      Chart?.defaults && (Chart.defaults.borderColor = "#4d4d4d");
+    }
+    Chart.defaults.font.family = "'Nunito Sans', system-ui, sans-serif";
+    Chart.defaults.events = ["mousemove", "mouseout", "click", "touchstart", "touchmove"];
+
+    function ljPartsFromUtcDate(date) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Ljubljana",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(date);
+      const get = (type) => parts.find((p) => p.type === type).value;
+      return {
+        y: get("year"),
+        m: get("month"),
+        d: get("day"),
+        h: Number(get("hour")),
+        min: Number(get("minute")),
+        s: Number(get("second")),
+      };
+    }
+
+    function ljDateFromUtcIso(iso) {
+      const p = ljPartsFromUtcDate(new Date(iso));
+      return `${p.y}-${p.m}-${p.d}`;
+    }
+
+    function utcIso(date) {
+      return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+    }
+
+    function ljDayStartUtc(dayIso) {
+      const [y, m, d] = dayIso.split("-").map(Number);
+      const anchor = Date.UTC(y, m - 1, d, 12, 0, 0);
+      for (let ms = -36 * 3600000; ms <= 36 * 3600000; ms += 60000) {
+        const dt = new Date(anchor + ms);
+        const p = ljPartsFromUtcDate(dt);
+        if (`${p.y}-${p.m}-${p.d}` === dayIso && p.h === 0 && p.min === 0) {
+          return utcIso(dt);
+        }
+      }
+      throw new Error(`Neveljaven dan: ${dayIso}`);
+    }
+
+    function ljDayEndUtc(dayIso) {
+      const nextStart = new Date(ljDayStartUtc(addDaysIso(dayIso, 1)));
+      nextStart.setTime(nextStart.getTime() - 1000);
+      return utcIso(nextStart);
+    }
+
+    function addDaysIso(iso, days) {
+      const dt = new Date(`${iso}T12:00:00`);
+      dt.setDate(dt.getDate() + days);
+      return dt.toISOString().slice(0, 10);
+    }
+
+    async function meteoinfoSeries(bucket, timeFrom, timeTo, groupBy = "none") {
+      const q = new URLSearchParams({
+        bucket,
+        time_from_utc: timeFrom,
+        time_to_utc: timeTo,
+        group_by: groupBy,
+      });
+      const useProxy = shouldUseMeteoinfoProxy();
+      const url = useProxy
+        ? `${meteoinfoProxyUrl()}?${q}`
+        : `${EMBED.api.replace(/\/$/, "")}/api/v1/strele/aggregates/series?${q}`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Meteoinfo HTTP ${res.status}`);
+      return res.json();
+    }
+
+    let regijeMapCache = null;
+    async function getRegijeMap() {
+      if (regijeMapCache) return regijeMapCache;
+      const url = EMBED.regijeData || new URL("data/embed-regije.json", location.href).href;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Regije map HTTP ${res.status}`);
+      regijeMapCache = await res.json();
+      return regijeMapCache;
+    }
+
+    function regijeFromMunicipalityGroups(groups, mapData) {
+      const totals = new Map(mapData.regije.map((r) => [r.id, 0]));
+      for (const group of groups) {
+        const obcinaId = String(group.key ?? group.code ?? "");
+        const regijaId = mapData.obcina_regija[obcinaId];
+        if (regijaId == null) continue;
+        totals.set(regijaId, (totals.get(regijaId) || 0) + Number(group.total || 0));
+      }
+      return mapData.regije
+        .map((r) => ({ regija: r.ime, stevilo: totals.get(r.id) || 0 }))
+        .sort((a, b) => b.stevilo - a.stevilo || a.regija.localeCompare(b.regija, "sl"));
+    }
+
+    function formatRegionLabel(name) {
+      if (!isMobile()) return name;
+      const short = {
+        "Vzhodna Slovenija": "Vzh. Slov.",
+        "Zahodna Slovenija": "Zah. Slov.",
+        "Osrednjeslovenska": "Osrednjeslov.",
+        "Goriška": "Goriška",
+        "Obalno-kraška": "Obalno-kraška",
+      };
+      return short[name] || (name.length > 16 ? `${name.slice(0, 15)}…` : name);
+    }
+
+    function dailyXTicks(count) {
+      const w = window.innerWidth;
+      const cx = chartMetrics();
+      let maxTicks;
+      if (count <= 10) maxTicks = count;
+      else if (w < 480) maxTicks = count <= 30 ? 5 : 4;
+      else if (w < 768) maxTicks = count <= 30 ? 8 : 6;
+      else if (w < 1100) maxTicks = count <= 30 ? 11 : 9;
+      else maxTicks = count <= 30 ? 14 : 11;
+      return {
+        autoSkip: true,
+        autoSkipPadding: cx.xSkipPad,
+        maxTicksLimit: maxTicks,
+        maxRotation: 0,
+        minRotation: 0,
+        font: { size: w < 480 ? cx.fontXs : w < 768 ? cx.font : cx.fontSm },
+      };
+    }
+
+    function applyDailyXAxis(count) {
+      if (!charts.daily) return;
+      const cx = chartMetrics();
+      charts.daily.options.scales.x.ticks = dailyXTicks(count);
+      charts.daily.options.layout.padding.bottom = cx.padBottom;
+    }
+
+    async function resolveDefaultDay() {
+      if (EMBED.day) return EMBED.day;
+      if (useMeteoinfo && shouldUseMeteoinfoProxy()) {
+        try {
+          const { datum } = await fetchMeteoinfoData("latest-date");
+          if (datum) return datum;
+        } catch (e) {
+          console.warn(e);
+        }
+        return todayIso();
+      }
+      try {
+        const res = await fetch(apiUrl("/api/latest-date"));
+        if (res.ok) {
+          const { datum } = await res.json();
+          if (datum) return datum;
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+      return todayIso();
+    }
+
+    function todayIso() {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Ljubljana",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(new Date());
+      return `${parts.find((p) => p.type === "year").value}-${parts.find((p) => p.type === "month").value}-${parts.find((p) => p.type === "day").value}`;
+    }
+
+    function formatDatumSl(iso) {
+      const [, month, day] = iso.split("-").map(Number);
+      return `${day}. ${month}.`;
+    }
+
+    function formatObdobje(from, to) {
+      if (!from || !to) return "—";
+      return `${formatDatumSl(from)} – ${formatDatumSl(to)}`;
+    }
+
+    function parseIsoDateLocal(iso) {
+      if (!iso) return null;
+      const d = new Date(String(iso).includes("T") ? iso : `${iso}T12:00:00`);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function formatSlDayMonth(iso) {
+      const d = parseIsoDateLocal(iso);
+      if (!d) return "—";
+      return d.toLocaleDateString("sl-SI", { day: "numeric", month: "long" });
+    }
+
+    function formatSlDayOnly(iso) {
+      const d = parseIsoDateLocal(iso);
+      if (!d) return "—";
+      return d.toLocaleDateString("sl-SI", { day: "numeric" });
+    }
+
+    function formatSlMonthYear(iso) {
+      const d = parseIsoDateLocal(iso);
+      if (!d) return "—";
+      return `${d.toLocaleDateString("sl-SI", { month: "long" })} ${d.getFullYear()}`;
+    }
+
+    function formatSlDateFull(iso) {
+      const d = parseIsoDateLocal(iso);
+      if (!d) return "—";
+      return d.toLocaleDateString("sl-SI", { day: "numeric", month: "long", year: "numeric" });
+    }
+
+    function formatSlDateRange(fromIso, toIso) {
+      const from = parseIsoDateLocal(fromIso);
+      const to = parseIsoDateLocal(toIso);
+      if (!from && !to) return "—";
+      if (!from) return formatSlDayMonth(toIso);
+      if (!to) return formatSlDayMonth(fromIso);
+      if (from.getFullYear() === to.getFullYear()) {
+        if (from.getMonth() === to.getMonth()) {
+          return `${formatSlDayOnly(fromIso)} – ${formatSlDayOnly(toIso)} ${formatSlMonthYear(toIso)}`;
+        }
+        return `${formatSlDayMonth(fromIso)} – ${formatSlDayMonth(toIso)} ${to.getFullYear()}`;
+      }
+      return `${formatSlDateFull(fromIso)} – ${formatSlDateFull(toIso)}`;
+    }
+
+    function updateScopeLabels(days) {
+      const d = days ?? getRangeDays();
+      const count = dailyChartDates.length || d;
+      const from = dailyChartDates[0] || addDaysIso(todayIso(), -(d - 1));
+      const to = dailyChartDates[count - 1] || todayIso();
+      const obdobjeText = `Obdobje: ${formatSlDateRange(from, to)}`;
+      const detailText = !isDetailRange() && selectedDay
+        ? formatSlDateFull(selectedDay)
+        : obdobjeText;
+
+      const dailyEl = document.getElementById("dailyPeriodLabel");
+      if (dailyEl) dailyEl.textContent = obdobjeText;
+
+      for (const id of [
+        "hourlyPeriodLabel",
+        "regionsPeriodLabel",
+        "obcinaPeriodLabel",
+        "obcinaGostotaPeriodLabel",
+      ]) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = detailText;
+      }
+    }
+
+    function formatHour(h) {
+      return `${String(h).padStart(2, "0")}.00`;
+    }
+
+    function hourEndLabel(ura) {
+      return ura === 23 ? "24.00" : formatHour(ura + 1);
+    }
+
+    function hourIntervalLabel(ura) {
+      const end = ura === 23 ? "24.00" : hourEndLabel(ura);
+      return `${formatHour(ura)}–${end}`;
+    }
+
+    function hourlyYMax(values) {
+      const peak = values.length ? Math.max(...values) : 0;
+      if (peak <= HOURLY_Y_MAX) return HOURLY_Y_MAX;
+      return Math.ceil((peak * 1.08) / 100) * 100;
+    }
+
+    let lastReportedHeight = 0;
+    let lastInnerWidth = window.innerWidth;
+
+    function compactReportedHeight() {
+      const panel = document.querySelector("[data-panel=\"daily\"]");
+      if (!panel) return document.documentElement.scrollHeight;
+      const bodyStyle = getComputedStyle(document.body);
+      const topPad = parseFloat(bodyStyle.paddingTop) || 0;
+      return Math.ceil(topPad + panel.offsetTop + panel.offsetHeight);
+    }
+
+    function initParentPageScrollForward() {
+      // Parent iframe uses pointer-events:none — native page scroll, no synthetic forward.
+      if (window.parent === window) return;
+    }
+
+    function parentViewportToEmbed(clientX, clientY) {
+      const frame = window.frameElement;
+      if (!frame) return { x: clientX, y: clientY };
+      const fr = frame.getBoundingClientRect();
+      return { x: clientX - fr.left, y: clientY - fr.top };
+    }
+
+    function activateChartAtPoint(chart, canvas, localX, localY) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = localX - rect.left;
+      const cy = localY - rect.top;
+      const interaction = chart.options.interaction || { mode: "index", intersect: false };
+      const mode = interaction.mode || "index";
+      const opts = { intersect: interaction.intersect ?? false };
+      if (interaction.axis) opts.axis = interaction.axis;
+
+      let hits = chart.getElementsAtEventForMode(
+        { clientX: localX, clientY: localY, target: canvas },
+        mode,
+        opts,
+        false,
+      );
+
+      if (!hits.length && mode === "index" && chart.scales.x) {
+        const raw = chart.scales.x.getValueForPixel(cx);
+        const idx = typeof raw === "number" ? Math.round(raw) : Number(raw);
+        if (Number.isFinite(idx) && idx >= 0 && idx < (chart.data.labels?.length || 0)) {
+          hits = [{ datasetIndex: 0, index: idx }];
+        }
+      }
+
+      if (!hits.length && mode === "nearest" && interaction.axis === "y" && chart.scales.y) {
+        const raw = chart.scales.y.getValueForPixel(cy);
+        const idx = typeof raw === "number" ? Math.round(raw) : Number(raw);
+        if (Number.isFinite(idx) && idx >= 0 && idx < (chart.data.labels?.length || 0)) {
+          hits = [{ datasetIndex: 0, index: idx }];
+        }
+      }
+
+      if (!hits.length) return false;
+      const pos = { x: cx, y: cy };
+      chart.setActiveElements(hits);
+      chart.tooltip.setActiveElements(hits, pos);
+      chart.update("none");
+      return true;
+    }
+
+    function clearAllChartTooltips() {
+      Object.values(charts).forEach((chart) => {
+        if (!chart) return;
+        chart.setActiveElements([]);
+        chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+        chart.update("none");
+      });
+    }
+
+    function handleExternalChartHover(clientX, clientY) {
+      const local = parentViewportToEmbed(clientX, clientY);
+      const canvases = [...document.querySelectorAll(".chart-wrap canvas")];
+      for (const canvas of canvases) {
+        const rect = canvas.getBoundingClientRect();
+        if (
+          local.x < rect.left - 2 ||
+          local.x > rect.right + 2 ||
+          local.y < rect.top - 2 ||
+          local.y > rect.bottom + 2
+        ) {
+          continue;
+        }
+        const chart = Object.values(charts).find((c) => c && c.canvas === canvas);
+        if (!chart) continue;
+        if (activateChartAtPoint(chart, canvas, local.x, local.y)) return;
+      }
+      clearAllChartTooltips();
+    }
+
+    function handleExternalChartTap(clientX, clientY) {
+      const local = parentViewportToEmbed(clientX, clientY);
+      const canvases = [...document.querySelectorAll(".chart-wrap canvas")];
+      for (const canvas of canvases) {
+        const rect = canvas.getBoundingClientRect();
+        if (
+          local.x < rect.left - 2 ||
+          local.x > rect.right + 2 ||
+          local.y < rect.top - 2 ||
+          local.y > rect.bottom + 2
+        ) {
+          continue;
+        }
+        const chart = Object.values(charts).find((c) => c && c.canvas === canvas);
+        if (!chart) continue;
+        if (!activateChartAtPoint(chart, canvas, local.x, local.y)) continue;
+        if (chart === charts.daily && EMBED.chart === "all") {
+          const hits = chart.getActiveElements();
+          const day = dailyChartDates[hits[0]?.index];
+          if (day) {
+            if (detailMode === "day" && selectedDay === day) clearSelectedDay();
+            else void selectDay(day);
+          }
+        }
+        return;
+      }
+      clearAllChartTooltips();
+    }
+
+    function initExternalInteraction() {
+      if (window.parent === window) return;
+      window.addEventListener("message", (evt) => {
+        const data = evt.data;
+        if (!data || typeof data !== "object") return;
+        if (data.type === "strele-embed-chart-tap") {
+          handleExternalChartTap(Number(data.clientX), Number(data.clientY));
+          return;
+        }
+        if (data.type === "strele-embed-chart-hover") {
+          handleExternalChartHover(Number(data.clientX), Number(data.clientY));
+          return;
+        }
+        if (data.type === "strele-embed-chart-leave") {
+          clearAllChartTooltips();
+          return;
+        }
+        if (data.type === "strele-embed-open-days") {
+          const sel = document.getElementById("daysSelect");
+          if (!sel) return;
+          try {
+            if (typeof sel.showPicker === "function") sel.showPicker();
+            else {
+              sel.focus();
+              sel.click();
+            }
+          } catch (_) {
+            sel.focus();
+          }
+          return;
+        }
+        if (data.type === "strele-embed-set-days") {
+          const days = Number(data.days);
+          if (!Number.isFinite(days) || days <= 0) return;
+          rangeDays = days;
+          const sel = document.getElementById("daysSelect");
+          if (sel) sel.value = String(days);
+          updateScopeLabels(days);
+          void loadDaily().then(() => {
+            if (isDetailRange()) {
+              syncFilterUi();
+              void reloadDetailCharts();
+            }
+          });
+          notifyDaysSelectRect();
+          return;
+        }
+        if (data.type === "strele-embed-request-days-rect") {
+          notifyDaysSelectRect();
+        }
+      });
+    }
+
+    function notifyDaysSelectRect() {
+      if (window.parent === window || !EMBED.controls) return;
+      const sel = document.getElementById("daysSelect");
+      if (!sel) return;
+      const r = sel.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return;
+      window.parent.postMessage(
+        {
+          type: "strele-embed-days-rect",
+          top: r.top,
+          left: r.left,
+          width: r.width,
+          height: r.height,
+          days: Number(sel.value) || rangeDays,
+        },
+        "*",
+      );
+    }
+
+    function notifyResize() {
+      if (window.parent === window) return;
+      let height;
+      if (EMBED.compact) {
+        height = compactReportedHeight();
+      } else if (document.documentElement.classList.contains("embed-framed-root")) {
+        height = EMBED.chart === "all"
+          ? document.body.scrollHeight
+          : compactReportedHeight();
+      } else {
+        height = document.body.scrollHeight + 4;
+      }
+      if (Math.abs(height - lastReportedHeight) >= 2) {
+        lastReportedHeight = height;
+        window.parent.postMessage(
+          { type: "strele-embed-resize", height },
+          "*",
+        );
+      }
+      notifyDaysSelectRect();
+    }
+
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add("visible");
+      notifyResize();
+    }
+
+    function hideError(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("visible");
+    }
+
+    function renderStats(container, items) {
+      if (!container || !EMBED.stats) {
+        if (container) container.innerHTML = "";
+        return;
+      }
+      container.innerHTML = items.map(({ label, value }) =>
+        `<div class="stat"><div class="label">${label}</div><div class="value">${value}</div></div>`,
+      ).join("");
+      notifyResize();
+    }
+
+    function defaultHeight(kind) {
+      if (EMBED.height > 0) return EMBED.height;
+      const m = isMobile();
+      if (kind === "regions") return scaledHeight(m ? 400 : 340);
+      if (kind === "obcina" || kind === "obcinaGostota") return scaledHeight(m ? 300 : 320);
+      if (kind === "hourly") return scaledHeight(m ? 210 : 240);
+      return scaledHeight(m ? 230 : 260);
+    }
+
+    function setWrapHeight(id, px) {
+      const wrap = document.getElementById(`${id}Wrap`);
+      if (wrap && EMBED.height <= 0) wrap.style.height = `${px}px`;
+    }
+
+    function syncChartVisuals() {
+      const m = isMobile();
+      const cx = chartMetrics();
+      Chart.defaults.font.size = cx.font;
+
+      if (charts.daily) {
+        const ds = charts.daily.data.datasets[0];
+        ds.maxBarThickness = cx.barDaily;
+        ds.borderRadius = cx.radius;
+        ds.borderWidth = cx.borderW;
+        const o = charts.daily.options;
+        o.layout.padding = { top: cx.padTop, right: cx.padLg, bottom: 0, left: 0 };
+        o.scales.y.ticks = countAxisTicks(m ? 10 : 12);
+        if (dailyChartDates.length) applyDailyXAxis(dailyChartDates.length);
+        Object.assign(o.plugins.tooltip, tooltipFontOpts(cx));
+        charts.daily.update("none");
+      }
+      if (charts.hourly) {
+        const ds = charts.hourly.data.datasets[0];
+        ds.pointRadius = m ? 0 : scaledSize(2, 1);
+        ds.pointHitRadius = cx.pointHit;
+        ds.borderWidth = cx.lineW;
+        const o = charts.hourly.options;
+        o.layout.padding = { top: cx.padTop, right: cx.padLg };
+        o.scales.y.ticks = countAxisTicks(m ? 10 : 12);
+        o.scales.x.ticks.font.size = cx.fontSm;
+        o.scales.x.ticks.maxTicksLimit = m ? 6 : 24;
+        Object.assign(o.plugins.tooltip, tooltipFontOpts(cx));
+        charts.hourly.update("none");
+      }
+      if (charts.regions) {
+        const ds = charts.regions.data.datasets[0];
+        ds.maxBarThickness = cx.barHoriz;
+        ds.borderRadius = cx.radius;
+        ds.borderWidth = cx.borderW;
+        const o = charts.regions.options;
+        o.layout.padding = { left: cx.padSm, right: scaledSize(m ? 6 : 8, 2) };
+        o.scales.x.ticks = countAxisTicks(m ? 10 : 12);
+        o.scales.y.ticks.font.size = cx.fontRegion;
+        Object.assign(o.plugins.tooltip, tooltipFontOpts(cx));
+        charts.regions.update("none");
+      }
+      if (charts.obcina) {
+        const ds = charts.obcina.data.datasets[0];
+        ds.maxBarThickness = cx.barHorizSm;
+        ds.borderRadius = cx.radius;
+        ds.borderWidth = cx.borderW;
+        const o = charts.obcina.options;
+        o.layout.padding = { left: m ? 0 : cx.padSm, right: cx.padLg };
+        o.scales.x.ticks = countAxisTicks(m ? 10 : 12);
+        o.scales.y.ticks.font.size = cx.fontXs;
+        Object.assign(o.plugins.tooltip, tooltipFontOpts(cx));
+        charts.obcina.update("none");
+      }
+      if (charts.obcinaGostota) {
+        const ds = charts.obcinaGostota.data.datasets[0];
+        ds.maxBarThickness = cx.barHorizSm;
+        ds.borderRadius = cx.radius;
+        ds.borderWidth = cx.borderW;
+        const o = charts.obcinaGostota.options;
+        o.layout.padding = { left: m ? 0 : cx.padSm, right: cx.padLg };
+        o.scales.x.ticks = countAxisTicks(m ? 10 : 12);
+        o.scales.y.ticks.font.size = cx.fontXs;
+        if (o.scales.x.title) {
+          o.scales.x.title.font = { size: cx.fontSm };
+        }
+        Object.assign(o.plugins.tooltip, tooltipFontOpts(cx));
+        charts.obcinaGostota.update("none");
+      }
+    }
+
+    function applyResponsiveLayout() {
+      const m = isMobile();
+      if (dailyChartDates.length) applyDailyXAxis(dailyChartDates.length);
+      setWrapHeight("daily", scaledHeight(m ? 230 : 260));
+      setWrapHeight("hourly", scaledHeight(m ? 210 : 240));
+      if (charts.regions) setRegionHeight(charts.regions.data.labels?.length || 12);
+      if (charts.obcina) setObcinaHeight(charts.obcina.data.labels?.length || 10);
+      if (charts.obcinaGostota) setObcinaGostotaHeight(charts.obcinaGostota.data.labels?.length || 10);
+      syncChartVisuals();
+      Object.values(charts).forEach((c) => c.resize());
+      notifyResize();
+    }
+
+    function panelHeadHtml(title, headActions = "", periodId = "") {
+      const actionsHtml = headActions
+        ? `<div class="panel-head-actions">${headActions}</div>`
+        : "";
+      const periodHtml = periodId
+        ? `<p class="panel-period" id="${periodId}"></p>`
+        : "";
+      const textHtml = EMBED.title
+        ? `<div class="panel-head-text"><h2>${title}</h2>${periodHtml}</div>`
+        : (periodHtml ? `<div class="panel-head-text">${periodHtml}</div>` : "");
+      if (!textHtml && !actionsHtml) return "";
+      return `
+          <div class="panel-head">
+            ${textHtml}
+            ${actionsHtml}
+          </div>`;
+    }
+
+    function panelHtml(id, title, tall, headActions = "", periodId = "") {
+      const h = defaultHeight(id);
+      const wrapClass = tall ? "chart-wrap tall" : "chart-wrap";
+      const statsHtml = EMBED.stats
+        ? `<div class="stats" id="${id}Stats"></div>`
+        : `<div class="stats" id="${id}Stats" hidden></div>`;
+      return `
+        <section class="panel" data-panel="${id}">
+          ${panelHeadHtml(title, headActions, periodId)}
+          ${statsHtml}
+          <div class="${wrapClass}" id="${id}Wrap" style="height:${h}px">
+            <canvas id="${id}Chart"></canvas>
+          </div>
+          <p class="error" id="${id}Error"></p>
+        </section>`;
+    }
+
+    function fakeBarsHtml(seed) {
+      const widths = [72, 58, 45, 38, 31, 26, 22, 18];
+      return widths.map((w, i) => `
+        <div class="fake-bar-row">
+          <span class="fake-bar-label"></span>
+          <span class="fake-bar-fill" style="width:${w + (seed + i) % 5}%"></span>
+        </div>`).join("");
+    }
+
+    function lockedPanelHtml(id, title, seed, periodId = "") {
+      return `
+        <section class="panel chart-lock-panel" data-panel="${id}">
+          ${panelHeadHtml(title, "", periodId)}
+          <div class="chart-lock-block" id="${id}Lock">
+            <div class="chart-lock-fake" aria-hidden="true">${fakeBarsHtml(seed)}</div>
+            <div class="chart-lock-cta">
+              <span class="chart-lock-icon" aria-hidden="true">🔒</span>
+              <h3>${title}</h3>
+              <p>Rang občin in gostota strel sta del pooblaščenega arhiva. Prijavite se za dostop.</p>
+              <button type="button" class="chart-lock-btn" data-embed-auth="login">Prijava</button>
+              <a class="chart-lock-link" href="/arhiv/" target="_top" rel="noopener">Celoten arhiv →</a>
+            </div>
+          </div>
+        </section>`;
+    }
+
+    function bindLockAuthButtons() {
+      document.querySelectorAll("[data-embed-auth]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          window.parent.postMessage(
+            { type: "strele-embed-auth", action: btn.dataset.embedAuth },
+            "*",
+          );
+        });
+      });
+    }
+
+    function dailyHeadControls() {
+      if (!EMBED.controls) return "";
+      return `
+        <label class="toolbar-field toolbar-field--compact toolbar-field--head">
+          <select id="daysSelect" aria-label="Obdobje">
+            <option value="7">7 dni</option>
+            <option value="14">14 dni</option>
+            <option value="30">30 dni</option>
+            <option value="90">90 dni</option>
+          </select>
+        </label>`;
+    }
+
+    function compactDailyHtml() {
+      const h = defaultHeight("daily");
+      const headActions = dailyHeadControls();
+      const statsHtml = EMBED.stats
+        ? `<div class="stats" id="dailyStats"></div>`
+        : "";
+      return `
+        <section class="panel panel--flat" data-panel="daily">
+          ${panelHeadHtml("Število strel po dnevih", headActions, "dailyPeriodLabel")}
+          ${statsHtml}
+          <div class="chart-wrap" id="dailyWrap" style="height:${h}px">
+            <canvas id="dailyChart"></canvas>
+          </div>
+          <p class="error" id="dailyError"></p>
+        </section>`;
+    }
+
+    function buildLayout() {
+      const root = document.getElementById("root");
+      const mode = EMBED.chart;
+      if (EMBED.compact) {
+        document.documentElement.classList.add("embed-compact-root");
+        document.body.classList.add("embed-compact");
+      }
+      root.className = EMBED.compact ? "charts-layout charts-layout--compact" : "charts-layout";
+
+      let html = "";
+      if (EMBED.compact && mode === "daily") {
+        html = compactDailyHtml();
+      } else {
+        if (mode === "daily" || mode === "all") {
+          html += panelHtml("daily", "Število strel po dnevih", false, dailyHeadControls(), "dailyPeriodLabel");
+        }
+        if (mode === "hourly" || mode === "all") {
+          html += panelHtml("hourly", "Urni profil", false, "", "hourlyPeriodLabel");
+        }
+        if (mode === "regions" || mode === "all") {
+          html += panelHtml("regions", "Po statističnih regijah", true, "", "regionsPeriodLabel");
+        }
+        if (EMBED.obcine) {
+          if (EMBED.locked) {
+            html += lockedPanelHtml("obcina", "Občine z največ strel", 1, "obcinaPeriodLabel");
+            html += lockedPanelHtml("obcinaGostota", "Največja gostota strel", 3, "obcinaGostotaPeriodLabel");
+          } else {
+            html += panelHtml("obcina", "Občine z največ strel", true, "", "obcinaPeriodLabel");
+            html += panelHtml("obcinaGostota", "Največja gostota strel", true, "", "obcinaGostotaPeriodLabel");
+          }
+        }
+      }
+      if (EMBED.credit) {
+        html += `<p class="credit"><a href="${EMBED.api || "."}/public" target="_blank" rel="noopener">Arhiv strel</a></p>`;
+      }
+      root.innerHTML = html;
+
+      if (EMBED.locked) bindLockAuthButtons();
+
+      if (EMBED.controls) {
+        const sel = document.getElementById("daysSelect");
+        if (sel) sel.value = String(rangeDays);
+      }
+    }
+
+    function setRegionHeight(count) {
+      const wrap = document.getElementById("regionsWrap");
+      if (!wrap || EMBED.height > 0) return;
+      const { perBar, base, minH } = mobileBarMetrics(28, 22, 100, 80, 360, 280);
+      wrap.style.height = `${Math.max(minH, base + count * perBar)}px`;
+    }
+
+    function setObcinaHeight(count) {
+      const wrap = document.getElementById("obcinaWrap");
+      if (!wrap || EMBED.height > 0) return;
+      const { perBar, base, minH } = mobileBarMetrics(24, 20, 100, 60, 280, 300);
+      const bars = Math.max(count, 5);
+      wrap.style.height = `${Math.max(minH, base + bars * perBar)}px`;
+    }
+
+    function setObcinaGostotaHeight(count) {
+      const wrap = document.getElementById("obcinaGostotaWrap");
+      if (!wrap || EMBED.height > 0) return;
+      const { perBar, base, minH } = mobileBarMetrics(24, 20, 100, 60, 280, 300);
+      const bars = Math.max(count, 5);
+      wrap.style.height = `${Math.max(minH, base + bars * perBar)}px`;
+    }
+
+    async function loadObcineCharts() {
+      if (!EMBED.obcine || EMBED.locked) return;
+      await Promise.all([loadObcine(), loadObcinaGostota()]);
+    }
+
+    const HORIZONTAL_BAR_HIT = { mode: "nearest", axis: "y", intersect: false };
+
+    function initDailyDaySelection() {
+      if (EMBED.chart !== "all" || !charts.daily) return;
+      const wrap = document.getElementById("dailyWrap");
+      if (!wrap) return;
+
+      wrap.addEventListener("click", (evt) => {
+        const hits = charts.daily.getElementsAtEventForMode(evt, "index", { intersect: false }, false);
+        if (!hits.length) return;
+        const day = dailyChartDates[hits[0].index];
+        if (!day) return;
+        if (detailMode === "day" && selectedDay === day) {
+          clearSelectedDay();
+          return;
+        }
+        selectDay(day);
+      });
+
+      wrap.addEventListener("mousemove", (evt) => {
+        const hits = charts.daily.getElementsAtEventForMode(evt, "index", { intersect: false }, false);
+        wrap.style.cursor = hits.length ? "pointer" : "default";
+      });
+      wrap.addEventListener("mouseleave", () => {
+        wrap.style.cursor = "default";
+      });
+    }
+
+    function initCharts() {
+      const mode = EMBED.chart;
+      const cx = chartMetrics();
+      const m = isMobile();
+      if (mode === "daily" || mode === "all") {
+        charts.daily = new Chart(document.getElementById("dailyChart"), {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [{
+              label: "Strele",
+              data: [],
+              backgroundColor: "rgba(251, 176, 6, 0.75)",
+              borderColor: "#fbb006",
+              borderWidth: cx.borderW,
+              borderRadius: cx.radius,
+              maxBarThickness: cx.barDaily,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: cx.padTop, right: cx.padLg, bottom: 0, left: 0 } },
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                intersect: false,
+                ...tooltipFontOpts(cx),
+                callbacks: {
+                  title(items) {
+                    return formatDatumSl(dailyChartDates[items[0].dataIndex]);
+                  },
+                  label(ctx) {
+                    return `Strele: ${fmt.format(ctx.parsed.y)}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              y: { beginAtZero: true, ticks: countAxisTicks(m ? 10 : 12) },
+              x: { ticks: dailyXTicks(30) },
+            },
+          },
+        });
+      }
+      if (mode === "hourly" || mode === "all") {
+        charts.hourly = new Chart(document.getElementById("hourlyChart"), {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [{
+              label: "Strele / uro",
+              data: [],
+              borderColor: "#05a5ce",
+              backgroundColor: "rgba(5, 165, 206, 0.15)",
+              fill: true,
+              tension: 0.25,
+              pointRadius: m ? 0 : scaledSize(2, 1),
+              pointHitRadius: cx.pointHit,
+              borderWidth: cx.lineW,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: cx.padTop, right: cx.padLg } },
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                intersect: false,
+                ...tooltipFontOpts(cx),
+                callbacks: {
+                  title(items) {
+                    return hourIntervalLabel(items[0].dataIndex);
+                  },
+                  label(ctx) {
+                    return `Strele: ${fmt.format(ctx.parsed.y)}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              y: {
+                min: 0,
+                max: HOURLY_Y_MAX,
+                beginAtZero: true,
+                ticks: countAxisTicks(m ? 10 : 12),
+              },
+              x: {
+                ticks: {
+                  font: { size: cx.fontSm },
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: m ? 6 : 24,
+                },
+              },
+            },
+          },
+        });
+      }
+      if (mode === "regions" || mode === "all") {
+        charts.regions = new Chart(document.getElementById("regionsChart"), {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [{
+              label: "Strele",
+              data: [],
+              backgroundColor: "rgba(5, 165, 206, 0.7)",
+              borderColor: "#05a5ce",
+              borderWidth: cx.borderW,
+              borderRadius: cx.radius,
+              maxBarThickness: cx.barHoriz,
+            }],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { left: cx.padSm, right: scaledSize(m ? 6 : 8, 2) } },
+            interaction: HORIZONTAL_BAR_HIT,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                ...HORIZONTAL_BAR_HIT,
+                ...tooltipFontOpts(cx),
+                callbacks: {
+                  title(items) {
+                    const idx = items[0]?.dataIndex;
+                    return charts.regions.data.labels[idx] || "";
+                  },
+                },
+              },
+            },
+            scales: {
+              x: { beginAtZero: true, ticks: countAxisTicks(m ? 10 : 12) },
+              y: {
+                ticks: {
+                  autoSkip: false,
+                  font: { size: cx.fontRegion },
+                  crossAlign: "far",
+                  callback(value) {
+                    const label = this.getLabelForValue(value);
+                    return formatRegionLabel(String(label));
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+      if (EMBED.obcine && !EMBED.locked) {
+        charts.obcina = new Chart(document.getElementById("obcinaChart"), {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [{
+              label: "Strele",
+              data: [],
+              backgroundColor: "rgba(226, 39, 62, 0.75)",
+              borderColor: "#e2273e",
+              borderWidth: cx.borderW,
+              borderRadius: cx.radius,
+              maxBarThickness: cx.barHorizSm,
+            }],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { left: m ? 0 : cx.padSm, right: cx.padLg } },
+            interaction: HORIZONTAL_BAR_HIT,
+            plugins: {
+              legend: { display: false },
+              tooltip: { ...HORIZONTAL_BAR_HIT, ...tooltipFontOpts(cx) },
+            },
+            scales: {
+              x: { beginAtZero: true, ticks: countAxisTicks(m ? 10 : 12) },
+              y: { ticks: { font: { size: cx.fontXs }, autoSkip: false } },
+            },
+          },
+        });
+        charts.obcinaGostota = new Chart(document.getElementById("obcinaGostotaChart"), {
+          type: "bar",
+          data: {
+            labels: [],
+            datasets: [{
+              label: "St/km²",
+              data: [],
+              backgroundColor: "rgba(251, 176, 6, 0.75)",
+              borderColor: "#fbb006",
+              borderWidth: cx.borderW,
+              borderRadius: cx.radius,
+              maxBarThickness: cx.barHorizSm,
+            }],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { left: m ? 0 : cx.padSm, right: cx.padLg } },
+            interaction: HORIZONTAL_BAR_HIT,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                ...HORIZONTAL_BAR_HIT,
+                ...tooltipFontOpts(cx),
+                callbacks: {
+                  label(ctx) {
+                    const row = ctx.chart.$gostotaRows?.[ctx.dataIndex];
+                    if (!row) return `${fmtGostota.format(ctx.parsed.x)} st./km²`;
+                    return [
+                      `Gostota: ${fmtGostota.format(row.gostota)} st./km²`,
+                      `Strele: ${fmt.format(row.stevilo)}`,
+                    ];
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                title: { display: !m, text: "Strele / km²", color: "#999999", font: { size: cx.fontSm } },
+                ticks: countAxisTicks(m ? 10 : 12),
+              },
+              y: { ticks: { font: { size: cx.fontXs }, autoSkip: false } },
+            },
+          },
+        });
+      }
+      initDailyDaySelection();
+    }
+
+    async function loadDaily() {
+      hideError("dailyError");
+      try {
+        const days = Number(EMBED.controls
+          ? document.getElementById("daysSelect").value
+          : EMBED.days);
+        let data;
+        if (useMeteoinfo && shouldUseMeteoinfoProxy()) {
+          data = await fetchMeteoinfoData("si-daily", { days: String(days) });
+        } else if (useMeteoinfo) {
+          const to = todayIso();
+          const from = addDaysIso(to, -(days - 1));
+          const payload = await meteoinfoSeries(
+            "day",
+            ljDayStartUtc(from),
+            ljDayEndUtc(to),
+          );
+          const byDay = new Map();
+          for (const point of payload.series || []) {
+            byDay.set(ljDateFromUtcIso(point.t), Number(point.count || 0));
+          }
+          data = [];
+          for (let i = 0; i < days; i += 1) {
+            const datum = addDaysIso(from, i);
+            data.push({ datum, stevilo: byDay.get(datum) || 0 });
+          }
+        } else {
+          data = await fetchJson(`/api/si-daily?days=${days}`);
+        }
+        dailyChartDates = data.map((d) => d.datum);
+        dailyCountsByDay = new Map(data.map((d) => [d.datum, d.stevilo]));
+        if (detailMode === "day" && selectedDay && dailyCountsByDay.has(selectedDay)) {
+          if (dailyCountsByDay.get(selectedDay) === 0) {
+            clearSelectedDay();
+          }
+        }
+        if (linkedDay && !dailyChartDates.includes(linkedDay)) {
+          linkedDay = null;
+        }
+        charts.daily.data.labels = dailyChartDates.map(formatDatumSl);
+        charts.daily.data.datasets[0].data = data.map((d) => d.stevilo);
+        applyDailyXAxis(dailyChartDates.length);
+        updateDailyBarHighlight();
+        updateScopeLabels(days);
+        const total = data.reduce((s, d) => s + d.stevilo, 0);
+        const peakDay = data.reduce(
+          (best, d) => (d.stevilo > best.stevilo ? d : best),
+          { datum: data[0]?.datum ?? "", stevilo: 0 },
+        );
+        renderStats(document.getElementById("dailyStats"), [
+          { label: "Skupaj", value: fmt.format(total) },
+          { label: "Vrh", value: peakDay.stevilo ? `${formatDatumSl(peakDay.datum)} (${fmt.format(peakDay.stevilo)})` : "—" },
+        ]);
+      } catch (e) {
+        showError("dailyError", useMeteoinfo
+          ? (shouldUseMeteoinfoProxy()
+            ? "Podatkov ni mogoče naložiti (preveri meteoinfo-data.php)."
+            : "Meteoinfo API ne odgovarja (verjetno CORS — omogoči proxy=1).")
+          : "Ni mogoče naložiti dnevnih podatkov.");
+        console.error(e);
+      }
+      notifyResize();
+    }
+
+    async function loadHourly() {
+      hideError("hourlyError");
+      let total = 0;
+      try {
+        let data;
+        if (useMeteoinfo && shouldUseMeteoinfoProxy()) {
+          if (isDetailRange()) {
+            data = await fetchMeteoinfoData("si-hourly", { days: String(getRangeDays()) });
+          } else {
+            data = await fetchMeteoinfoData("si-hourly", { day: selectedDay });
+          }
+        } else if (useMeteoinfo) {
+          let timeFrom;
+          let timeTo;
+          if (isDetailRange()) {
+            const to = todayIso();
+            const from = addDaysIso(to, -(getRangeDays() - 1));
+            timeFrom = ljDayStartUtc(from);
+            timeTo = ljDayEndUtc(to);
+          } else {
+            timeFrom = ljDayStartUtc(selectedDay);
+            timeTo = ljDayEndUtc(selectedDay);
+          }
+          const payload = await meteoinfoSeries("hour", timeFrom, timeTo);
+          const totals = Array.from({ length: 24 }, () => 0);
+          for (const point of payload.series || []) {
+            const p = ljPartsFromUtcDate(new Date(point.t));
+            totals[p.h] += Number(point.count || 0);
+          }
+          data = totals.map((stevilo, ura) => ({ ura, stevilo }));
+        } else {
+          data = await fetchJson(`/api/si-hourly?${periodQuery()}`);
+        }
+        const values = data.map((d) => d.stevilo);
+        charts.hourly.data.labels = data.map((d) => hourEndLabel(d.ura));
+        charts.hourly.data.datasets[0].data = values;
+        charts.hourly.options.scales.y.max = hourlyYMax(values);
+        charts.hourly.update();
+        total = values.reduce((s, n) => s + n, 0);
+        const peak = data.reduce((best, d) => (d.stevilo > best.stevilo ? d : best), { ura: 0, stevilo: 0 });
+        renderStats(document.getElementById("hourlyStats"), [
+          { label: detailScopeLabel(), value: fmt.format(total) },
+          { label: "Vrh", value: `${hourIntervalLabel(peak.ura)} (${fmt.format(peak.stevilo)})` },
+        ]);
+      } catch (e) {
+        showError("hourlyError", useMeteoinfo
+          ? "Meteoinfo API ne odgovarja."
+          : "Ni mogoče naložiti urnih podatkov.");
+        console.error(e);
+        total = 0;
+      }
+      notifyResize();
+      return total;
+    }
+
+    async function loadRegions() {
+      hideError("regionsError");
+      try {
+        let data;
+        if (useMeteoinfo && shouldUseMeteoinfoProxy()) {
+          if (isDetailRange()) {
+            data = await fetchMeteoinfoData("regije-daily", { days: String(getRangeDays()) });
+          } else {
+            data = await fetchMeteoinfoData("regije-daily", { day: selectedDay });
+          }
+        } else if (useMeteoinfo) {
+          let timeFrom;
+          let timeTo;
+          if (isDetailRange()) {
+            const to = todayIso();
+            const from = addDaysIso(to, -(getRangeDays() - 1));
+            timeFrom = ljDayStartUtc(from);
+            timeTo = ljDayEndUtc(to);
+          } else {
+            timeFrom = ljDayStartUtc(selectedDay);
+            timeTo = ljDayEndUtc(selectedDay);
+          }
+          const [payload, mapData] = await Promise.all([
+            meteoinfoSeries("day", timeFrom, timeTo, "municipality"),
+            getRegijeMap(),
+          ]);
+          data = regijeFromMunicipalityGroups(payload.groups || [], mapData);
+        } else {
+          data = await fetchJson(`/api/regije-daily?${periodQuery()}`);
+        }
+        charts.regions.data.labels = data.map((d) => d.regija);
+        charts.regions.data.datasets[0].data = data.map((d) => d.stevilo);
+        setRegionHeight(data.length || 12);
+        charts.regions.update();
+        if (data.reduce((s, d) => s + d.stevilo, 0) === 0) {
+          showError("regionsError", detailEmptyMessage("regijskih podatkov"));
+        }
+      } catch (e) {
+        showError("regionsError", useMeteoinfo
+          ? "Meteoinfo API ne odgovarja."
+          : "Ni mogoče naložiti regijskih podatkov.");
+        console.error(e);
+      }
+      notifyResize();
+    }
+
+    async function loadObcine() {
+      hideError("obcinaError");
+      try {
+        const limit = isMobile() ? 8 : 10;
+        const data = await fetchPrivateJson(`/api/obcine-top?${periodQuery()}&limit=${limit}`);
+        charts.obcina.data.labels = data.map((d) => d.obcina);
+        charts.obcina.data.datasets[0].data = data.map((d) => d.stevilo);
+        setObcinaHeight(data.length || limit);
+        charts.obcina.update();
+        if (data.length === 0) {
+          showError("obcinaError", detailEmptyMessage("podatkov po občinah"));
+          renderStats(document.getElementById("obcinaStats"), []);
+          return;
+        }
+        const top = data[0];
+        renderStats(document.getElementById("obcinaStats"), [
+          { label: "Največ strel", value: top.obcina },
+          { label: isDetailRange() ? detailScopeLabel() : "Število", value: fmt.format(top.stevilo) },
+          { label: "Top občin", value: String(data.length) },
+        ]);
+      } catch (e) {
+        const msg = e.message === "forbidden"
+          ? "Nimate dostopa do podatkov po občinah."
+          : e.message === "auth_required"
+            ? "Za ogled podatkov po občinah se prijavite."
+            : "Ni mogoče naložiti podatkov po občinah.";
+        showError("obcinaError", msg);
+        console.error(e);
+      }
+      notifyResize();
+    }
+
+    async function loadObcinaGostota() {
+      hideError("obcinaGostotaError");
+      try {
+        const limit = isMobile() ? 8 : 10;
+        const data = await fetchPrivateJson(`/api/obcine-gostota?${periodQuery()}&limit=${limit}`);
+        charts.obcinaGostota.$gostotaRows = data;
+        charts.obcinaGostota.data.labels = data.map((d) => d.obcina);
+        charts.obcinaGostota.data.datasets[0].data = data.map((d) => d.gostota);
+        setObcinaGostotaHeight(data.length || limit);
+        charts.obcinaGostota.update();
+        if (data.length === 0) {
+          showError("obcinaGostotaError", detailEmptyMessage("podatkov o gostoti"));
+          renderStats(document.getElementById("obcinaGostotaStats"), []);
+          return;
+        }
+        const top = data[0];
+        renderStats(document.getElementById("obcinaGostotaStats"), [
+          { label: "Najvišja gostota", value: top.obcina },
+          { label: "Gostota", value: `${fmtGostota.format(top.gostota)} st./km²` },
+          {
+            label: isDetailRange() ? detailScopeLabel() : "Strele skupaj",
+            value: fmt.format(top.stevilo),
+          },
+        ]);
+      } catch (e) {
+        const msg = e.message === "forbidden"
+          ? "Nimate dostopa do podatkov o gostoti."
+          : e.message === "auth_required"
+            ? "Za ogled gostote se prijavite."
+            : "Ni mogoče naložiti gostote po občinah.";
+        showError("obcinaGostotaError", msg);
+        console.error(e);
+      }
+      notifyResize();
+    }
+
+    function bindControls() {
+      if (!EMBED.controls) return;
+      document.getElementById("daysSelect")?.addEventListener("change", () => {
+        rangeDays = getRangeDays();
+        updateScopeLabels(getRangeDays());
+        void loadDaily().then(() => {
+          if (isDetailRange()) {
+            syncFilterUi();
+            void reloadDetailCharts();
+          }
+        });
+        notifyDaysSelectRect();
+      });
+    }
+
+    async function init() {
+      initParentPageScrollForward();
+      initExternalInteraction();
+      buildLayout();
+      initCharts();
+      bindControls();
+      syncFilterUi();
+
+      const mode = EMBED.chart;
+      const tasks = [];
+      if (mode === "daily" || mode === "all") tasks.push(loadDaily());
+      if (mode === "hourly" || mode === "all") tasks.push(loadHourly());
+      if (mode === "regions" || mode === "all") tasks.push(loadRegions());
+      if (EMBED.obcine && !EMBED.locked) tasks.push(loadObcineCharts());
+      await Promise.all(tasks);
+
+      if (EMBED.day && dailyCountsByDay.get(EMBED.day) > 0) {
+        await selectDay(EMBED.day);
+      }
+
+      applyResponsiveLayout();
+
+      if (EMBED.refresh) {
+        let _lastTodayCount = null;
+        let _lastReload = Date.now();
+
+        async function _pollOrRefresh() {
+          try {
+            const d = await fetch(apiUrl("/api/si-daily?days=1")).then((r) => r.ok ? r.json() : null).catch(() => null);
+            const todayCount = d ? (d[d.length - 1]?.stevilo ?? -1) : -1;
+            const stale = Date.now() - _lastReload >= EMBED.refreshSec * 1000;
+            const changed = _lastTodayCount !== null && todayCount !== -1 && todayCount !== _lastTodayCount;
+
+            if (changed || stale) {
+              const reload = [];
+              if (mode === "daily" || mode === "all") reload.push(loadDaily());
+              if (mode === "hourly" || mode === "all") reload.push(loadHourly());
+              if (mode === "regions" || mode === "all") reload.push(loadRegions());
+              if (EMBED.obcine && !EMBED.locked) reload.push(loadObcineCharts());
+              await Promise.all(reload);
+              _lastReload = Date.now();
+            }
+            if (todayCount !== -1) _lastTodayCount = todayCount;
+          } catch (_) { /* ignore */ }
+        }
+
+        setInterval(_pollOrRefresh, 2 * 60 * 1000);
+      }
+
+      notifyResize();
+      let resizeTimer;
+      window.addEventListener("resize", () => {
+        if (window.innerWidth === lastInnerWidth) return;
+        lastInnerWidth = window.innerWidth;
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => applyResponsiveLayout(), 120);
+      });
+    }
+
+    init().catch((e) => {
+      document.getElementById("root").innerHTML = `<p class="error visible">Napaka: ${e.message}</p>`;
+      notifyResize();
+    });
+  </script>
+</body>
+</html>

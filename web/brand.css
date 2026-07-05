@@ -1,0 +1,30 @@
+/* Meteoinfo CPG — barve in tipografija za splet */
+@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap");
+
+:root {
+  --mi-cyan: #05a5ce;
+  --mi-red: #e2273e;
+  --mi-yellow: #fbb006;
+  --mi-white: #ffffff;
+  --mi-gray-100: #f2f2f2;
+  --mi-gray-200: #e6e6e6;
+  --mi-gray-300: #cccccc;
+  --mi-gray-400: #b3b3b3;
+  --mi-gray-500: #999999;
+  --mi-gray-600: #808080;
+  --mi-gray-700: #666666;
+  --mi-gray-800: #4d4d4d;
+  --mi-gray-900: #333333;
+  --mi-gray-950: #1a1a1a;
+  --mi-black: #000000;
+
+  --bg: var(--mi-gray-950);
+  --panel: var(--mi-gray-900);
+  --text: var(--mi-gray-100);
+  --muted: var(--mi-gray-500);
+  --accent: var(--mi-yellow);
+  --accent2: var(--mi-cyan);
+  --danger: var(--mi-red);
+  --border: var(--mi-gray-800);
+  --font: "Nunito Sans", system-ui, -apple-system, sans-serif;
+}
