@@ -6,7 +6,7 @@
   <title>Strele — graf</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/brand.css">
-  <link rel="stylesheet" href="/static/charts-shared.css">
+  <link rel="stylesheet" href="/static/charts-shared.css?v=7">
   <style>
     :root {
       --bg: var(--mi-gray-950, #1a1a1a);
@@ -79,6 +79,14 @@
       background: transparent;
       padding: 0;
       border-radius: 0;
+    }
+    body.embed-compact .panel-head-title {
+      font-family: var(--font);
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    body.embed-compact .panel-period {
+      font-family: var(--font);
     }
     body.embed-compact .chart-toolbar-inline {
       display: flex;
@@ -692,7 +700,7 @@
       const count = dailyChartDates.length || d;
       const from = dailyChartDates[0] || addDaysIso(todayIso(), -(d - 1));
       const to = dailyChartDates[count - 1] || todayIso();
-      const obdobjeText = `Obdobje: ${formatSlDateRange(from, to)}`;
+      const obdobjeText = formatSlDateRange(from, to);
       const detailText = !isDetailRange() && selectedDay
         ? formatSlDateFull(selectedDay)
         : obdobjeText;
@@ -1071,17 +1079,24 @@
       const actionsHtml = headActions
         ? `<div class="panel-head-actions">${headActions}</div>`
         : "";
+      const titleHtml = EMBED.title
+        ? `<h2 class="panel-head-title">${title}</h2>`
+        : "";
       const periodHtml = periodId
         ? `<p class="panel-period" id="${periodId}"></p>`
         : "";
-      const textHtml = EMBED.title
-        ? `<div class="panel-head-text"><h2>${title}</h2>${periodHtml}</div>`
-        : (periodHtml ? `<div class="panel-head-text">${periodHtml}</div>` : "");
-      if (!textHtml && !actionsHtml) return "";
+      if (!titleHtml && !actionsHtml && !periodHtml) return "";
+
+      const topClass = EMBED.title
+        ? "panel-head-top"
+        : "panel-head-top panel-head-top--compact";
+      const topHtml = (titleHtml || actionsHtml)
+        ? `<div class="${topClass}">${titleHtml}${actionsHtml}</div>`
+        : "";
       return `
           <div class="panel-head">
-            ${textHtml}
-            ${actionsHtml}
+            ${topHtml}
+            ${periodHtml}
           </div>`;
     }
 
@@ -1160,7 +1175,7 @@
         : "";
       return `
         <section class="panel panel--flat" data-panel="daily">
-          ${panelHeadHtml("Število strel po dnevih", headActions, "dailyPeriodLabel")}
+          ${panelHeadHtml("Statistika strel v Sloveniji", headActions, "dailyPeriodLabel")}
           ${statsHtml}
           <div class="chart-wrap" id="dailyWrap" style="height:${h}px">
             <canvas id="dailyChart"></canvas>

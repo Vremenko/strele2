@@ -876,12 +876,11 @@
   function updateLegend(breaks, isDynamic, mode) {
     const el = document.getElementById("legend");
     if (!el) return;
-    const period = mapPeriodLabel();
     const titleText = mode === "gostota"
-      ? `Gostota (${period}), st./km²`
+      ? "Strele / km²"
       : mode === "dni"
       ? "Št. dni z nevihto"
-      : `Strele (${period})`;
+      : "Število strel";
     const rowsHtml = Array.from({ length: legendRowCount(mode) }, (_, i) =>
       `<div class="legend-row"><span class="legend-swatch" style="background:${BAND_COLOURS[i]}"></span>${legendLabel(i, breaks, mode)}</div>`
     ).join("");
@@ -1365,6 +1364,13 @@
   const chartObMetaEl = document.getElementById("chart-ob-meta");
   const chartHintEl   = document.getElementById("chart-hint");
 
+  function chartObcinaLabel(name) {
+    if (!name || name === "—") return name;
+    const trimmed = String(name).trim();
+    if (/^občina\b/i.test(trimmed)) return trimmed;
+    return `Občina ${trimmed}`;
+  }
+
   let selectedObMid = null;
 
   async function loadObcinaChart(ob_mid, name) {
@@ -1377,7 +1383,7 @@
       const counts = data.map(d => d.stevilo);
       const total  = counts.reduce((s, v) => s + v, 0);
 
-      chartObNameEl.textContent = name;
+      chartObNameEl.textContent = chartObcinaLabel(name);
       chartObMetaEl.textContent = `Skupaj: ${fmt2.format(total)}`;
       chartHintEl.classList.add("hidden");
 
