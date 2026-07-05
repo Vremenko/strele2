@@ -276,6 +276,7 @@
 
     const fmt = new Intl.NumberFormat("sl-SI", { useGrouping: true });
     const fmtGostota = new Intl.NumberFormat("sl-SI", {
+      useGrouping: true,
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
     });
@@ -1208,10 +1209,10 @@
         }
         if (EMBED.obcine) {
           if (EMBED.locked) {
-            html += lockedPanelHtml("obcina", "Občine z največ strel", 1, "obcinaPeriodLabel");
+            html += lockedPanelHtml("obcina", "Občine z največ strelami", 1, "obcinaPeriodLabel");
             html += lockedPanelHtml("obcinaGostota", "Največja gostota strel", 3, "obcinaGostotaPeriodLabel");
           } else {
-            html += panelHtml("obcina", "Občine z največ strel", true, "", "obcinaPeriodLabel");
+            html += panelHtml("obcina", "Občine z največ strelami", true, "", "obcinaPeriodLabel");
             html += panelHtml("obcinaGostota", "Največja gostota strel", true, "", "obcinaGostotaPeriodLabel");
           }
         }
@@ -1418,6 +1419,9 @@
                     const idx = items[0]?.dataIndex;
                     return charts.regions.data.labels[idx] || "";
                   },
+                  label(ctx) {
+                    return `Strele: ${fmt.format(ctx.parsed.x)}`;
+                  },
                 },
               },
             },
@@ -1461,7 +1465,19 @@
             interaction: HORIZONTAL_BAR_HIT,
             plugins: {
               legend: { display: false },
-              tooltip: { ...HORIZONTAL_BAR_HIT, ...tooltipFontOpts(cx) },
+              tooltip: {
+                ...HORIZONTAL_BAR_HIT,
+                ...tooltipFontOpts(cx),
+                callbacks: {
+                  title(items) {
+                    const idx = items[0]?.dataIndex;
+                    return charts.obcina.data.labels[idx] || "";
+                  },
+                  label(ctx) {
+                    return `Strele: ${fmt.format(ctx.parsed.x)}`;
+                  },
+                },
+              },
             },
             scales: {
               x: { beginAtZero: true, ticks: countAxisTicks(m ? 10 : 12) },
@@ -1474,7 +1490,7 @@
           data: {
             labels: [],
             datasets: [{
-              label: "St/km²",
+              label: "St. / km²",
               data: [],
               backgroundColor: "rgba(251, 176, 6, 0.75)",
               borderColor: "#fbb006",
@@ -1497,9 +1513,9 @@
                 callbacks: {
                   label(ctx) {
                     const row = ctx.chart.$gostotaRows?.[ctx.dataIndex];
-                    if (!row) return `${fmtGostota.format(ctx.parsed.x)} st./km²`;
+                    if (!row) return `${fmtGostota.format(ctx.parsed.x)} st. / km²`;
                     return [
-                      `Gostota: ${fmtGostota.format(row.gostota)} st./km²`,
+                      `Gostota: ${fmtGostota.format(row.gostota)} st. / km²`,
                       `Strele: ${fmt.format(row.stevilo)}`,
                     ];
                   },
@@ -1702,8 +1718,7 @@
         const top = data[0];
         renderStats(document.getElementById("obcinaStats"), [
           { label: "Največ strel", value: top.obcina },
-          { label: isDetailRange() ? detailScopeLabel() : "Število", value: fmt.format(top.stevilo) },
-          { label: "Top občin", value: String(data.length) },
+          { label: "Število", value: fmt.format(top.stevilo) },
         ]);
       } catch (e) {
         const msg = e.message === "forbidden"
@@ -1735,11 +1750,7 @@
         const top = data[0];
         renderStats(document.getElementById("obcinaGostotaStats"), [
           { label: "Najvišja gostota", value: top.obcina },
-          { label: "Gostota", value: `${fmtGostota.format(top.gostota)} st./km²` },
-          {
-            label: isDetailRange() ? detailScopeLabel() : "Strele skupaj",
-            value: fmt.format(top.stevilo),
-          },
+          { label: "Gostota", value: `${fmtGostota.format(top.gostota)} st. / km²` },
         ]);
       } catch (e) {
         const msg = e.message === "forbidden"
