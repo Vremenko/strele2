@@ -61,7 +61,6 @@
       justify-content: center;
     }
     .widget {
-      container-type: inline-size;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -145,22 +144,6 @@
     }
     .widget--compact .stats-grid { grid-template-columns: 1fr; }
     .widget--full .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    @container (max-width: 640px) {
-      .widget--full .stats-grid { grid-template-columns: 1fr; }
-      .widget--full { padding: 1rem 1.05rem 1.15rem; }
-      .widget--full .widget-head { padding-bottom: 0.85rem; }
-      .widget--full .widget-muni { font-size: 1.05rem; letter-spacing: 0.02em; }
-      .widget--full .stat-value { font-size: 1.25rem; word-break: break-word; }
-      .widget--full .stat-label { font-size: 0.72rem; }
-      .widget--full { --widget-visual-height: min(220px, 42vh); }
-      .widget--full .widget-visual-tab { font-size: 0.82rem; padding: 0.4rem 0.5rem; }
-    }
-    @media (max-width: 640px) {
-      .widget--full .stats-grid { grid-template-columns: 1fr; }
-      .widget--full { padding: 1rem 1.05rem 1.15rem; --widget-visual-height: min(220px, 42vh); }
-      .widget--full .widget-muni { font-size: 1.05rem; }
-      .widget--full .stat-value { font-size: 1.25rem; word-break: break-word; }
-    }
 
     .stat-card {
       background: var(--bg-soft);
@@ -228,10 +211,22 @@
       color: var(--text-muted);
       line-height: 1.35;
     }
-    .widget--full {
-      --widget-visual-height: 220px;
+    .widget-map-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg-map);
+      position: relative;
+      width: 100%;
+      min-height: 180px;
+      height: 220px;
+      max-height: min(300px, 42vh);
     }
-    .widget-map-wrap,
+    .widget-map-wrap #map {
+      width: 100%;
+      height: 100%;
+      min-height: 180px;
+    }
     .widget-chart-wrap {
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -239,25 +234,13 @@
       background: var(--bg-map);
       position: relative;
       width: 100%;
-      box-sizing: border-box;
-      height: var(--widget-visual-height, 220px);
-      min-height: 180px;
-      max-height: min(360px, 42vh);
-    }
-    .widget-map-wrap #map {
-      width: 100%;
-      height: 100%;
-      min-height: var(--widget-visual-height, 220px);
-    }
-    .widget-chart-wrap {
-      display: block;
-      padding: 0;
+      height: 220px;
+      padding: 0.65rem 0.5rem 0.45rem;
     }
     .widget-chart-wrap canvas {
       display: block;
       width: 100% !important;
       height: 100% !important;
-      min-height: 0 !important;
       touch-action: pan-y;
     }
     .map-placeholder {
@@ -290,6 +273,30 @@
       display: none !important;
     }
 
+    .widget-actions { padding: 0 0 1rem; }
+    .btn-detail {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      padding: 0.65rem 1rem;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #1a1a1a;
+      font: inherit;
+      font-size: 0.92rem;
+      font-weight: 800;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+    }
+    .btn-detail:hover { filter: brightness(1.04); }
+    .btn-detail:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
     .widget-foot {
       padding: 0.75rem 0 0;
       border-top: 1px solid var(--border);
@@ -300,6 +307,11 @@
       text-align: left;
     }
     .widget-foot strong { color: var(--text-muted); font-weight: 600; }
+    .widget-disclaimer {
+      margin: 0.45rem 0 0;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body data-theme="dark">
@@ -326,6 +338,7 @@
   let lat = parseFloat(params.get("lat") || cfg.lat);
   let lon = parseFloat(params.get("lon") || cfg.lon);
   let municipalityName = (params.get("municipalityName") || params.get("label") || cfg.municipalityName || "").trim();
+  const detailUrlParam = (params.get("detailUrl") || cfg.detailUrl || "").trim();
   const REFRESH_MS = (parseInt(params.get("refresh") || "300", 10) || 300) * 1000;
   const PERIOD_DAYS = 30;
 
@@ -359,7 +372,6 @@
   let userVisualPanel = null;
   let currentView = null;
   let chartResizeObserver = null;
-  let widgetResizeObserver = null;
 
   function defaultVisualPanel(strikesLast24h) {
     return strikesLast24h > 0 ? "map" : "chart";
@@ -396,24 +408,6 @@
 
   function isMobileChart() {
     return window.matchMedia("(max-width: 639px)").matches;
-  }
-
-
-  function observeWidgetResize() {
-    if (size !== "full" || widgetResizeObserver) return;
-    const el = document.querySelector(".widget");
-    if (!el || !window.ResizeObserver) return;
-    widgetResizeObserver = new ResizeObserver(function () {
-      notifyResize();
-      if (dailyChart) dailyChart.resize();
-      if (!mapBounds || !map) return;
-      clearTimeout(widgetResizeTimer);
-      widgetResizeTimer = setTimeout(function () {
-        applyMapFrame(mapBounds);
-        fitMunicipalityView();
-      }, 80);
-    });
-    widgetResizeObserver.observe(el);
   }
 
   function destroyDailyChart() {
@@ -475,7 +469,7 @@
         events: mobileChart ? [] : undefined,
         responsive: true,
         maintainAspectRatio: false,
-        layout: { padding: 0 },
+        layout: { padding: { top: 4, right: 4, left: 0, bottom: 0 } },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -521,43 +515,19 @@
     return panel === "map" ? ".widget-map-wrap" : ".widget-chart-wrap";
   }
 
-  function visualWrapHeightPx(wrap) {
-    if (!wrap) return 220;
-    const root = wrap.closest(".widget") || document.documentElement;
-    const raw = getComputedStyle(root).getPropertyValue("--widget-visual-height").trim();
-    if (raw) {
-      const probe = document.createElement("div");
-      probe.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;height:" + raw;
-      document.body.appendChild(probe);
-      const px = probe.offsetHeight;
-      probe.remove();
-      if (px > 0) return px;
-    }
-    const h = wrap.offsetHeight;
-    return h > 0 ? h : 220;
-  }
-
-  function ensureVisualWrapHeight(wrap) {
-    if (!wrap) return;
-    wrap.style.aspectRatio = "";
-    wrap.style.height = visualWrapHeightPx(wrap) + "px";
-  }
-
   function whenPanelReady(panel, cb, attempts) {
-    attempts = attempts == null ? 120 : attempts;
+    attempts = attempts == null ? 80 : attempts;
     const el = document.querySelector(panelContainerSelector(panel));
     if (!el) {
       if (attempts > 0) requestAnimationFrame(function () { whenPanelReady(panel, cb, attempts - 1); });
       else cb();
       return;
     }
-    ensureVisualWrapHeight(el);
     if (el.clientWidth > 0 && el.clientHeight > 0) {
       cb();
       return;
     }
     if (attempts <= 0) {
-      el.style.height = visualWrapHeightPx(el) + "px";
       cb();
       return;
     }
@@ -634,47 +604,10 @@
     setVisualPanel(activeVisualPanel(view), view);
   }
 
-  let mapFrameLock = false;
-  let mapResizeTimer = null;
-  let widgetResizeTimer = null;
-
-  function boundsFromFeature(feature) {
-    try {
-      const layer = L.geoJSON(feature);
-      const b = layer.getBounds();
-      return b && b.isValid() ? b : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
   function applyMapFrame(bounds) {
-    if (mapFrameLock || !bounds || !bounds.isValid()) return;
     const wrap = document.querySelector(".widget-map-wrap");
-    if (!wrap) return;
-
-    mapFrameLock = true;
-    try {
-      mapBounds = bounds;
-      wrap.style.aspectRatio = "";
-      const containerW = wrap.clientWidth || wrap.offsetWidth;
-      const isNarrow = window.matchMedia("(max-width: 640px)").matches;
-
-      if (isNarrow || containerW < 280) {
-        resetVisualPanelHeight();
-        setVisualPanelHeight(visualWrapHeightPx(wrap));
-        return;
-      }
-
-      const geoRatio = municipalityAspectRatio(bounds);
-      const heightPx = computeMapFrameHeight(containerW, geoRatio);
-      setVisualPanelHeight(heightPx);
-    } finally {
-      mapFrameLock = false;
-    }
-  }
-
-  function municipalityAspectRatio(bounds) {
+    if (!wrap || !bounds || !bounds.isValid()) return;
+    mapBounds = bounds;
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
     const latSpan = Math.max(ne.lat - sw.lat, 0.005);
@@ -682,50 +615,23 @@
     const avgLat = (ne.lat + sw.lat) / 2;
     const geoW = lonSpan * Math.cos((avgLat * Math.PI) / 180);
     const geoH = latSpan;
-    return Math.max(0.85, Math.min(2.8, geoW / geoH));
-  }
-
-  function mapVisualHeightLimits() {
-    const vhCap = Math.round(window.innerHeight * 0.42);
-    return { min: 180, max: Math.min(360, vhCap) };
-  }
-
-  function computeMapFrameHeight(containerWidth, geoRatio) {
-    const limits = mapVisualHeightLimits();
-    const ideal = Math.round(containerWidth / geoRatio);
-    return Math.max(limits.min, Math.min(limits.max, ideal));
-  }
-
-  function setVisualPanelHeight(heightPx) {
-    const widget = document.querySelector(".widget--full");
-    const h = Math.round(heightPx) + "px";
-    if (widget) widget.style.setProperty("--widget-visual-height", h);
-    document.querySelectorAll(".widget-map-wrap, .widget-chart-wrap").forEach(function (el) {
-      el.style.height = h;
-    });
-  }
-
-  function resetVisualPanelHeight() {
-    const widget = document.querySelector(".widget--full");
-    if (widget) widget.style.removeProperty("--widget-visual-height");
-    document.querySelectorAll(".widget-map-wrap, .widget-chart-wrap").forEach(function (el) {
-      el.style.height = "";
-    });
+    let ratio = geoW / geoH;
+    ratio = Math.max(1.25, Math.min(2.15, ratio));
+    wrap.style.height = "auto";
+    wrap.style.aspectRatio = ratio.toFixed(3);
   }
 
   function fitMunicipalityView() {
     if (!map || !mapBounds || !mapBounds.isValid()) return;
     map.invalidateSize();
     const wrap = document.querySelector(".widget-map-wrap");
-    if (!wrap || wrap.clientWidth < 2 || wrap.clientHeight < 2) return;
-
-    const padX = Math.max(8, Math.round(wrap.clientWidth * 0.015));
-    const padY = Math.max(6, Math.round(wrap.clientHeight * 0.02));
+    const padX = wrap ? Math.max(14, Math.round(wrap.clientWidth * 0.05)) : 18;
+    const padY = wrap ? Math.max(10, Math.round(wrap.clientHeight * 0.07)) : 14;
     map.fitBounds(mapBounds, { padding: [padY, padX], animate: false });
     const z = map.getZoom();
-    map.setView(mapBounds.getCenter(), z, { animate: false });
     map.setMinZoom(z);
     map.setMaxZoom(z);
+    map.setView(mapBounds.getCenter(), z, { animate: false });
   }
 
   function observeMapResize() {
@@ -733,11 +639,8 @@
     if (!wrap) return;
     if (mapResizeObserver) mapResizeObserver.disconnect();
     mapResizeObserver = new ResizeObserver(function () {
-      clearTimeout(mapResizeTimer);
-      mapResizeTimer = setTimeout(function () {
-        fitMunicipalityView();
-        notifyResize();
-      }, 80);
+      fitMunicipalityView();
+      notifyResize();
     });
     mapResizeObserver.observe(wrap);
   }
@@ -899,6 +802,16 @@
   const WIDGET_LOGO_URL = `${STRELKO_SITE}/assets/strelko-logo-mark.png`;
   const WIDGET_LOGO_HTML = `<img src="${WIDGET_LOGO_URL}" alt="" class="widget-logo" width="45" height="40" decoding="async">`;
 
+  function buildDetailUrl() {
+    if (detailUrlParam) return detailUrlParam;
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      const q = new URLSearchParams({ lat: String(lat), lon: String(lon), radius_km: "20" });
+      if (municipalityName) q.set("label", municipalityName);
+      return `${STRELKO_SITE}/?${q.toString()}`;
+    }
+    return STRELKO_SITE;
+  }
+
   function renderLoading() {
     document.getElementById("root").innerHTML = `
       <article class="widget widget--${size}" aria-busy="true" aria-live="polite">
@@ -982,8 +895,15 @@
           </div>
         </div>
         ${visualBlock}
+        <div class="widget-actions">
+          <a class="btn-detail" href="${escapeAttr(view.detailUrl)}" target="_blank" rel="noopener noreferrer"
+             aria-label="Odpri podroben pregled strel na Strelko">
+            Odpri pregled strel
+          </a>
+        </div>
         <footer class="widget-foot">
           Informativni prikaz zagotavlja <strong>Meteoinfo d.o.o.</strong> / <strong>Strelko</strong>.
+          <p class="widget-disclaimer">Podatki so informativne narave in se lahko razlikujejo od uradnih evidenc.</p>
         </footer>
       </article>`;
   }
@@ -991,6 +911,10 @@
   function escapeHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/'/g, "&#39;");
+  }
+
   function maptilerStyleUrl(styleId) {
     return `https://api.maptiler.com/maps/${styleId}/style.json?key=${encodeURIComponent(MAPTILER_KEY)}`;
   }
@@ -1032,9 +956,7 @@
     if (!el || !feature || !feature.geometry) return;
 
     const wrap = el.closest(".widget-map-wrap");
-    const preBounds = boundsFromFeature(feature);
-    if (preBounds) applyMapFrame(preBounds);
-    else ensureVisualWrapHeight(wrap);
+    if (wrap && wrap.clientHeight < 2) wrap.style.height = "220px";
 
     if (!map) {
       map = L.map(el, {
@@ -1089,20 +1011,9 @@
     if (bounds.isValid()) {
       applyMapFrame(bounds);
       requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          if (map) map.invalidateSize();
-          fitMunicipalityView();
-          observeMapResize();
-          notifyResize();
-          [120, 400].forEach(function (delay) {
-            setTimeout(function () {
-              if (!map) return;
-              map.invalidateSize();
-              fitMunicipalityView();
-              notifyResize();
-            }, delay);
-          });
-        });
+        fitMunicipalityView();
+        observeMapResize();
+        notifyResize();
       });
     }
   }
@@ -1131,6 +1042,7 @@
         thirdLabel: stats.thirdLabel,
         thirdValue: stats.thirdValue,
         thirdIsZero: stats.thirdIsZero,
+        detailUrl: buildDetailUrl(),
         strikes: stats.strikes,
         daily: stats.daily,
         periodDays: stats.periodDays,
@@ -1146,9 +1058,7 @@
         userVisualPanel = null;
       }
 
-      observeWidgetResize();
       notifyResize();
-      requestAnimationFrame(notifyResize);
     } catch (e) {
       if (!loadedOnce) renderError();
       notifyResize();
