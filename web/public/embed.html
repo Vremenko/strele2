@@ -6,7 +6,7 @@
   <title>Strele — graf</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/brand.css">
-  <link rel="stylesheet" href="/static/charts-shared.css?v=7">
+  <link rel="stylesheet" href="/static/charts-shared.css?v=8">
   <style>
     :root {
       --bg: var(--mi-gray-950, #1a1a1a);
@@ -1168,6 +1168,23 @@
         </label>`;
     }
 
+    function compactPanelHeadHtml(title, headActions = "", periodId = "") {
+      const actionsHtml = headActions
+        ? `<div class="panel-head-actions">${headActions}</div>`
+        : "";
+      const periodHtml = periodId
+        ? `<p class="panel-period" id="${periodId}"></p>`
+        : "";
+      return `
+          <div class="panel-head">
+            <div class="panel-head-top">
+              <h2 class="panel-head-title">${title}</h2>
+              ${actionsHtml}
+            </div>
+            ${periodHtml}
+          </div>`;
+    }
+
     function compactDailyHtml() {
       const h = defaultHeight("daily");
       const headActions = dailyHeadControls();
@@ -1176,7 +1193,7 @@
         : "";
       return `
         <section class="panel panel--flat" data-panel="daily">
-          ${panelHeadHtml("Statistika strel v Sloveniji", headActions, "dailyPeriodLabel")}
+          ${compactPanelHeadHtml("Statistika strel v Sloveniji", headActions, "dailyPeriodLabel")}
           ${statsHtml}
           <div class="chart-wrap" id="dailyWrap" style="height:${h}px">
             <canvas id="dailyChart"></canvas>
