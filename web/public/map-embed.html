@@ -977,7 +977,7 @@
 
   /* ——— Country borders (desktop only; defer on mobile) ——— */
   function loadCountryBorders() {
-    void fetch(apiUrl("/assets/meje_drzav.geojson"))
+    void fetch(apiUrl("/public/data/meje_drzav.geojson"))
       .then(r => r.ok ? r.json() : null)
       .then(gj => {
         if (!gj) return;

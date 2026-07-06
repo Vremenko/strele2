@@ -605,7 +605,11 @@ def api_obcina_widget(
 
 @app.get("/public/assets/{filename:path}")
 def serve_public_asset(filename: str) -> FileResponse:
-    allowed = {"strelko-logo-mark.png"}
+    allowed = {
+        "strelko-logo-mark.png",
+        "strelko-logo.png",
+        "meteoinfo-logo.png",
+    }
     safe = filename.strip("/")
     if safe not in allowed:
         raise HTTPException(status_code=404, detail="Datoteka ni dostopna")
