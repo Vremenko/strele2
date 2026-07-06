@@ -1053,6 +1053,37 @@
     statusEl.className = msg ? (isError ? "error" : "") : "hidden";
   }
 
+  let hoverTooltipLayer = null;
+
+  function closeOtherObcinaTooltips(activeLayer) {
+    if (!geojsonLayer) return;
+    geojsonLayer.eachLayer(function (other) {
+      if (other !== activeLayer && typeof other.closeTooltip === "function") {
+        other.closeTooltip();
+      }
+    });
+  }
+
+  function purgeOrphanObcinaTooltips() {
+    const pane = map.getPane("tooltipPane");
+    if (!pane) return;
+    pane.querySelectorAll(".ob-tooltip-shell").forEach((node) => node.remove());
+  }
+
+  function closeAllObcinaTooltips() {
+    hoverTooltipLayer = null;
+    if (geojsonLayer) {
+      geojsonLayer.eachLayer(function (layer) {
+        if (typeof layer.closeTooltip === "function") layer.closeTooltip();
+      });
+    }
+    purgeOrphanObcinaTooltips();
+  }
+
+  if (!mobView) {
+    map.getContainer().addEventListener("mouseleave", closeAllObcinaTooltips);
+  }
+
   /* ——— Render choropleth ——— */
   function renderLayer(skipViewport) {
     if (!geojson) return;
@@ -1063,6 +1094,7 @@
     scaleIsDynamic = scale.isDynamic;
     updateLegend(currentBreaks, scaleIsDynamic, mapMode);
 
+    closeAllObcinaTooltips();
     if (geojsonLayer) map.removeLayer(geojsonLayer);
 
     geojsonLayer = L.geoJSON(geojson, {
@@ -1103,11 +1135,18 @@
 
         if (!mobView) {
           layer.bindTooltip(() => tooltipHtml(), { sticky: true, className: "ob-tooltip-shell" });
-          layer.on("mouseover", function () {
+          layer.on("mouseover", function (e) {
+            closeOtherObcinaTooltips(layer);
+            hoverTooltipLayer = layer;
             layer.setStyle({ weight: 1.25, color: "#05a5ce", fillOpacity: 0.9 });
             layer.bringToFront();
+            if (typeof layer.openTooltip === "function") {
+              layer.openTooltip(e.latlng);
+            }
           });
           layer.on("mouseout", function () {
+            if (hoverTooltipLayer === layer) hoverTooltipLayer = null;
+            if (typeof layer.closeTooltip === "function") layer.closeTooltip();
             geojsonLayer.resetStyle(layer);
             if (selectedObMid && String(feature.properties.OB_MID) === String(selectedObMid)) {
               layer.setStyle({ weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 });
