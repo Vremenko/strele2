@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zemljevid strel po občinah</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    :root {
+      --bg:      #1a1a1a;
+      --panel:   #333333;
+      --text:    #f2f2f2;
+      --muted:   #999999;
+      --accent:  #fbb006;
+      --accent2: #05a5ce;
+      --danger:  #e2273e;
+      --border:  #4d4d4d;
+      --font: "Nunito Sans", system-ui, -apple-system, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%;
+      min-height: 100%;
+      height: auto;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+    }
+    #root {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+      height: auto;
+    }
+    /* toolbar */
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      padding: 0.55rem 0.85rem;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #toolbar.hidden { display: none; }
+    #toolbar label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-right: 0.1rem;
+    }
+    #daysSelect {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.28rem 0.6rem;
+      font: inherit;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+    #daysSelect:focus { outline: 2px solid var(--accent2); }
+    #mapDayPickWrap.hidden { display: none; }
+    #mapDayPick {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.22rem 0.5rem;
+      font: inherit;
+      font-size: 0.88rem;
+      cursor: pointer;
+      color-scheme: dark;
+    }
+    #mapDayPick:focus { outline: 2px solid var(--accent2); }
+    /* mode tabs */
+    .map-mode-tabs {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .map-mode-btn {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      padding: 0.28rem 0.75rem;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .map-mode-btn + .map-mode-btn {
+      border-left: 1px solid var(--border);
+    }
+    .map-mode-btn--active {
+      background: rgba(5, 165, 206, 0.18);
+      color: var(--accent2);
+    }
+    .map-mode-btn:hover:not(.map-mode-btn--active) {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+    }
+    /* period label */
+    #periodLabel {
+      color: var(--muted);
+      font-size: 1.05rem;
+      margin-left: auto;
+    }
+    /* map */
+    #map-stage {
+      position: relative;
+      flex: 0 0 auto;
+      height: 520px;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    #map {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .leaflet-container {
+      touch-action: pan-y pinch-zoom;
+    }
+    .strele-map-wheel-hint {
+      position: absolute;
+      inset: 0;
+      z-index: 1100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      color: #fff;
+      font-size: clamp(0.85rem, 2.5vw, 1rem);
+      text-align: center;
+      padding: 1.5rem;
+      pointer-events: none;
+      line-height: 1.45;
+    }
+    /* tooltip */
+    .leaflet-tooltip.ob-tooltip-shell {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+    }
+    .leaflet-tooltip.ob-tooltip-shell::before {
+      display: none;
+    }
+    .ob-tooltip {
+      background: var(--panel);
+      color: var(--text);
+      border: none;
+      border-radius: 8px;
+      padding: 0.45rem 0.7rem;
+      font-family: var(--font);
+      font-size: 0.85rem;
+      line-height: 1.4;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .ob-tooltip strong { color: var(--accent); }
+    /* Leaflet overrides */
+    .leaflet-container { background: var(--bg); }
+    .leaflet-interactive:focus,
+    .leaflet-interactive:focus-visible {
+      outline: none;
+    }
+    .leaflet-control-attribution {
+      background: rgba(26,26,26,0.82) !important;
+      color: var(--muted) !important;
+      font-size: 10px !important;
+    }
+    .leaflet-control-attribution a { color: var(--accent2) !important; }
+    /* legend */
+    #legend {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      min-width: 120px;
+    }
+    #legend-title {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.8rem;
+      margin-bottom: 0.3rem;
+    }
+    .legend-rows {
+      display: flex;
+      flex-direction: column;
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin: 0.2rem 0;
+    }
+    .legend-swatch {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .legend-compact {
+      display: flex;
+      gap: 1px;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .legend-compact .legend-swatch {
+      width: auto;
+      flex: 1 1 0;
+      height: 10px;
+      border-radius: 0;
+      min-width: 8px;
+    }
+    .legend-compact-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.62rem;
+      margin-top: 0.15rem;
+      color: var(--muted);
+    }
+    @media (max-width: 899px) {
+      :root { --font: system-ui, -apple-system, "Segoe UI", sans-serif; }
+      #map-stage {
+        height: 360px;
+        z-index: 1;
+      }
+      #map .leaflet-container {
+        width: 100% !important;
+        height: 100% !important;
+      }
+      #chart-section {
+        position: relative;
+        z-index: 5;
+        flex-shrink: 0;
+        background: var(--panel);
+        min-height: 160px;
+      }
+      #chartWrap {
+        height: 115px;
+        min-height: 115px;
+      }
+      #obcinaDailyCanvas {
+        display: block;
+        width: 100% !important;
+        max-width: 100%;
+      }
+      #legend {
+        padding: 0.45rem 0.55rem;
+        min-width: 0;
+        max-width: min(130px, 36vw);
+        font-size: 0.65rem;
+      }
+      #legend-title { font-size: 0.68rem; margin-bottom: 0.2rem; }
+      .legend-row { margin: 0.1rem 0; gap: 0.3rem; font-size: 0.6rem; }
+      .legend-swatch { width: 10px; height: 10px; }
+      .legend-rows { display: flex; flex-direction: column; }
+    }
+    /* loading / error */
+    #status {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(26,26,26,0.72);
+      z-index: 600;
+      font-size: 0.9rem;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    #status.hidden { display: none; }
+    #status.error { color: var(--danger); pointer-events: auto; }
+    /* chart section */
+    #chart-section {
+      flex-shrink: 0;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 0.55rem 0.85rem 0.65rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    #chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.3rem;
+      min-height: 1.5rem;
+    }
+    #chart-ob-name {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.82rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 60%;
+    }
+    #chart-ob-meta {
+      font-size: 0.74rem;
+      color: var(--muted);
+      text-align: right;
+      white-space: nowrap;
+    }
+    #chartWrap {
+      position: relative;
+      width: 100%;
+      height: 140px;
+      overflow: hidden;
+    }
+    #chart-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    #chart-hint.hidden { display: none; }
+  </style>
+</head>
+<body>
+<div id="root">
+  <div id="toolbar">
+    <label for="daysSelect">Obdobje</label>
+    <select id="daysSelect">
+      <option value="1">Danes</option>
+      <option value="7">7 dni</option>
+      <option value="14">14 dni</option>
+      <option value="30">30 dni</option>
+      <option value="90">90 dni</option>
+      <option value="pick">Datum</option>
+    </select>
+    <span id="mapDayPickWrap" class="hidden">
+      <input type="date" id="mapDayPick" aria-label="Datum prikaza" />
+    </span>
+    <div class="map-mode-tabs" id="mapModeTabs" role="group" aria-label="Način prikaza">
+      <button type="button" class="map-mode-btn map-mode-btn--active" data-mode="stevilo">Število</button>
+      <button type="button" class="map-mode-btn" data-mode="gostota">Gostota</button>
+      <button type="button" class="map-mode-btn" id="mapModeBtnDni" data-mode="dni" hidden>Št. dni z nevihto</button>
+    </div>
+    <span id="periodLabel"></span>
+  </div>
+  <div id="map-stage">
+    <div id="map"></div>
+    <div id="status">Nalagam …</div>
+  </div>
+  <div id="chart-section">
+    <div id="chart-header">
+      <span id="chart-ob-name">–</span>
+      <span id="chart-ob-meta"></span>
+    </div>
+    <div id="chartWrap">
+      <canvas id="obcinaDailyCanvas"></canvas>
+      <div id="chart-hint">Kliknite na občino za prikaz grafa</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin=""></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ——— URL params ——— */
+  const params  = new URLSearchParams(location.search);
+  const API_BASE = params.get("api") || window.STRELE_API_BASE || window.STRELE_WEB_BASE || "";
+  let days       = 30;
+  let periodMode = "range"; /* "range" | "day" */
+  let mapDay     = null;    /* ISO datum, ko je periodMode === "day" */
+  /* days=30 ali brez parametra = privzeto (danes če so strele, sicer 30 dni) */
+  let periodLockedByUrl = false;
+  if (params.has("day")) {
+    periodMode = "day";
+    mapDay = params.get("day");
+    periodLockedByUrl = true;
+  } else if (params.has("days")) {
+    const d = parseInt(params.get("days"), 10) || 30;
+    if (d !== 30) {
+      days = d;
+      periodLockedByUrl = true;
+    }
+  }
+  let mapMode    = "stevilo"; // "stevilo" | "gostota" | "dni"
+  const REFRESH_SEC = Math.max(60, parseInt(params.get("refresh_sec") || "600", 10) || 600);
+  const SHOW_CHROME = params.get("chrome") !== "0";
+
+  /* ——— Formatters ——— */
+  const fmt      = new Intl.NumberFormat("sl-SI", { useGrouping: true });
+  const fmtGostota = new Intl.NumberFormat("sl-SI", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+  function apiUrl(path) { return API_BASE + path; }
+
+  function isMobileView() {
+    return window.matchMedia("(max-width:899px)").matches;
+  }
+
+  function bindMapZoomGestures(mapInstance, hostEl) {
+    if (!mapInstance || !hostEl) return;
+    if (isMobileView()) {
+      try { mapInstance.touchZoom.enable(); } catch (_) {}
+      return;
+    }
+    const hintMsg = "Ctrl + kolesce ali vlečenje miške";
+    let hintTimer = null;
+    let hintEl = null;
+    function hideWheelHint() {
+      if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+      if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
+      hintEl = null;
+    }
+    function showWheelHint() {
+      hideWheelHint();
+      if (!hostEl.isConnected) return;
+      hintEl = document.createElement("div");
+      hintEl.className = "strele-map-wheel-hint";
+      hintEl.textContent = hintMsg;
+      hostEl.appendChild(hintEl);
+      hintTimer = setTimeout(hideWheelHint, 2800);
+    }
+    const container = mapInstance.getContainer();
+    let panning = false;
+    let lastX = 0;
+    let lastY = 0;
+    let ctrlDown = false;
+    function ctrlZoom(ev) {
+      return ctrlDown || !!(ev.ctrlKey || ev.metaKey || (ev.getModifierState && ev.getModifierState("Control")));
+    }
+    function wheelZoomStep(ev) {
+      let dy = ev.deltaY;
+      if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 20;
+      else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= 1200;
+      else if (Math.abs(dy) < 4) dy *= 20;
+      return -dy / 120;
+    }
+    function endPan() {
+      panning = false;
+    }
+    window.addEventListener("keydown", (ev) => {
+      if (ev.key === "Control") ctrlDown = true;
+    }, true);
+    window.addEventListener("keyup", (ev) => {
+      if (ev.key === "Control") ctrlDown = false;
+    }, true);
+    window.addEventListener("blur", () => { ctrlDown = false; });
+    container.addEventListener("mousedown", (ev) => {
+      if (ctrlZoom(ev) && ev.button === 0) {
+        hideWheelHint();
+        panning = true;
+        lastX = ev.clientX;
+        lastY = ev.clientY;
+        ev.preventDefault();
+      }
+    });
+    window.addEventListener("mousemove", (ev) => {
+      if (!panning) return;
+      const dx = ev.clientX - lastX;
+      const dy = ev.clientY - lastY;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      mapInstance.panBy([-dx, -dy], { animate: false });
+    });
+    window.addEventListener("mouseup", endPan);
+    container.addEventListener("wheel", (ev) => {
+      if (ctrlZoom(ev)) {
+        hideWheelHint();
+        ev.preventDefault();
+        ev.stopPropagation();
+        const step = wheelZoomStep(ev);
+        if (!step) return;
+        const next = mapInstance.getZoom() + step;
+        mapInstance.setZoom(
+          Math.min(mapInstance.getMaxZoom(), Math.max(mapInstance.getMinZoom(), next)),
+          { animate: false }
+        );
+      } else {
+        showWheelHint();
+      }
+    }, { passive: false, capture: true });
+  }
+
+  /** On narrow screens fit whole Slovenia; desktop keeps fixed center/zoom. */
+  const SLO_MOB_BOUNDS = L.latLngBounds([45.42, 13.38], [46.88, 16.61]);
+  let sloBoundsCache = null;
+  let mobViewportDone = false;
+
+  function getSloveniaBounds() {
+    if (geojsonLayer && _geojsonFullLoaded) return geojsonLayer.getBounds();
+    if (sloBoundsCache && _geojsonFullLoaded) return sloBoundsCache;
+    if (geojson && _geojsonFullLoaded) {
+      sloBoundsCache = L.geoJSON(geojson).getBounds();
+      return sloBoundsCache;
+    }
+    return SLO_MOB_BOUNDS;
+  }
+
+  function applyMapViewport() {
+    if (!isMobileView()) {
+      map.setView([46.12, 14.82], 8, { animate: false });
+      return;
+    }
+    if (mobViewportDone) return;
+    map.invalidateSize(true);
+    map.fitBounds(SLO_MOB_BOUNDS, {
+      paddingTopLeft: [8, 8],
+      paddingBottomRight: [8, 28],
+      maxZoom: 8,
+      animate: false,
+    });
+    mobViewportDone = true;
+  }
+
+  async function fetchGeojson(path) {
+    const res = await fetch(apiUrl(path), { cache: "default" });
+    if (!res.ok) throw new Error(`GeoJSON HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function fetchWithTimeout(url, ms = 45000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+      return res;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function fmtBreakVal(v, mode) {
+    if (mode === "stevilo" || mode === "dni") return fmt.format(Math.round(v));
+    /* Gostota: prilagodi decimale glede na velikost vrednosti */
+    if (v >= 10) return new Intl.NumberFormat("sl-SI", { useGrouping: true, maximumFractionDigits: 0 }).format(v);
+    if (v >= 1)  return new Intl.NumberFormat("sl-SI", { useGrouping: true, maximumFractionDigits: 1 }).format(v);
+    if (v >= 0.1) return new Intl.NumberFormat("sl-SI", { useGrouping: true, maximumFractionDigits: 2 }).format(v);
+    return new Intl.NumberFormat("sl-SI", { useGrouping: true, maximumFractionDigits: 3 }).format(v);
+  }
+
+  /* ——— Date helpers ——— */
+  function parseIsoDate(iso) {
+    if (!iso) return null;
+    const d = new Date(iso + "T12:00:00");
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function fmtDay(iso) {
+    const d = parseIsoDate(iso);
+    return d ? d.toLocaleDateString("sl-SI", { day: "numeric" }) : "—";
+  }
+  function fmtDayMonth(iso) {
+    const d = parseIsoDate(iso);
+    return d ? d.toLocaleDateString("sl-SI", { day: "numeric", month: "long" }) : "—";
+  }
+  function fmtMonthYear(iso) {
+    const d = parseIsoDate(iso);
+    if (!d) return "—";
+    return `${d.toLocaleDateString("sl-SI", { month: "long" })} ${d.getFullYear()}`;
+  }
+  function fmtFull(iso) {
+    const d = parseIsoDate(iso);
+    return d ? d.toLocaleDateString("sl-SI", { day: "numeric", month: "long", year: "numeric" }) : "—";
+  }
+  function formatSlDateRange(fromIso, toIso) {
+    const from = parseIsoDate(fromIso);
+    const to   = parseIsoDate(toIso);
+    if (!from && !to) return "—";
+    if (!from) return fmtFull(toIso);
+    if (!to)   return fmtFull(fromIso);
+    if (from.getFullYear() === to.getFullYear()) {
+      if (from.getMonth() === to.getMonth()) return `${fmtDay(fromIso)} – ${fmtDay(toIso)} ${fmtMonthYear(toIso)}`;
+      return `${fmtDayMonth(fromIso)} – ${fmtDayMonth(toIso)} ${to.getFullYear()}`;
+    }
+    return `${fmtFull(fromIso)} – ${fmtFull(toIso)}`;
+  }
+  function todayIso() { return new Date().toISOString().slice(0, 10); }
+  function subtractDays(iso, n) {
+    const d = new Date(iso + "T12:00:00");
+    d.setDate(d.getDate() - n + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function scaleDaysKey() {
+    if (periodMode === "day" || days === 1) return 1;
+    return days;
+  }
+
+  function mapDateRange() {
+    if (periodMode === "day" && mapDay) return { from: mapDay, to: mapDay };
+    const to = todayIso();
+    return { from: subtractDays(to, days), to };
+  }
+
+  function mapPeriodLabel() {
+    if (periodMode === "day" && mapDay) return fmtFull(mapDay);
+    if (days === 1) return fmtFull(todayIso());
+    return `${days} dni`;
+  }
+
+  /* ——— Colour scale ——— */
+  /* 8 barv: [0=siva, 1–7=gradient temno rjavo→rdeča→temno rdeča] */
+  const BAND_COLOURS = [
+    "#7a7a7a",  /* 0: siva (< 0,5 st./km² pri gostoti 30 dni; 0 pri drugih načinih) */
+    "#7a5c00",  /* 1: zelo malo */
+    "#9a7200",  /* 2: malo */
+    "#c68a00",  /* 3: nizko-srednje */
+    "#fbb006",  /* 4: srednje */
+    "#e2761e",  /* 5: visoko */
+    "#e2273e",  /* 6: zelo visoko */
+    "#7a0000",  /* 7: ekstremno */
+  ];
+
+  /* Fiksne spodnje meje (breaks[0]=0). Razred i = vrednost >= breaks[i] in < breaks[i+1].
+     Za gostoto: breaks[1]=1e-9 = katera koli vrednost > 0.                         */
+  const FIXED_BREAKS = {
+    stevilo: {
+       1: [0,  1,   2,   4,   8,  15,  25,   35],
+       7: [0,  1,   5,  13,  25,  45,  75,  100],
+      14: [0,   1,  26,  76, 201, 351, 501,  701],
+      30: [0,   1,  51, 151, 401, 701,1001, 1501],
+      90: [0,   5, 101, 301, 801,1401,2001, 3001],
+    },
+    gostota: {
+       1: [0, 1e-9, 0.05, 0.15, 0.30, 0.55, 0.85, 1.2],
+       7: [0, 1e-9, 0.10, 0.30, 0.60, 1.0, 1.5, 2.0],
+      14: [0, 1e-9, 0.20, 0.60, 1.20, 2.0, 3.0, 4.0],
+      30: [0, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 10.0],
+      90: [0, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 20.0],
+    },
+    dni: {
+       7: [0,  1,  2,  3,  4,  5,  6,  7],
+      14: [0,  1,  2,  3,  4,  5,  6,  7],
+      30: [0,  1,  3,  5,  7,  9, 11, 13],
+      90: [0,  1,  4,  8, 12, 16, 20, 25],
+    },
+  };
+
+  /* Eksplicitne oznake legende za način dni (fiksna lestvica). */
+  const DNI_LEGEND_LABELS = {
+     7: ["0", "1", "2", "3", "4", "5", "6", "7"],
+    14: ["0", "1", "2", "3", "4", "5", "6", "7+"],
+    30: ["0", "1–2", "3–4", "5–6", "7–8", "9–10", "11–12", "13+"],
+    90: ["0", "1–3", "4–7", "8–11", "12–15", "16–19", "20–23", "25+"],
+  };
+
+  /* Eksplicitne oznake legende za način število (14/30/90 dni — vedno fiksna lestvica). */
+  const STEVILO_LEGEND_LABELS = {
+    14: ["0", "1–25", "26–75", "76–200", "201–350", "351–500", "501–700", "700+"],
+    30: ["0", "1–50", "51–150", "151–400", "401–700", "701–1.000", "1.001–1.500", "1.500+"],
+    90: ["0", "5–100", "101–300", "301–800", "801–1.400", "1.401–2.000", "2.001–3.000", "3.000+"],
+  };
+
+  /* Eksplicitne oznake legende za način gostota (30/90 dni — fiksna lestvica, siva < prva meja). */
+  const GOSTOTA_LEGEND_LABELS = {
+    30: ["< 0,5", "0,5–1", "1–2", "2–3", "3–4", "4–5", "5–10", "10+"],
+    90: ["< 1", "1–2", "2–4", "4–6", "6–8", "8–10", "10–20", "20+"],
+  };
+
+  /* Zgornja "mirna" meja — če max > fixedMax, preklopi na dinamične razrede */
+  const FIXED_MAX = {
+    stevilo: {  1:  35,   7: 100,  14: 700,  30: 1500,  90: 3000 },
+    gostota: {  1: 1.2,   7: 2.0,  14: 4.0,  30: 10.0,  90: 20.0 },
+    dni:     {  7:  7,  14: 14,  30: 13,  90: 25 },
+  };
+
+  function allowsDniMode() {
+    return periodMode === "range" && [7, 14, 30, 90].includes(days);
+  }
+
+  function syncMapModeForPeriod() {
+    const btn = document.getElementById("mapModeBtnDni");
+    if (!btn) return;
+    const show = allowsDniMode();
+    btn.hidden = !show;
+    if (!show && mapMode === "dni") {
+      mapMode = "stevilo";
+      document.querySelectorAll(".map-mode-btn").forEach(b =>
+        b.classList.toggle("map-mode-btn--active", b.dataset.mode === mapMode)
+      );
+    }
+  }
+
+  function scaleDaysKey() {
+    if (periodMode === "day" || days === 1) return 1;
+    return days;
+  }
+
+  function mapDateRange() {
+    if (periodMode === "day" && mapDay) return { from: mapDay, to: mapDay };
+    const to = todayIso();
+    return { from: subtractDays(to, days), to };
+  }
+
+  function mapPeriodLabel() {
+    if (periodMode === "day" && mapDay) return fmtFull(mapDay);
+    if (days === 1) return fmtFull(todayIso());
+    return `${days} dni`;
+  }
+
+  function isViewingLiveDay() {
+    return periodMode === "range" || (periodMode === "day" && mapDay === todayIso());
+  }
+
+  /* ——— Dinamični razredi (fallback ob nevihtah) ——— */
+  const NICE_STEVILO = [1,2,3,5,10,15,20,25,30,40,50,75,100,125,150,200,250,300,400,500,750,1000,1500,2000,3000,5000];
+  const NICE_GOSTOTA = [0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2,3,5,7,10,15,20];
+
+  function niceNum(v, mode) {
+    const arr = mode === "gostota" ? NICE_GOSTOTA : NICE_STEVILO;
+    const found = arr.find(s => s >= v);
+    return found != null ? found : (mode === "gostota" ? Math.ceil(v) : Math.ceil(v / 100) * 100);
+  }
+
+  /* Vrne "lepo" vrednost strogo med a in b (za zapolnitev vrzeli v razredih). */
+  function niceBetween(a, b, mode) {
+    const arr = mode === "gostota" ? NICE_GOSTOTA : NICE_STEVILO;
+    const geo = mode === "gostota" ? Math.sqrt(a * b) : (a + b) / 2;
+    const candidates = arr.filter(v => v > a && v < b);
+    if (candidates.length > 0) {
+      return candidates.reduce((best, v) =>
+        Math.abs(v - geo) < Math.abs(best - geo) ? v : best
+      );
+    }
+    return mode === "gostota" ? geo : Math.round(geo);
+  }
+
+  function buildDynamicBreaks(values, mode) {
+    const positive = values.filter(v => v > 0).sort((a, b) => a - b);
+    if (!positive.length) return null;
+    const n = positive.length;
+
+    /* Kvantilne točke: prvih 6 razredov ~enakomerno (~15 % vsak),
+       7. razred (najtemnejši) = top ~7 % → manj občin v rdečem. */
+    const stops = [0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.93];
+    const rawBreaks = stops.map(p =>
+      positive[Math.min(Math.floor(p * n), n - 1)]
+    );
+
+    /* Zaokroži VSE meje na lepe vrednosti */
+    const rounded = rawBreaks.map(v => niceNum(v, mode));
+
+    /* Unikatne vrednosti, urejene naraščajoče */
+    const unique = [...new Set(rounded)].sort((a, b) => a - b);
+    const nBands = BAND_COLOURS.length - 1; // 7
+    const actualMax = positive[n - 1];
+
+    /* Zapolni manjkajoče razrede z lepo vrednostjo v največji vrzeli */
+    while (unique.length < nBands) {
+      let bestIdx = 0, bestGap = -Infinity;
+      for (let i = 0; i < unique.length - 1; i++) {
+        const gap = mode === "gostota"
+          ? Math.log(unique[i + 1] / unique[i])
+          : unique[i + 1] - unique[i];
+        if (gap > bestGap) { bestGap = gap; bestIdx = i; }
+      }
+      const fill = niceBetween(unique[bestIdx], unique[bestIdx + 1], mode);
+      unique.splice(bestIdx + 1, 0, fill);
+    }
+
+    /* KLJUČNO: zadnja meja ≤ dejanski max → rdeči razred vedno dosegljiv */
+    if (unique[nBands - 1] > actualMax) unique[nBands - 1] = actualMax;
+
+    return [0, ...unique.slice(0, nBands)];
+  }
+
+  /* ——— Aktivna lestvica (globalni state) ——— */
+  let currentBreaks = FIXED_BREAKS.stevilo[30];
+  let scaleIsDynamic = false;
+
+  function resolveScale(mode) {
+    const d = scaleDaysKey();
+    if (mode === "stevilo" && STEVILO_LEGEND_LABELS[d]) {
+      return { breaks: FIXED_BREAKS.stevilo[d], isDynamic: false };
+    }
+    if (mode === "gostota" && GOSTOTA_LEGEND_LABELS[d]) {
+      return { breaks: FIXED_BREAKS.gostota[d], isDynamic: false };
+    }
+    if (mode === "dni" && DNI_LEGEND_LABELS[d]) {
+      return { breaks: FIXED_BREAKS.dni[d], isDynamic: false };
+    }
+    const fixedBreaks = FIXED_BREAKS[mode][d] || FIXED_BREAKS[mode][30];
+    const fixedMax    = FIXED_MAX[mode][d]    || FIXED_MAX[mode][30];
+
+    const values = Object.values(obcinaData).map(ob => displayValue(ob, mode));
+    const maxVal = values.length ? Math.max(0, ...values) : 0;
+
+    if (maxVal <= fixedMax) return { breaks: fixedBreaks, isDynamic: false };
+    const dynBreaks = buildDynamicBreaks(values, mode) || fixedBreaks;
+    return { breaks: dynBreaks, isDynamic: true };
+  }
+
+  function displayValue(ob, mode) {
+    if (!ob) return 0;
+    if (mode === "dni") return ob.dni_z_nevihto || 0;
+    if (mode === "gostota") {
+      if (!ob.stevilo || ob.pov_km2 <= 0) return 0;
+      return ob.stevilo / ob.pov_km2;
+    }
+    if (ob.stevilo === 0) return 0;
+    return ob.stevilo;
+  }
+
+  function colourFor(ob) {
+    const v = displayValue(ob, mapMode);
+    if (mapMode === "gostota" && GOSTOTA_LEGEND_LABELS[scaleDaysKey()]) {
+      if (v < currentBreaks[1]) return BAND_COLOURS[0];
+      for (let i = currentBreaks.length - 1; i >= 1; i--) {
+        if (v >= currentBreaks[i]) return BAND_COLOURS[i];
+      }
+      return BAND_COLOURS[0];
+    }
+    if (v === 0) return BAND_COLOURS[0];
+    for (let i = currentBreaks.length - 1; i >= 0; i--) {
+      if (v >= currentBreaks[i]) return BAND_COLOURS[i];
+    }
+    /* Gostota > 0 pod najnižjo mejo — obarva najnižji razred, ne siva. */
+    if (mapMode === "gostota") return BAND_COLOURS[1];
+    return BAND_COLOURS[0];
+  }
+
+  function legendRowCount(mode) {
+    const d = scaleDaysKey();
+    if (mode === "stevilo" && STEVILO_LEGEND_LABELS[d]) return STEVILO_LEGEND_LABELS[d].length;
+    if (mode === "gostota" && GOSTOTA_LEGEND_LABELS[d]) return GOSTOTA_LEGEND_LABELS[d].length;
+    if (mode === "dni" && DNI_LEGEND_LABELS[d]) return DNI_LEGEND_LABELS[d].length;
+    return BAND_COLOURS.length;
+  }
+
+  /* ——— Legenda ——— */
+  function legendLabel(i, breaks, mode) {
+    const n = breaks.length;
+    if (mode === "stevilo") {
+      const labels = STEVILO_LEGEND_LABELS[scaleDaysKey()];
+      if (labels && labels[i] != null) return labels[i];
+    }
+    if (mode === "gostota") {
+      const labels = GOSTOTA_LEGEND_LABELS[scaleDaysKey()];
+      if (labels && labels[i] != null) return labels[i];
+    }
+    if (mode === "dni") {
+      const labels = DNI_LEGEND_LABELS[scaleDaysKey()];
+      if (labels && labels[i] != null) return labels[i];
+    }
+    if (i === 0) return "0";
+    if (i === n - 1) return `${fmtBreakVal(breaks[i], mode)}+`;
+    /* Band 1 pri gostoti: vedno prikaži "< naslednja_meja" — spodnja meja je 1e-9 ali
+       dinamična najmanjša vrednost, ki izgleda grdo v legendi. */
+    if (mode === "gostota" && i === 1) {
+      return `< ${fmtBreakVal(breaks[i + 1], mode)}`;
+    }
+    if (mode === "stevilo" || mode === "dni") {
+      return `${fmtBreakVal(breaks[i], mode)}–${fmtBreakVal(breaks[i + 1] - 1, mode)}`;
+    }
+    return `${fmtBreakVal(breaks[i], mode)}–${fmtBreakVal(breaks[i + 1], mode)}`;
+  }
+
+  function updateLegend(breaks, isDynamic, mode) {
+    const el = document.getElementById("legend");
+    if (!el) return;
+    const titleText = mode === "gostota"
+      ? "Strele / km²"
+      : mode === "dni"
+      ? "Št. dni z nevihto"
+      : "Število strel";
+    const rowsHtml = Array.from({ length: legendRowCount(mode) }, (_, i) =>
+      `<div class="legend-row"><span class="legend-swatch" style="background:${BAND_COLOURS[i]}"></span>${legendLabel(i, breaks, mode)}</div>`
+    ).join("");
+    el.innerHTML = `<div id="legend-title">${titleText}</div><div class="legend-rows">${rowsHtml}</div>`;
+  }
+
+  /* ——— MapTiler (isti kot Strelko) ——— */
+  const MAPTILER_KEY   = "49h4zzj96Wh7pGHWjiId";
+  const STYLE_BASE_DARK = "019c91be-c9e9-7eac-9e88-83d4e8cf7691";
+  const MAP_ATTRIBUTION =
+    '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> ' +
+    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
+
+  function maptilerTileUrl(styleId) {
+    return `https://api.maptiler.com/maps/${styleId}/{z}/{x}/{y}.png?key=${encodeURIComponent(MAPTILER_KEY)}`;
+  }
+
+  /* ——— Leaflet setup ——— */
+  const mobView = isMobileView();
+  const map = L.map("map", {
+    center: [46.12, 14.82],
+    zoom: 8,
+    minZoom: 7,
+    maxZoom: 11,
+    attributionControl: true,
+    zoomControl: false,
+    dragging: false,
+    doubleClickZoom: false,
+    scrollWheelZoom: false,
+    boxZoom: false,
+    touchZoom: true,
+  });
+
+  L.tileLayer(maptilerTileUrl(STYLE_BASE_DARK), mobView ? {
+    attribution: MAP_ATTRIBUTION,
+    maxZoom: 18,
+    keepBuffer: 2,
+  } : {
+    attribution: MAP_ATTRIBUTION,
+    maxZoom: 20,
+    tileSize: 512,
+    zoomOffset: -1,
+  }).addTo(map);
+
+  bindMapZoomGestures(map, document.getElementById("map-stage"));
+
+  /* ——— Legend control ——— */
+  const legendControl = L.control({ position: "bottomright" });
+  legendControl.onAdd = function () {
+    const div = L.DomUtil.create("div");
+    div.id = "legend";
+    return div;
+  };
+  legendControl.addTo(map);
+
+  let _lastReportedH = 0;
+  let _resizeTimer = null;
+
+  function scheduleMapResize() {
+    requestAnimationFrame(() => {
+      map.invalidateSize(true);
+      if (!mobView) applyMapViewport();
+      notifyResize();
+      resizeDailyChart();
+    });
+  }
+
+  function notifyResizeOnce() {
+    notifyResize(true);
+  }
+
+  function notifyResize(force) {
+    if (window.parent === window) return;
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      const root = document.getElementById("root");
+      const h = Math.ceil(root ? root.getBoundingClientRect().height : 0);
+      if (!force && Math.abs(h - _lastReportedH) < 3) return;
+      _lastReportedH = h;
+      window.parent.postMessage({ type: "strele-embed-resize", height: h }, "*");
+      resizeDailyChart();
+    }, force ? 0 : 80);
+  }
+
+  window.addEventListener("resize", scheduleMapResize);
+  window.addEventListener("message", (ev) => {
+    if (ev.data && ev.data.type === "strele-map-visible") {
+      scheduleMapResize();
+      resizeDailyChart();
+    }
+  });
+  scheduleMapResize();
+  notifyResizeOnce();
+
+  /* ——— Country borders (desktop only; defer on mobile) ——— */
+  function loadCountryBorders() {
+    void fetch(apiUrl("/public/data/meje_drzav.geojson"))
+      .then(r => r.ok ? r.json() : null)
+      .then(gj => {
+        if (!gj) return;
+        L.geoJSON(gj, {
+          smoothFactor: mobView ? 2 : 0,
+          style: { color: "#ffffff", weight: 2, opacity: 0.95, fill: false },
+          interactive: false,
+        }).addTo(map);
+      })
+      .catch(() => {});
+  }
+  if (mobView) {
+    setTimeout(loadCountryBorders, 800);
+  } else {
+    loadCountryBorders();
+  }
+
+  /* ——— State ——— */
+  let geojsonLayer = null;
+  let obcinaData   = {};   /* ob_id (string) → { name, stevilo, pov_km2 } */
+  let geojson      = null;
+
+  /* ——— UI refs ——— */
+  const sel           = document.getElementById("daysSelect");
+  const dayPickWrap   = document.getElementById("mapDayPickWrap");
+  const dayPick       = document.getElementById("mapDayPick");
+  const periodLabelEl = document.getElementById("periodLabel");
+  const statusEl      = document.getElementById("status");
+
+  dayPick.max = todayIso();
+
+  function syncSelectFromPeriod() {
+    if (periodMode === "day" && mapDay) {
+      sel.value = "pick";
+      dayPick.value = mapDay;
+      dayPickWrap.classList.remove("hidden");
+    } else if (days === 1) {
+      sel.value = "1";
+      dayPickWrap.classList.add("hidden");
+    } else {
+      sel.value = String(days);
+      dayPickWrap.classList.add("hidden");
+    }
+  }
+
+  async function resolveDefaultPeriod() {
+    try {
+      const res = await fetchWithTimeout(apiUrl("/api/obcine-map?days=1"));
+      if (!res.ok) return;
+      const data = await res.json();
+      const todayTotal = data.reduce((s, r) => s + (r.stevilo || 0), 0);
+      days = todayTotal > 0 ? 1 : 30;
+      periodMode = "range";
+      mapDay = null;
+    } catch (_) { /* ob napaki ostane 30 dni */ }
+  }
+
+  function updatePeriodLabel() {
+    if (periodMode === "day" && mapDay) {
+      periodLabelEl.textContent = fmtFull(mapDay);
+      return;
+    }
+    if (days === 1) {
+      periodLabelEl.textContent = fmtFull(todayIso());
+      return;
+    }
+    const { from, to } = mapDateRange();
+    periodLabelEl.textContent = formatSlDateRange(from, to);
+  }
+
+  function setStatus(msg, isError = false) {
+    statusEl.textContent = msg || "";
+    statusEl.className = msg ? (isError ? "error" : "") : "hidden";
+  }
+
+  let hoverTooltipLayer = null;
+
+  function closeOtherObcinaTooltips(activeLayer) {
+    if (!geojsonLayer) return;
+    geojsonLayer.eachLayer(function (other) {
+      if (other !== activeLayer && typeof other.closeTooltip === "function") {
+        other.closeTooltip();
+      }
+    });
+  }
+
+  function purgeOrphanObcinaTooltips() {
+    const pane = map.getPane("tooltipPane");
+    if (!pane) return;
+    pane.querySelectorAll(".ob-tooltip-shell").forEach((node) => node.remove());
+  }
+
+  function closeAllObcinaTooltips() {
+    hoverTooltipLayer = null;
+    if (geojsonLayer) {
+      geojsonLayer.eachLayer(function (layer) {
+        if (typeof layer.closeTooltip === "function") layer.closeTooltip();
+      });
+    }
+    purgeOrphanObcinaTooltips();
+  }
+
+  if (!mobView) {
+    map.getContainer().addEventListener("mouseleave", closeAllObcinaTooltips);
+  }
+
+  /* ——— Render choropleth ——— */
+  function renderLayer(skipViewport) {
+    if (!geojson) return;
+
+    /* izračunaj in nastavi lestvico */
+    const scale = resolveScale(mapMode);
+    currentBreaks  = scale.breaks;
+    scaleIsDynamic = scale.isDynamic;
+    updateLegend(currentBreaks, scaleIsDynamic, mapMode);
+
+    closeAllObcinaTooltips();
+    if (geojsonLayer) map.removeLayer(geojsonLayer);
+
+    geojsonLayer = L.geoJSON(geojson, {
+      smoothFactor: _geojsonFullLoaded ? 0 : 1,
+      style: function (feature) {
+        const id = String(feature.properties.OB_MID);
+        const ob = obcinaData[id];
+        return {
+          fillColor:   colourFor(ob),
+          fillOpacity: 0.78,
+          color:       "#1a1a1a",
+          weight:      0.4,
+          opacity:     1,
+        };
+      },
+      onEachFeature: function (feature, layer) {
+        const id   = String(feature.properties.OB_MID);
+        const name = obcinaData[id]?.name || feature.properties.OB_UIME || "—";
+
+        function tooltipHtml() {
+          const cur = obcinaData[id];
+          const nameNow = cur?.name || name;
+          let html = `<div class="ob-tooltip"><strong>${nameNow}</strong>`;
+          if (mapMode === "dni") {
+            const dni = cur?.dni_z_nevihto ?? 0;
+            html += `<br>Št. dni z nevihto: <strong>${fmt.format(dni)}</strong>`;
+          } else {
+            const nNow = cur?.stevilo || 0;
+            html += `<br>Strele: <strong>${fmt.format(nNow)}</strong>`;
+            if (mapMode === "gostota" && cur?.pov_km2 > 0 && nNow > 0) {
+              const g = nNow / cur.pov_km2;
+              html += `<br>Gostota: <strong>${fmtGostota.format(g)} st. / km²</strong>`;
+            }
+          }
+          html += `</div>`;
+          return html;
+        }
+
+        if (!mobView) {
+          layer.bindTooltip(() => tooltipHtml(), { sticky: true, className: "ob-tooltip-shell" });
+          layer.on("mouseover", function (e) {
+            closeOtherObcinaTooltips(layer);
+            hoverTooltipLayer = layer;
+            layer.setStyle({ weight: 1.25, color: "#05a5ce", fillOpacity: 0.9 });
+            layer.bringToFront();
+            if (typeof layer.openTooltip === "function") {
+              layer.openTooltip(e.latlng);
+            }
+          });
+          layer.on("mouseout", function () {
+            if (hoverTooltipLayer === layer) hoverTooltipLayer = null;
+            if (typeof layer.closeTooltip === "function") layer.closeTooltip();
+            geojsonLayer.resetStyle(layer);
+            if (selectedObMid && String(feature.properties.OB_MID) === String(selectedObMid)) {
+              layer.setStyle({ weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 });
+            }
+          });
+        }
+
+        layer.on("click", function () {
+          const obMid = feature.properties.OB_MID;
+          selectMunicipality(obMid, name);
+        });
+      },
+    });
+    geojsonLayer.addTo(map);
+    if (!skipViewport) applyMapViewport();
+    notifyResize(true);
+  }
+
+  /* ——— Data fetching ——— */
+  let _geojsonFullLoaded = false;
+  let _fullFetch = null;
+  let _hadLiteRender = false;
+
+  function onFullGeojsonReady(gj) {
+    const needsUpgrade = _hadLiteRender && geojson !== gj;
+    geojson = gj;
+    _geojsonFullLoaded = true;
+    if (needsUpgrade && Object.keys(obcinaData).length) {
+      renderLayer(true);
+    }
+  }
+
+  function ensureFullFetch() {
+    if (_geojsonFullLoaded || _fullFetch) return _fullFetch;
+    _fullFetch = fetchGeojson("/public/data/OB.geojson")
+      .then(onFullGeojsonReady)
+      .catch((e) => {
+        _fullFetch = null;
+        console.warn("OB.geojson", e);
+        throw e;
+      });
+    return _fullFetch;
+  }
+
+  async function loadGeojson() {
+    const fullPath = "/public/data/OB.geojson";
+    const litePath = "/public/data/OB-lite.geojson";
+
+    if (!mobView) {
+      if (_geojsonFullLoaded) return;
+      geojson = await fetchGeojson(fullPath);
+      _geojsonFullLoaded = true;
+      return;
+    }
+
+    if (_geojsonFullLoaded) return;
+
+    ensureFullFetch();
+
+    if (geojson) return;
+
+    try {
+      const lite = await fetchGeojson(litePath);
+      if (!_geojsonFullLoaded) geojson = lite;
+    } catch (_) {
+      await ensureFullFetch();
+      if (!_geojsonFullLoaded) throw new Error("GeoJSON load failed");
+    }
+  }
+
+  async function loadObcineData() {
+    let fetchUrl;
+    if (periodMode === "day" && mapDay) {
+      fetchUrl = apiUrl(`/api/obcine-map?day=${encodeURIComponent(mapDay)}`);
+    } else {
+      const { from, to } = mapDateRange();
+      fetchUrl = apiUrl(`/api/obcine-map?from=${from}&to=${to}`);
+    }
+    const res = await fetchWithTimeout(fetchUrl);
+    if (!res.ok) throw new Error(`API HTTP ${res.status}`);
+    const data = await res.json();
+    obcinaData = {};
+    for (const row of data) {
+      obcinaData[String(row.ob_id)] = {
+        name:          row.obcina,
+        stevilo:       row.stevilo,
+        pov_km2:       row.pov_km2 || 0,
+        dni_z_nevihto: row.dni_z_nevihto || 0,
+      };
+    }
+  }
+
+  async function reload() {
+    setStatus("Nalagam …");
+    try {
+      syncMapModeForPeriod();
+      updatePeriodLabel();
+      await Promise.all([loadGeojson(), loadObcineData()]);
+      setStatus(null);
+      if (mobView && geojson && !_geojsonFullLoaded) _hadLiteRender = true;
+      renderLayer();
+      notifyResize(true);
+    } catch (e) {
+      setStatus("Napaka pri nalaganju podatkov.", true);
+      console.error(e);
+    }
+  }
+
+  function afterPeriodReload() {
+    if (selectedObMid) {
+      const ob = obcinaData[String(selectedObMid)];
+      if (ob) selectMunicipality(selectedObMid, ob.name);
+    } else if (!mobView) {
+      preselectBestObcina();
+    }
+  }
+
+  function applyPeriodSelection() {
+    if (sel.value === "pick") {
+      periodMode = "day";
+      dayPickWrap.classList.remove("hidden");
+      if (!mapDay) mapDay = todayIso();
+      dayPick.value = mapDay;
+    } else {
+      periodMode = "range";
+      dayPickWrap.classList.add("hidden");
+      mapDay = null;
+      days = parseInt(sel.value, 10) || 30;
+    }
+    obcinaData = {};
+    reload().then(afterPeriodReload);
+  }
+
+  /* ——— Controls ——— */
+  sel.addEventListener("change", applyPeriodSelection);
+
+  dayPick.addEventListener("change", function () {
+    if (periodMode !== "day" || !dayPick.value) return;
+    mapDay = dayPick.value;
+    obcinaData = {};
+    reload().then(afterPeriodReload);
+  });
+
+  document.getElementById("mapModeTabs").addEventListener("click", function (e) {
+    const btn = e.target.closest("[data-mode]");
+    if (!btn) return;
+    const newMode = btn.dataset.mode;
+    if (newMode === "dni" && !allowsDniMode()) return;
+    if (newMode === mapMode) return;
+    mapMode = newMode;
+    document.querySelectorAll(".map-mode-btn").forEach(b =>
+      b.classList.toggle("map-mode-btn--active", b.dataset.mode === mapMode)
+    );
+    renderLayer(); /* podatki so že naloženi, samo preračunaj lestvico in barve */
+  });
+
+  window.addEventListener("message", function (e) {
+    if (e.data?.type === "strele-map-set-days") {
+      const d = parseInt(e.data.days, 10);
+      if (d && (d !== days || periodMode !== "range")) {
+        periodMode = "range";
+        mapDay = null;
+        days = d;
+        sel.value = d === 1 ? "1" : String(days);
+        dayPickWrap.classList.add("hidden");
+        obcinaData = {};
+        reload();
+      }
+    }
+    if (e.data?.type === "strele-map-set-day") {
+      const iso = e.data.day;
+      if (iso && parseIsoDate(iso) && iso !== mapDay) {
+        periodMode = "day";
+        mapDay = iso;
+        sel.value = "pick";
+        dayPick.value = mapDay;
+        dayPickWrap.classList.remove("hidden");
+        obcinaData = {};
+        reload();
+      }
+    }
+  });
+
+  /* ——— Chart.js – dnevni graf za občino ——— */
+  Chart.defaults.color = "#999999";
+  Chart.defaults.borderColor = "#4d4d4d";
+  Chart.defaults.font.family = "'Nunito Sans', system-ui, sans-serif";
+  Chart.defaults.font.size = window.innerWidth < 640 ? 10 : 12;
+
+  const fmt2 = new Intl.NumberFormat("sl-SI", { useGrouping: true });
+
+  function formatDatumSlChart(iso) {
+    const [, m, d] = iso.split("-").map(Number);
+    return `${d}. ${m}.`;
+  }
+
+  let dailyChart = null;
+  let chartDates  = [];
+
+  function resizeDailyChart() {
+    if (!dailyChart) return;
+    requestAnimationFrame(() => {
+      dailyChart.resize();
+    });
+  }
+
+  function initDailyChart() {
+    const isMob = mobView || window.innerWidth < 640;
+    dailyChart = new Chart(document.getElementById("obcinaDailyCanvas"), {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Strele",
+          data: [],
+          backgroundColor: "rgba(251, 176, 6, 0.75)",
+          borderColor: "#fbb006",
+          borderWidth: 1,
+          borderRadius: 3,
+          maxBarThickness: isMob ? 10 : 36,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        layout: { padding: { top: 4, right: isMob ? 4 : 8, left: isMob ? 2 : 4 } },
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title(items) { return formatDatumSlChart(chartDates[items[0].dataIndex]); },
+              label(ctx) { return `Strele: ${fmt2.format(ctx.parsed.y)}`; },
+            },
+          },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0, font: { size: isMob ? 9 : 10 } } },
+          x: {
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: isMob ? 6 : 10,
+              maxRotation: 0,
+              font: { size: isMob ? 8 : 9 },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  const chartObNameEl = document.getElementById("chart-ob-name");
+  const chartObMetaEl = document.getElementById("chart-ob-meta");
+  const chartHintEl   = document.getElementById("chart-hint");
+
+  function chartObcinaLabel(name) {
+    if (!name || name === "—") return name;
+    const trimmed = String(name).trim();
+    if (/^občina\b/i.test(trimmed)) return trimmed;
+    return `Občina ${trimmed}`;
+  }
+
+  let selectedObMid = null;
+
+  async function loadObcinaChart(ob_mid, name) {
+    const { from, to } = mapDateRange();
+    try {
+      const res = await fetch(apiUrl(`/api/obcina-daily?ob_mid=${ob_mid}&from=${from}&to=${to}`));
+      if (!res.ok) return;
+      const data = await res.json();
+      chartDates = data.map(d => d.datum);
+      const counts = data.map(d => d.stevilo);
+      const total  = counts.reduce((s, v) => s + v, 0);
+
+      chartObNameEl.textContent = chartObcinaLabel(name);
+      chartObMetaEl.textContent = `Skupaj: ${fmt2.format(total)}`;
+      chartHintEl.classList.add("hidden");
+
+      if (!dailyChart) initDailyChart();
+      dailyChart.data.labels = chartDates.map(formatDatumSlChart);
+      dailyChart.data.datasets[0].data = counts;
+      requestAnimationFrame(() => {
+        dailyChart.resize();
+        dailyChart.update("none");
+        notifyResize(true);
+      });
+    } catch (e) {
+      console.warn("Napaka pri nalaganju grafa občine", e);
+    }
+  }
+
+  function selectMunicipality(ob_mid, name) {
+    if (!ob_mid) return;
+    selectedObMid = ob_mid;
+    loadObcinaChart(ob_mid, name);
+    /* vizualni poudarek na karti */
+    if (geojsonLayer) {
+      geojsonLayer.eachLayer(function (layer) {
+        const id = String(layer.feature?.properties?.OB_MID);
+        if (id === String(ob_mid)) {
+          layer.setStyle({ weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 });
+          layer.bringToFront();
+        } else {
+          geojsonLayer.resetStyle(layer);
+        }
+      });
+    }
+  }
+
+  async function tryGpsPreselect() {
+    if (mobView || !navigator.geolocation) return false;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude: lat, longitude: lon } = pos.coords;
+          /* grobe meje Slovenije */
+          if (lat < 45.4 || lat > 46.9 || lon < 13.3 || lon > 16.6) {
+            resolve(false);
+            return;
+          }
+          try {
+            const res = await fetch(apiUrl(`/api/obcina-by-coords?lat=${lat}&lon=${lon}`));
+            if (res.ok) {
+              const { ob_mid, name } = await res.json();
+              selectMunicipality(ob_mid, name);
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          } catch { resolve(false); }
+        },
+        () => resolve(false),
+        { timeout: 4000, maximumAge: 60000 }
+      );
+    });
+  }
+
+  async function preselectBestObcina() {
+    const gpsOk = await tryGpsPreselect();
+    if (gpsOk) return;
+    /* fallback: občina z največ strelami */
+    const entries = Object.entries(obcinaData);
+    if (!entries.length) return;
+    const [topId, topOb] = entries.reduce((best, cur) =>
+      cur[1].stevilo > best[1].stevilo ? cur : best
+    );
+    if (topOb.stevilo > 0) selectMunicipality(parseInt(topId, 10), topOb.name);
+  }
+
+  if (!SHOW_CHROME) {
+    document.getElementById("toolbar")?.classList.add("hidden");
+  }
+
+  /* ——— Init ——— */
+  if (mobView) {
+    try {
+      const preload = document.createElement("link");
+      preload.rel = "preload";
+      preload.as = "fetch";
+      preload.href = apiUrl("/public/data/OB.geojson");
+      preload.crossOrigin = "anonymous";
+      document.head.appendChild(preload);
+    } catch (_) {}
+    ensureFullFetch();
+  }
+
+  syncMapModeForPeriod();
+  (async function boot() {
+    if (!periodLockedByUrl) await resolveDefaultPeriod();
+    syncSelectFromPeriod();
+    syncMapModeForPeriod();
+    await reload();
+    if (!mobView) preselectBestObcina();
+  })();
+
+  /* ——— Auto-refresh (poll vsakih 2 min, osveži ob spremembi ali vsakih 10 min) ——— */
+  let _mapLastTodayCount = null;
+  let _mapLastReload = Date.now();
+  setInterval(async () => {
+    try {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const d = await fetch(apiUrl(`/api/obcine-map?days=1`)).then((r) => r.ok ? r.json() : null).catch(() => null);
+      const todayTotal = d ? d.reduce((s, r) => s + (r.stevilo || 0), 0) : -1;
+      const stale = Date.now() - _mapLastReload >= REFRESH_SEC * 1000;
+      const changed = isViewingLiveDay()
+        && _mapLastTodayCount !== null
+        && todayTotal !== -1
+        && todayTotal !== _mapLastTodayCount;
+      if (changed || stale) {
+        obcinaData = {};
+        await reload();
+        _mapLastReload = Date.now();
+      }
+      if (todayTotal !== -1) _mapLastTodayCount = todayTotal;
+    } catch (_) { /* ignore */ }
+  }, 2 * 60 * 1000);
+})();
+</script>
+</body>
+</html>
