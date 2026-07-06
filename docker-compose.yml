@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: strele_archive
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - strele_pg:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d strele_archive"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ingest:
+    image: python:3.11-slim
+    network_mode: host
+    working_dir: /app
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    command: bash -c "pip install -q -r requirements.txt && python -m strele_archive.ingest"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  obcine-public:
+    image: python:3.11-slim
+    network_mode: host
+    working_dir: /app
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    command: bash -c "pip install -q -r requirements.txt && python -m strele_archive.obcine_public_server"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  strele_pg:

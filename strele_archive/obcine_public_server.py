@@ -15,7 +15,6 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from shapely.geometry import Point, mapping
-from shapely.ops import unary_union
 
 from strele_archive.obcine import load_obcine
 
@@ -36,6 +35,16 @@ def _database_url() -> str:
     if not url:
         raise RuntimeError("DATABASE_URL manjka")
     return url
+
+
+def _udari_database_url() -> str | None:
+    url = (
+        os.getenv("UDARI_DATABASE_URL", "").strip()
+        or os.getenv("STORM_DATABASE_URL", "").strip()
+    )
+    if not url:
+        return None
+    return url.replace("postgresql+psycopg://", "postgresql://")
 
 
 def _date_range(
@@ -286,13 +295,17 @@ def _fetch_strikes_24h_multi(obs: list) -> list[dict]:
     return out
 
 
-_LAST_STRIKE_LOOKBACK_DAYS = int(os.getenv("WIDGET_LAST_STRIKE_DAYS", "365"))
-
-
-def _obcina_polygon_wkt(obs: list) -> str:
-    if len(obs) == 1:
-        return obs[0].geometry.wkt
-    return unary_union([o.geometry for o in obs]).wkt
+def _last_strike_date_from_daily(daily: list[dict]) -> date | None:
+    last: date | None = None
+    for row in daily:
+        stevilo = row.get("stevilo") or 0
+        datum = row.get("datum")
+        if stevilo < 1 or not datum:
+            continue
+        d = date.fromisoformat(str(datum)[:10])
+        if last is None or d > last:
+            last = d
+    return last
 
 
 def _parse_strike_ts(ts_raw) -> datetime | None:
@@ -307,32 +320,127 @@ def _parse_strike_ts(ts_raw) -> datetime | None:
     return ts
 
 
-def _fetch_last_strike_time_multi(obs: list) -> str | None:
-    """Najnovejši udar znotraj meja občine iz strele.udari (polna zgodovina)."""
+def _fetch_last_strike_time_from_udari_db(obs: list) -> str | None:
+    """Natančen čas zadnjega udara iz strele.udari (minute)."""
+    url = _udari_database_url()
+    if not url:
+        return None
+    lookback_days = int(os.getenv("WIDGET_LAST_STRIKE_DAYS", "365"))
     minx = min(o.geometry.bounds[0] for o in obs)
     miny = min(o.geometry.bounds[1] for o in obs)
     maxx = max(o.geometry.bounds[2] for o in obs)
     maxy = max(o.geometry.bounds[3] for o in obs)
     now = _utc_now()
-    start = now - timedelta(days=_LAST_STRIKE_LOOKBACK_DAYS)
-    payload = {
-        "min_lat": miny,
-        "max_lat": maxy,
-        "min_lon": minx,
-        "max_lon": maxx,
-        "time_from_utc": _iso_utc(start),
-        "time_to_utc": _iso_utc(now),
-        "polygon_wkt": _obcina_polygon_wkt(obs),
-        "limit": 1,
-    }
+    start = now - timedelta(days=lookback_days)
     try:
-        rows = _storm_post("/strele/history/query", payload)
+        with psycopg.connect(url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT lat, lon, ts_utc
+                    FROM strele.udari
+                    WHERE ts_utc >= %s AND ts_utc <= %s
+                      AND lat BETWEEN %s AND %s
+                      AND lon BETWEEN %s AND %s
+                    ORDER BY ts_utc DESC
+                    LIMIT 500
+                    """,
+                    (start, now, miny, maxy, minx, maxx),
+                )
+                rows = cur.fetchall()
+    except Exception:
+        return None
+    latest: datetime | None = None
+    for lat, lon, ts_raw in rows:
+        pt = Point(lon, lat)
+        if not any(o.prepared.contains(pt) for o in obs):
+            continue
+        ts = _parse_strike_ts(ts_raw)
+        if ts and (latest is None or ts > latest):
+            latest = ts
+    return _iso_utc(latest) if latest else None
+
+
+def _fetch_last_strike_time_from_24h_multi(obs: list) -> str | None:
+    """Najnovejši udar iz zadnjih 24 h (natančen čas)."""
+    minx = min(o.geometry.bounds[0] for o in obs)
+    miny = min(o.geometry.bounds[1] for o in obs)
+    maxx = max(o.geometry.bounds[2] for o in obs)
+    maxy = max(o.geometry.bounds[3] for o in obs)
+    now = _utc_now()
+    start = now - timedelta(hours=24)
+    try:
+        rows = _storm_get(
+            "/strele",
+            {
+                "min_lat": miny,
+                "max_lat": maxy,
+                "min_lon": minx,
+                "max_lon": maxx,
+                "time_from_utc": _iso_utc(start),
+                "time_to_utc": _iso_utc(now),
+            },
+        )
     except HTTPException:
         return None
-    if not isinstance(rows, list) or not rows:
+    if not isinstance(rows, list):
         return None
-    ts = _parse_strike_ts(rows[0].get("ts_utc"))
-    return _iso_utc(ts) if ts else None
+    latest: datetime | None = None
+    for row in rows:
+        lat = float(row.get("lat", 0))
+        lon = float(row.get("lon", 0))
+        pt = Point(lon, lat)
+        if not any(o.prepared.contains(pt) for o in obs):
+            continue
+        ts = _parse_strike_ts(row.get("ts_utc"))
+        if ts and (latest is None or ts > latest):
+            latest = ts
+    return _iso_utc(latest) if latest else None
+
+
+def _fetch_last_strike_time_from_hourly_aggregate(
+    muni_codes: list[str], daily: list[dict]
+) -> str | None:
+    """Približen čas zadnjega udara iz urne agregacije na zadnji dan s strelami."""
+    last_day = _last_strike_date_from_daily(daily)
+    if not last_day or not muni_codes:
+        return None
+    start_local = datetime.combine(last_day, datetime.min.time(), tzinfo=_LJ_TZ)
+    end_local = start_local + timedelta(days=1)
+    try:
+        payload = _storm_get(
+            "/strele/aggregates/series",
+            {
+                "bucket": "hour",
+                "group_by": "municipality",
+                "municipality_codes": ",".join(muni_codes),
+                "time_from_utc": _iso_utc(start_local.astimezone(timezone.utc)),
+                "time_to_utc": _iso_utc(end_local.astimezone(timezone.utc)),
+            },
+        )
+    except HTTPException:
+        return None
+    latest: datetime | None = None
+    for group in payload.get("groups") or []:
+        for pt in group.get("points") or []:
+            if int(pt.get("count") or 0) < 1:
+                continue
+            ts = _parse_strike_ts(pt.get("t"))
+            if ts and (latest is None or ts > latest):
+                latest = ts
+    return _iso_utc(latest) if latest else None
+
+
+def _fetch_last_strike_time_multi(
+    obs: list, muni_codes: list[str], daily: list[dict]
+) -> str | None:
+    ts = _fetch_last_strike_time_from_udari_db(obs)
+    if ts:
+        return ts
+    ts = _fetch_last_strike_time_from_24h_multi(obs)
+    if ts:
+        return ts
+    return _fetch_last_strike_time_from_hourly_aggregate(muni_codes, daily)
 
 
 def _fetch_daily_calm(ob_mids: list[int] | int, days: int = 30) -> tuple[list[dict], int, dict | None]:
@@ -556,7 +664,7 @@ def api_obcina_widget(
     bounds = _obcina_bounds_multi(obs)
 
     daily, period_total, peak = _fetch_daily_calm(mids, calm_days)
-    last_strike_time = _fetch_last_strike_time_multi(obs)
+    last_strike_time = _fetch_last_strike_time_multi(obs, muni_codes, daily)
 
     try:
         total_24h, last_hour, hourly = _fetch_hourly_24h_multi(muni_codes)
