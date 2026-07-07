@@ -1055,6 +1055,34 @@
 
   let hoverTooltipLayer = null;
 
+  const OBCINA_STYLE_HOVER = { weight: 1.25, color: "#05a5ce", fillOpacity: 0.9 };
+  const OBCINA_STYLE_SELECTED = { weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 };
+
+  function isObcinaPreviewActive() {
+    if (!hoverTooltipLayer) return false;
+    if (mobView) return mobTouchActive && !mobPinchGesture;
+    return true;
+  }
+
+  function syncObcinaLayerStyles() {
+    if (!geojsonLayer) return;
+    const previewActive = isObcinaPreviewActive();
+    const selectedId = selectedObMid != null ? String(selectedObMid) : null;
+    geojsonLayer.eachLayer(function (layer) {
+      geojsonLayer.resetStyle(layer);
+      if (previewActive && layer === hoverTooltipLayer) {
+        layer.setStyle(OBCINA_STYLE_HOVER);
+        layer.bringToFront();
+      } else if (!previewActive && selectedId) {
+        const id = String(layer.feature?.properties?.OB_MID);
+        if (id === selectedId) {
+          layer.setStyle(OBCINA_STYLE_SELECTED);
+          layer.bringToFront();
+        }
+      }
+    });
+  }
+
   function closeOtherObcinaTooltips(activeLayer) {
     if (!geojsonLayer) return;
     geojsonLayer.eachLayer(function (other) {
@@ -1078,6 +1106,7 @@
       });
     }
     purgeOrphanObcinaTooltips();
+    syncObcinaLayerStyles();
   }
 
   if (!mobView) {
@@ -1166,23 +1195,13 @@
     return found;
   }
 
-  function restoreMobLayerStyles() {
-    if (!geojsonLayer) return;
-    geojsonLayer.eachLayer(function (layer) {
-      geojsonLayer.resetStyle(layer);
-      if (selectedObMid && String(layer.feature?.properties?.OB_MID) === String(selectedObMid)) {
-        layer.setStyle({ weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 });
-      }
-    });
-  }
-
   function clearMobObcinaProbeHit() {
     mobHitObMid = null;
     if (hoverTooltipLayer) {
       if (typeof hoverTooltipLayer.closeTooltip === "function") hoverTooltipLayer.closeTooltip();
       hoverTooltipLayer = null;
     }
-    restoreMobLayerStyles();
+    syncObcinaLayerStyles();
   }
 
   function repositionMobObcinaTooltip(layer, latlng) {
@@ -1203,9 +1222,8 @@
     mobHitObMid = obMidStr;
     closeOtherObcinaTooltips(hit.layer);
     hoverTooltipLayer = hit.layer;
+    syncObcinaLayerStyles();
     repositionMobObcinaTooltip(hit.layer, hit.latlng);
-    hit.layer.setStyle({ weight: 1.25, color: "#05a5ce", fillOpacity: 0.9 });
-    hit.layer.bringToFront();
   }
 
   function enterMobPinchGesture() {
@@ -1360,8 +1378,7 @@
           layer.on("mouseover", function (e) {
             closeOtherObcinaTooltips(layer);
             hoverTooltipLayer = layer;
-            layer.setStyle({ weight: 1.25, color: "#05a5ce", fillOpacity: 0.9 });
-            layer.bringToFront();
+            syncObcinaLayerStyles();
             if (typeof layer.openTooltip === "function") {
               layer.openTooltip(e.latlng);
             }
@@ -1369,10 +1386,7 @@
           layer.on("mouseout", function () {
             if (hoverTooltipLayer === layer) hoverTooltipLayer = null;
             if (typeof layer.closeTooltip === "function") layer.closeTooltip();
-            geojsonLayer.resetStyle(layer);
-            if (selectedObMid && String(feature.properties.OB_MID) === String(selectedObMid)) {
-              layer.setStyle({ weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 });
-            }
+            syncObcinaLayerStyles();
           });
         }
 
@@ -1391,13 +1405,6 @@
             if (typeof layer.openTooltip === "function") {
               layer.openTooltip(e.latlng);
             }
-
-            layer.setStyle({
-              weight: 1.25,
-              color: "#05a5ce",
-              fillOpacity: 0.9,
-            });
-            layer.bringToFront();
           }
           selectMunicipality(obMid, name);
         });
@@ -1686,18 +1693,7 @@
     if (!ob_mid) return;
     selectedObMid = ob_mid;
     loadObcinaChart(ob_mid, name);
-    /* vizualni poudarek na karti */
-    if (geojsonLayer) {
-      geojsonLayer.eachLayer(function (layer) {
-        const id = String(layer.feature?.properties?.OB_MID);
-        if (id === String(ob_mid)) {
-          layer.setStyle({ weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 });
-          layer.bringToFront();
-        } else {
-          geojsonLayer.resetStyle(layer);
-        }
-      });
-    }
+    syncObcinaLayerStyles();
   }
 
   async function tryGpsPreselect() {
