@@ -1086,9 +1086,224 @@
 
   if (mobView) {
     map.on("click", function () {
+      suppressNextMobileClick = false;
       closeAllObcinaTooltips();
     });
   }
+
+  /* ——— Mobile touch-probe (tooltip preview under finger, no map pan) ——— */
+  const MOB_TOUCH_MOVE_PX = 10;
+
+  function pointInRing(lng, lat, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0];
+      const yi = ring[i][1];
+      const xj = ring[j][0];
+      const yj = ring[j][1];
+      const intersect =
+        (yi > lat) !== (yj > lat) &&
+        lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function polygonRingsContains(lng, lat, rings) {
+    if (!rings || !rings.length) return false;
+    if (!pointInRing(lng, lat, rings[0])) return false;
+    for (let h = 1; h < rings.length; h++) {
+      if (pointInRing(lng, lat, rings[h])) return false;
+    }
+    return true;
+  }
+
+  function featureContainsLatLng(feature, latlng) {
+    const geom = feature && feature.geometry;
+    if (!geom || !latlng) return false;
+    const lng = latlng.lng;
+    const lat = latlng.lat;
+    if (geom.type === "Polygon") {
+      return polygonRingsContains(lng, lat, geom.coordinates);
+    }
+    if (geom.type === "MultiPolygon") {
+      const polys = geom.coordinates;
+      for (let p = 0; p < polys.length; p++) {
+        if (polygonRingsContains(lng, lat, polys[p])) return true;
+      }
+    }
+    return false;
+  }
+
+  let mobTouchActive = false;
+  let mobPinchGesture = false;
+  let mobTouchMoved = false;
+  let mobTouchStartX = 0;
+  let mobTouchStartY = 0;
+  let mobTouchX = 0;
+  let mobTouchY = 0;
+  let mobHitObMid = null;
+  let mobProbeRaf = 0;
+  let suppressNextMobileClick = false;
+
+  function obcinaHitAtClientPoint(clientX, clientY) {
+    if (!geojsonLayer) return null;
+    const rect = map.getContainer().getBoundingClientRect();
+    const cp = L.point(clientX - rect.left, clientY - rect.top);
+    const latlng = map.containerPointToLatLng(cp);
+    let found = null;
+    geojsonLayer.eachLayer(function (layer) {
+      const feature = layer.feature;
+      if (!feature || !layer.getBounds || !layer.getBounds().contains(latlng)) return;
+      if (featureContainsLatLng(feature, latlng)) {
+        found = {
+          layer,
+          obMid: feature.properties.OB_MID,
+          latlng,
+        };
+      }
+    });
+    return found;
+  }
+
+  function restoreMobLayerStyles() {
+    if (!geojsonLayer) return;
+    geojsonLayer.eachLayer(function (layer) {
+      geojsonLayer.resetStyle(layer);
+      if (selectedObMid && String(layer.feature?.properties?.OB_MID) === String(selectedObMid)) {
+        layer.setStyle({ weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 });
+      }
+    });
+  }
+
+  function clearMobObcinaProbeHit() {
+    mobHitObMid = null;
+    if (hoverTooltipLayer) {
+      if (typeof hoverTooltipLayer.closeTooltip === "function") hoverTooltipLayer.closeTooltip();
+      hoverTooltipLayer = null;
+    }
+    restoreMobLayerStyles();
+  }
+
+  function repositionMobObcinaTooltip(layer, latlng) {
+    const tooltip = typeof layer.getTooltip === "function" ? layer.getTooltip() : null;
+    if (tooltip && typeof layer.isTooltipOpen === "function" && layer.isTooltipOpen()) {
+      tooltip.setLatLng(latlng);
+    } else if (typeof layer.openTooltip === "function") {
+      layer.openTooltip(latlng);
+    }
+  }
+
+  function applyMobObcinaHit(hit) {
+    const obMidStr = String(hit.obMid);
+    if (mobHitObMid === obMidStr) {
+      repositionMobObcinaTooltip(hit.layer, hit.latlng);
+      return;
+    }
+    mobHitObMid = obMidStr;
+    closeOtherObcinaTooltips(hit.layer);
+    hoverTooltipLayer = hit.layer;
+    repositionMobObcinaTooltip(hit.layer, hit.latlng);
+    hit.layer.setStyle({ weight: 1.25, color: "#05a5ce", fillOpacity: 0.9 });
+    hit.layer.bringToFront();
+  }
+
+  function enterMobPinchGesture() {
+    mobPinchGesture = true;
+    mobTouchActive = false;
+    cancelMobObcinaProbe();
+    clearMobObcinaProbeHit();
+  }
+
+  function runMobObcinaProbe() {
+    mobProbeRaf = 0;
+    if (!mobTouchActive || mobPinchGesture) return;
+    const hit = obcinaHitAtClientPoint(mobTouchX, mobTouchY);
+    if (!hit) {
+      clearMobObcinaProbeHit();
+      return;
+    }
+    applyMobObcinaHit(hit);
+  }
+
+  function cancelMobObcinaProbe() {
+    if (!mobProbeRaf) return;
+    cancelAnimationFrame(mobProbeRaf);
+    mobProbeRaf = 0;
+  }
+
+  function scheduleMobObcinaProbe() {
+    if (!mobTouchActive || mobPinchGesture) return;
+    if (mobProbeRaf) return;
+    mobProbeRaf = requestAnimationFrame(runMobObcinaProbe);
+  }
+
+  function bindMobileObcinaTouchProbe() {
+    const container = map.getContainer();
+
+    container.addEventListener(
+      "touchstart",
+      function (e) {
+        if (e.touches.length >= 2) {
+          enterMobPinchGesture();
+          return;
+        }
+        if (e.touches.length !== 1 || mobPinchGesture) return;
+        suppressNextMobileClick = false;
+        mobTouchActive = true;
+        mobTouchMoved = false;
+        mobTouchStartX = e.touches[0].clientX;
+        mobTouchStartY = e.touches[0].clientY;
+        mobTouchX = mobTouchStartX;
+        mobTouchY = mobTouchStartY;
+        scheduleMobObcinaProbe();
+      },
+      { passive: true }
+    );
+
+    container.addEventListener(
+      "touchmove",
+      function (e) {
+        if (e.touches.length >= 2) {
+          enterMobPinchGesture();
+          return;
+        }
+        if (mobPinchGesture || !mobTouchActive || e.touches.length !== 1) return;
+        mobTouchX = e.touches[0].clientX;
+        mobTouchY = e.touches[0].clientY;
+        if (!mobTouchMoved) {
+          const dist = Math.hypot(mobTouchX - mobTouchStartX, mobTouchY - mobTouchStartY);
+          if (dist > MOB_TOUCH_MOVE_PX) mobTouchMoved = true;
+        }
+        scheduleMobObcinaProbe();
+      },
+      { passive: true }
+    );
+
+    function endMobTouch(e) {
+      if (e.touches.length >= 2) {
+        enterMobPinchGesture();
+        return;
+      }
+      if (e.touches.length === 1) {
+        if (mobPinchGesture) {
+          mobTouchActive = false;
+          cancelMobObcinaProbe();
+        }
+        return;
+      }
+      if (mobTouchMoved) suppressNextMobileClick = true;
+      cancelMobObcinaProbe();
+      mobTouchActive = false;
+      mobPinchGesture = false;
+      mobTouchMoved = false;
+    }
+
+    container.addEventListener("touchend", endMobTouch, { passive: true });
+    container.addEventListener("touchcancel", endMobTouch, { passive: true });
+  }
+
+  if (mobView) bindMobileObcinaTouchProbe();
 
   /* ——— Render choropleth ——— */
   function renderLayer(skipViewport) {
@@ -1164,6 +1379,11 @@
         layer.on("click", function (e) {
           const obMid = feature.properties.OB_MID;
           if (mobView) {
+            if (suppressNextMobileClick) {
+              suppressNextMobileClick = false;
+              L.DomEvent.stopPropagation(e);
+              return;
+            }
             L.DomEvent.stopPropagation(e);
             closeOtherObcinaTooltips(layer);
             hoverTooltipLayer = layer;
