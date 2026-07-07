@@ -1164,9 +1164,7 @@
         layer.on("click", function (e) {
           const obMid = feature.properties.OB_MID;
           if (mobView) {
-            if (e.originalEvent) {
-              L.DomEvent.stopPropagation(e.originalEvent);
-            }
+            L.DomEvent.stopPropagation(e);
             closeOtherObcinaTooltips(layer);
             hoverTooltipLayer = layer;
 
