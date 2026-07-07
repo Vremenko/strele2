@@ -1084,6 +1084,12 @@
     map.getContainer().addEventListener("mouseleave", closeAllObcinaTooltips);
   }
 
+  if (mobView) {
+    map.on("click", function () {
+      closeAllObcinaTooltips();
+    });
+  }
+
   /* ——— Render choropleth ——— */
   function renderLayer(skipViewport) {
     if (!geojson) return;
@@ -1133,8 +1139,9 @@
           return html;
         }
 
+        layer.bindTooltip(() => tooltipHtml(), { sticky: true, className: "ob-tooltip-shell" });
+
         if (!mobView) {
-          layer.bindTooltip(() => tooltipHtml(), { sticky: true, className: "ob-tooltip-shell" });
           layer.on("mouseover", function (e) {
             closeOtherObcinaTooltips(layer);
             hoverTooltipLayer = layer;
@@ -1154,8 +1161,26 @@
           });
         }
 
-        layer.on("click", function () {
+        layer.on("click", function (e) {
           const obMid = feature.properties.OB_MID;
+          if (mobView) {
+            if (e.originalEvent) {
+              L.DomEvent.stopPropagation(e.originalEvent);
+            }
+            closeOtherObcinaTooltips(layer);
+            hoverTooltipLayer = layer;
+
+            if (typeof layer.openTooltip === "function") {
+              layer.openTooltip(e.latlng);
+            }
+
+            layer.setStyle({
+              weight: 1.25,
+              color: "#05a5ce",
+              fillOpacity: 0.9,
+            });
+            layer.bringToFront();
+          }
           selectMunicipality(obMid, name);
         });
       },
