@@ -53,12 +53,10 @@
     body.embed.embed-framed .chart-wrap canvas {
       touch-action: pan-y;
     }
-    /* Parent page overlays native select on mobile — hide duplicate chevron */
-    @media (max-width: 899px) {
-      body.embed.embed-framed .panel-head-actions #daysSelect {
-        opacity: 0;
-        pointer-events: none;
-      }
+    /* Parent page overlays native select — hide duplicate control in iframe */
+    body.embed.embed-framed .panel-head-actions #daysSelect {
+      opacity: 0;
+      pointer-events: none;
     }
     body.embed.embed-compact {
       padding: 0.75rem 0.85rem 0;
