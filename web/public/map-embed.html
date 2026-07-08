@@ -423,6 +423,7 @@
       return;
     }
     const hintMsg = "Ctrl + kolesce ali vlečenje miške";
+    const HINT_HIDE_MS = 250;
     let hintTimer = null;
     let hintEl = null;
     function hideWheelHint() {
@@ -430,14 +431,16 @@
       if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
       hintEl = null;
     }
-    function showWheelHint() {
-      hideWheelHint();
+    function scheduleWheelHint() {
       if (!hostEl.isConnected) return;
-      hintEl = document.createElement("div");
-      hintEl.className = "strele-map-wheel-hint";
-      hintEl.textContent = hintMsg;
-      hostEl.appendChild(hintEl);
-      hintTimer = setTimeout(hideWheelHint, 2800);
+      if (!hintEl) {
+        hintEl = document.createElement("div");
+        hintEl.className = "strele-map-wheel-hint";
+        hintEl.textContent = hintMsg;
+        hostEl.appendChild(hintEl);
+      }
+      if (hintTimer) clearTimeout(hintTimer);
+      hintTimer = setTimeout(hideWheelHint, HINT_HIDE_MS);
     }
     const container = mapInstance.getContainer();
     let panning = false;
@@ -457,16 +460,23 @@
     function endPan() {
       panning = false;
     }
+    mapInstance.on("movestart", hideWheelHint);
+    mapInstance.on("zoomstart", hideWheelHint);
     window.addEventListener("keydown", (ev) => {
       if (ev.key === "Control") ctrlDown = true;
     }, true);
     window.addEventListener("keyup", (ev) => {
       if (ev.key === "Control") ctrlDown = false;
     }, true);
-    window.addEventListener("blur", () => { ctrlDown = false; });
+    window.addEventListener("blur", () => {
+      ctrlDown = false;
+      hideWheelHint();
+    });
+    container.addEventListener("mouseleave", hideWheelHint);
     container.addEventListener("mousedown", (ev) => {
-      if (ctrlZoom(ev) && ev.button === 0) {
-        hideWheelHint();
+      if (ev.button !== 0) return;
+      hideWheelHint();
+      if (ctrlZoom(ev)) {
         panning = true;
         lastX = ev.clientX;
         lastY = ev.clientY;
@@ -495,7 +505,7 @@
           { animate: false }
         );
       } else {
-        showWheelHint();
+        scheduleWheelHint();
       }
     }, { passive: false, capture: true });
   }
