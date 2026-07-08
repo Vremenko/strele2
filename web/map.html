@@ -58,16 +58,33 @@
       margin-right: 0.1rem;
     }
     #daysSelect {
-      background: var(--bg);
+      background-color: #333333;
       color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.28rem 0.6rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 0.35rem 1.1rem 0.35rem 0.65rem;
       font: inherit;
-      font-size: 0.88rem;
+      font-size: 0.95rem;
+      width: 6rem;
+      min-width: 6rem;
+      max-width: 6rem;
+      height: 34px;
+      min-height: 34px;
+      box-sizing: border-box;
       cursor: pointer;
+      color-scheme: dark;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f2f2f2' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
     }
-    #daysSelect:focus { outline: 2px solid var(--accent2); }
+    #daysSelect:focus-visible {
+      outline: none;
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 2px rgba(5, 165, 206, 0.35);
+    }
     #mapDayPickWrap.hidden { display: none; }
     #mapDayPick {
       background: var(--bg);
@@ -235,6 +252,32 @@
       margin-top: 0.15rem;
       color: var(--muted);
     }
+    @media (min-width: 900px) {
+      #toolbar label { font-size: 0.9rem; }
+      #mapDayPick { font-size: 1.01rem; }
+      .map-mode-btn { font-size: 0.94rem; }
+      #periodLabel { font-size: 1.21rem; }
+      #legend { font-size: 0.9rem; }
+      #legend-title { font-size: 0.92rem; }
+      #chart-hint { font-size: 0.9rem; }
+      .ob-tooltip {
+        font-size: 0.98rem;
+        padding: 0.5rem 0.8rem;
+      }
+    }
+    @media (max-width: 639px) {
+      #daysSelect {
+        width: 5.75rem;
+        min-width: 5.75rem;
+        max-width: 5.75rem;
+        height: 32px;
+        min-height: 32px;
+        font-size: 0.8125rem;
+        padding-left: 0.55rem;
+        padding-right: 1.1rem;
+        background-position: right 6px center;
+      }
+    }
     @media (max-width: 899px) {
       :root { --font: system-ui, -apple-system, "Segoe UI", sans-serif; }
       #map-stage {
@@ -301,7 +344,7 @@
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      margin-bottom: 0.3rem;
+      margin-bottom: 8px;
       min-height: 1.5rem;
     }
     #chart-ob-name {
@@ -318,6 +361,10 @@
       color: var(--muted);
       text-align: right;
       white-space: nowrap;
+    }
+    @media (min-width: 900px) {
+      #chart-ob-name { font-size: 1.15rem; }
+      #chart-ob-meta { font-size: 0.95rem; }
     }
     #chartWrap {
       position: relative;
@@ -412,6 +459,9 @@
   });
   function apiUrl(path) { return API_BASE + path; }
 
+  let deskMapPanning = false;
+  let suppressNextDesktopClick = false;
+
   function isMobileView() {
     return window.matchMedia("(max-width:899px)").matches;
   }
@@ -443,22 +493,71 @@
       hintTimer = setTimeout(hideWheelHint, HINT_HIDE_MS);
     }
     const container = mapInstance.getContainer();
+    const CTRL_PAN_DRAG_PX = 3;
     let panning = false;
+    let panArm = false;
+    let panStartX = 0;
+    let panStartY = 0;
     let lastX = 0;
     let lastY = 0;
     let ctrlDown = false;
+    const WHEEL_PX_PER_ZOOM = 120;
+    const MAX_WHEEL_DELTA_PER_FRAME = 80;
+    let pendingWheelDelta = 0;
+    let zoomWheelRaf = 0;
+    let lastWheelPoint = null;
+    function normalizeWheelDeltaY(ev) {
+      let dy = ev.deltaY;
+      if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 16;
+      else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= container.clientHeight || 800;
+      return dy;
+    }
+    function updateWheelPoint(ev) {
+      const rect = container.getBoundingClientRect();
+      lastWheelPoint = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
+    }
+    function flushWheelZoomFrame() {
+      zoomWheelRaf = 0;
+      if (!pendingWheelDelta) return;
+      let consume = pendingWheelDelta;
+      if (Math.abs(consume) > MAX_WHEEL_DELTA_PER_FRAME) {
+        consume = Math.sign(consume) * MAX_WHEEL_DELTA_PER_FRAME;
+      }
+      pendingWheelDelta -= consume;
+      const zoomChange = -consume / WHEEL_PX_PER_ZOOM;
+      if (zoomChange) {
+        const minZ = mapInstance.getMinZoom();
+        const maxZ = mapInstance.getMaxZoom();
+        const current = mapInstance.getZoom();
+        let next = current + zoomChange;
+        if (next > maxZ) next = maxZ;
+        if (next < minZ) next = minZ;
+        if (next !== current) {
+          const anchor = lastWheelPoint || mapInstance.getSize().divideBy(2);
+          mapInstance.setZoomAround(
+            mapInstance.containerPointToLatLng(anchor),
+            next,
+            { animate: false }
+          );
+        } else if ((current >= maxZ && pendingWheelDelta > 0) || (current <= minZ && pendingWheelDelta < 0)) {
+          pendingWheelDelta = 0;
+        }
+      }
+      if (pendingWheelDelta) {
+        zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
+      }
+    }
+    function scheduleWheelZoomFrame() {
+      if (zoomWheelRaf) return;
+      zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
+    }
     function ctrlZoom(ev) {
       return ctrlDown || !!(ev.ctrlKey || ev.metaKey || (ev.getModifierState && ev.getModifierState("Control")));
     }
-    function wheelZoomStep(ev) {
-      let dy = ev.deltaY;
-      if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 20;
-      else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= 1200;
-      else if (Math.abs(dy) < 4) dy *= 20;
-      return -dy / 120;
-    }
     function endPan() {
       panning = false;
+      panArm = false;
+      deskMapPanning = false;
     }
     mapInstance.on("movestart", hideWheelHint);
     mapInstance.on("zoomstart", hideWheelHint);
@@ -477,14 +576,27 @@
       if (ev.button !== 0) return;
       hideWheelHint();
       if (ctrlZoom(ev)) {
-        panning = true;
+        panArm = true;
+        panning = false;
+        panStartX = ev.clientX;
+        panStartY = ev.clientY;
         lastX = ev.clientX;
         lastY = ev.clientY;
-        ev.preventDefault();
+      } else {
+        panArm = false;
+        panning = false;
       }
     });
     window.addEventListener("mousemove", (ev) => {
+      if (panArm && !panning) {
+        const dist = Math.hypot(ev.clientX - panStartX, ev.clientY - panStartY);
+        if (dist > CTRL_PAN_DRAG_PX) {
+          panning = true;
+          deskMapPanning = true;
+        }
+      }
       if (!panning) return;
+      ev.preventDefault();
       const dx = ev.clientX - lastX;
       const dy = ev.clientY - lastY;
       lastX = ev.clientX;
@@ -497,14 +609,11 @@
         hideWheelHint();
         ev.preventDefault();
         ev.stopPropagation();
-        const step = wheelZoomStep(ev);
-        if (!step) return;
-        const next = mapInstance.getZoom() + step;
-        mapInstance.setZoom(
-          Math.min(mapInstance.getMaxZoom(), Math.max(mapInstance.getMinZoom(), next)),
-          { animate: false }
-        );
+        updateWheelPoint(ev);
+        pendingWheelDelta += normalizeWheelDeltaY(ev);
+        scheduleWheelZoomFrame();
       } else {
+        ev.stopPropagation();
         scheduleWheelHint();
       }
     }, { passive: false, capture: true });
@@ -922,6 +1031,10 @@
     scrollWheelZoom: false,
     boxZoom: false,
     touchZoom: true,
+    ...(mobView ? {} : {
+      zoomSnap: 0,
+      zoomDelta: 0.5,
+    }),
   });
 
   L.tileLayer(maptilerTileUrl(STYLE_BASE_DARK), mobView ? {
@@ -985,25 +1098,25 @@
   scheduleMapResize();
   notifyResizeOnce();
 
-  /* ——— Country borders (desktop only; defer on mobile) ——— */
+  /* ——— Country borders (pre-clipped; no Slovenia outline) ——— */
+  let _countryBordersLoaded = false;
+
   function loadCountryBorders() {
-    void fetch(apiUrl("/public/data/meje_drzav.geojson"))
+    if (_countryBordersLoaded) return;
+    _countryBordersLoaded = true;
+    void fetch(apiUrl("/public/data/meje_drzav_brez_si.geojson"))
       .then(r => r.ok ? r.json() : null)
       .then(gj => {
         if (!gj) return;
         L.geoJSON(gj, {
-          smoothFactor: mobView ? 2 : 0,
-          style: { color: "#ffffff", weight: 2, opacity: 0.95, fill: false },
+          smoothFactor: mobView ? 1 : 0,
+          style: { color: "#c5c9ce", weight: 1, opacity: 0.55, fill: false },
           interactive: false,
-        }).addTo(map);
+        }).addTo(map).bringToBack();
       })
       .catch(() => {});
   }
-  if (mobView) {
-    setTimeout(loadCountryBorders, 800);
-  } else {
-    loadCountryBorders();
-  }
+  loadCountryBorders();
 
   /* ——— State ——— */
   let geojsonLayer = null;
@@ -1064,9 +1177,29 @@
   }
 
   let hoverTooltipLayer = null;
+  let mapIsZooming = false;
 
   const OBCINA_STYLE_HOVER = { weight: 1.25, color: "#05a5ce", fillOpacity: 0.9 };
   const OBCINA_STYLE_SELECTED = { weight: 1.75, color: "#05a5ce", fillOpacity: 0.92 };
+
+  function restoreObcinaLayerStyle(layer) {
+    if (!layer || !geojsonLayer) return;
+    geojsonLayer.resetStyle(layer);
+    const selectedId = selectedObMid != null ? String(selectedObMid) : null;
+    const id = String(layer.feature?.properties?.OB_MID);
+    if (selectedId && id === selectedId) {
+      layer.setStyle(OBCINA_STYLE_SELECTED);
+      layer.bringToFront();
+    }
+  }
+
+  function clearCurrentHoverObcina() {
+    if (!hoverTooltipLayer) return;
+    const layer = hoverTooltipLayer;
+    hoverTooltipLayer = null;
+    if (typeof layer.closeTooltip === "function") layer.closeTooltip();
+    restoreObcinaLayerStyle(layer);
+  }
 
   function isObcinaPreviewActive() {
     if (!hoverTooltipLayer) return false;
@@ -1078,19 +1211,27 @@
     if (!geojsonLayer) return;
     const previewActive = isObcinaPreviewActive();
     const selectedId = selectedObMid != null ? String(selectedObMid) : null;
+    let selectedLayer = null;
+
     geojsonLayer.eachLayer(function (layer) {
       geojsonLayer.resetStyle(layer);
       if (previewActive && layer === hoverTooltipLayer) {
         layer.setStyle(OBCINA_STYLE_HOVER);
         layer.bringToFront();
-      } else if (!previewActive && selectedId) {
-        const id = String(layer.feature?.properties?.OB_MID);
-        if (id === selectedId) {
-          layer.setStyle(OBCINA_STYLE_SELECTED);
-          layer.bringToFront();
-        }
       }
     });
+
+    if (selectedId) {
+      geojsonLayer.eachLayer(function (layer) {
+        if (String(layer.feature?.properties?.OB_MID) === selectedId) {
+          selectedLayer = layer;
+        }
+      });
+      if (selectedLayer) {
+        selectedLayer.setStyle(OBCINA_STYLE_SELECTED);
+        selectedLayer.bringToFront();
+      }
+    }
   }
 
   function closeOtherObcinaTooltips(activeLayer) {
@@ -1119,8 +1260,14 @@
     syncObcinaLayerStyles();
   }
 
-  map.on("movestart", closeAllObcinaTooltips);
-  map.on("zoomstart", closeAllObcinaTooltips);
+  map.on("movestart", clearCurrentHoverObcina);
+  map.on("zoomstart", function () {
+    mapIsZooming = true;
+    clearCurrentHoverObcina();
+  });
+  map.on("zoomend", function () {
+    mapIsZooming = false;
+  });
 
   if (!mobView) {
     map.getContainer().addEventListener("mouseleave", closeAllObcinaTooltips);
@@ -1336,6 +1483,70 @@
 
   if (mobView) bindMobileObcinaTouchProbe();
 
+  const DESK_POINTER_MOVE_PX = 5;
+
+  function isMapUiChromeTarget(target) {
+    if (!target || typeof target.closest !== "function") return false;
+    return !!target.closest(
+      "#toolbar, #daysSelect, #mapDayPickWrap, #mapDayPick, #mapModeTabs, .map-mode-btn, #periodLabel, #status, .leaflet-control"
+    );
+  }
+
+  function bindDesktopObcinaPointerPick() {
+    const container = map.getContainer();
+
+    let deskPointerActive = false;
+    let deskPointerMoved = false;
+    let deskPointerStartX = 0;
+    let deskPointerStartY = 0;
+    let deskPointerCtrl = false;
+
+    container.addEventListener("pointerdown", function (e) {
+      if (e.button !== 0 || !e.isPrimary) return;
+      if (isMapUiChromeTarget(e.target)) return;
+      deskPointerActive = true;
+      deskPointerMoved = false;
+      deskPointerStartX = e.clientX;
+      deskPointerStartY = e.clientY;
+      deskPointerCtrl = !!(e.ctrlKey || e.metaKey);
+    });
+
+    container.addEventListener("pointermove", function (e) {
+      if (!deskPointerActive || deskPointerMoved) return;
+      const dist = Math.hypot(e.clientX - deskPointerStartX, e.clientY - deskPointerStartY);
+      if (dist > DESK_POINTER_MOVE_PX) deskPointerMoved = true;
+    });
+
+    container.addEventListener("pointerup", function (e) {
+      if (e.button !== 0) return;
+      const wasActive = deskPointerActive;
+      deskPointerActive = false;
+      if (!wasActive) return;
+      if (isMapUiChromeTarget(e.target)) return;
+      if (deskPointerCtrl || e.ctrlKey || e.metaKey) return;
+      if (deskPointerMoved || deskMapPanning || mapIsZooming) return;
+
+      const hit = obcinaHitAtClientPoint(e.clientX, e.clientY);
+      if (!hit) return;
+
+      const id = String(hit.obMid);
+      const pickName = obcinaData[id]?.name || hit.layer.feature?.properties?.OB_UIME || "—";
+      closeOtherObcinaTooltips(hit.layer);
+      hoverTooltipLayer = hit.layer;
+      if (typeof hit.layer.openTooltip === "function") {
+        hit.layer.openTooltip(hit.latlng);
+      }
+      suppressNextDesktopClick = true;
+      selectMunicipality(hit.obMid, pickName);
+    });
+
+    container.addEventListener("pointercancel", function () {
+      deskPointerActive = false;
+    });
+  }
+
+  if (!mobView) bindDesktopObcinaPointerPick();
+
   /* ——— Render choropleth ——— */
   function renderLayer(skipViewport) {
     if (!geojson) return;
@@ -1389,6 +1600,7 @@
 
         if (!mobView) {
           layer.on("mouseover", function (e) {
+            if (mapIsZooming) return;
             closeOtherObcinaTooltips(layer);
             hoverTooltipLayer = layer;
             syncObcinaLayerStyles();
@@ -1418,12 +1630,17 @@
             if (typeof layer.openTooltip === "function") {
               layer.openTooltip(e.latlng);
             }
+          } else if (suppressNextDesktopClick) {
+            suppressNextDesktopClick = false;
+            L.DomEvent.stopPropagation(e);
+            return;
           }
           selectMunicipality(obMid, name);
         });
       },
     });
     geojsonLayer.addTo(map);
+    if (selectedObMid != null) syncObcinaLayerStyles();
     if (!skipViewport) applyMapViewport();
     notifyResize(true);
   }
@@ -1597,7 +1814,7 @@
   Chart.defaults.color = "#999999";
   Chart.defaults.borderColor = "#4d4d4d";
   Chart.defaults.font.family = "'Nunito Sans', system-ui, sans-serif";
-  Chart.defaults.font.size = window.innerWidth < 640 ? 10 : 12;
+  Chart.defaults.font.size = (mobView || window.innerWidth < 640) ? 10 : 14;
 
   const fmt2 = new Intl.NumberFormat("sl-SI", { useGrouping: true });
 
@@ -1648,13 +1865,13 @@
           },
         },
         scales: {
-          y: { beginAtZero: true, ticks: { precision: 0, font: { size: isMob ? 9 : 10 } } },
+          y: { beginAtZero: true, ticks: { precision: 0, font: { size: isMob ? 9 : 12 } } },
           x: {
             ticks: {
               autoSkip: true,
               maxTicksLimit: isMob ? 6 : 10,
               maxRotation: 0,
-              font: { size: isMob ? 8 : 9 },
+              font: { size: isMob ? 8 : 10 },
             },
           },
         },
@@ -1705,6 +1922,7 @@
   function selectMunicipality(ob_mid, name) {
     if (!ob_mid) return;
     selectedObMid = ob_mid;
+    notifyResize(true);
     loadObcinaChart(ob_mid, name);
     syncObcinaLayerStyles();
   }

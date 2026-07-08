@@ -2,7 +2,7 @@
 
 .charts-layout {
   display: grid;
-  gap: 1rem;
+  gap: 2.25rem;
 }
 
 .panel {
@@ -105,12 +105,17 @@
 
 .toolbar-field--compact select,
 .toolbar-field--compact input[type="date"] {
-  min-height: 36px;
-  font-size: 0.875rem;
+  min-height: 34px;
+  font-size: 0.95rem;
 }
 
 .toolbar-field--compact select {
-  min-width: 7.5rem;
+  width: 6rem;
+  min-width: 6rem;
+  max-width: 6rem;
+  height: 34px;
+  min-height: 34px;
+  box-sizing: border-box;
 }
 
 .toolbar-field--compact input[type="date"] {
@@ -397,6 +402,17 @@
     padding: 1rem 1.1rem 1.25rem;
   }
 
+  .panel-head-actions .toolbar-field--compact select#daysSelect {
+    width: 6rem;
+    min-width: 6rem;
+    max-width: 6rem;
+    height: 34px;
+    min-height: 34px;
+    font-size: 0.95rem;
+    padding: 0.35rem 1.1rem 0.35rem 0.65rem;
+    box-sizing: border-box;
+  }
+
   .panel-head-title,
   .panel-head h2,
   .panel-head-text h2 {
@@ -485,7 +501,18 @@
     width: auto;
   }
 
-  .panel-head-actions .toolbar-field--compact select {
+  .panel-head-actions .toolbar-field--compact select#daysSelect {
+    width: 5.75rem;
+    min-width: 5.75rem;
+    max-width: 5.75rem;
+    height: 32px;
+    min-height: 32px;
+    padding: 0.35rem 1.1rem 0.35rem 0.55rem;
+    font-size: 0.8125rem;
+    box-sizing: border-box;
+  }
+
+  .panel-head-actions .toolbar-field--compact select:not(#daysSelect) {
     min-width: 6.25rem;
     max-width: 7.25rem;
   }

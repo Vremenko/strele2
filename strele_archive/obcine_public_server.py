@@ -740,7 +740,7 @@ def serve_data_file(filename: str) -> FileResponse:
     """Servira statične podatkovne datoteke (GeoJSON ipd.) brez avtentikacije."""
     safe = filename.strip("/")
     # Allow only known data files for safety
-    allowed = {"OB-lite.geojson", "OB.geojson", "SR.geojson", "meje_drzav.geojson"}
+    allowed = {"OB-lite.geojson", "OB.geojson", "SR.geojson", "meje_drzav.geojson", "meje_drzav_brez_si.geojson"}
     if safe not in allowed:
         raise HTTPException(status_code=404, detail="Datoteka ni dostopna")
     path = _DATA_DIR / safe

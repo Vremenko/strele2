@@ -6,7 +6,7 @@
   <title>Arhiv strel — Slovenija</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/brand.css">
-  <link rel="stylesheet" href="/static/charts-shared.css?v=8">
+  <link rel="stylesheet" href="/static/charts-shared.css?v=9">
   <style>
     :root {
       --bg: var(--mi-gray-950, #1a1a1a);
@@ -772,7 +772,7 @@
 
     function hourIntervalLabel(ura) {
       const end = ura === 23 ? "24.00" : hourEndLabel(ura);
-      return `${formatHour(ura)}–${end}`;
+      return `${formatHour(ura)} - ${end}`;
     }
 
     function hourlyYMax(values) {
