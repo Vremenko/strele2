@@ -423,7 +423,7 @@
       return;
     }
     const hintMsg = "Ctrl + kolesce ali vlečenje miške";
-    const HINT_HIDE_MS = 250;
+    const HINT_HIDE_MS = 700;
     let hintTimer = null;
     let hintEl = null;
     function hideWheelHint() {
@@ -1118,6 +1118,9 @@
     purgeOrphanObcinaTooltips();
     syncObcinaLayerStyles();
   }
+
+  map.on("movestart", closeAllObcinaTooltips);
+  map.on("zoomstart", closeAllObcinaTooltips);
 
   if (!mobView) {
     map.getContainer().addEventListener("mouseleave", closeAllObcinaTooltips);
