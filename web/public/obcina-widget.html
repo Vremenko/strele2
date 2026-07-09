@@ -33,20 +33,19 @@
       --border: rgba(0, 0, 0, 0.08);
       --accent: #fbb006;
       --accent-soft: rgba(5, 165, 206, 0.12);
-      --accent-text: #c48700;
-      --cyan: #0588a8;
+      --accent-text: #fbb006;
+      --cyan: #05a5ce;
       --radius: 16px;
       --shadow: none;
       --font: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-      --map-boundary: #0588a8;
-      --map-boundary-fill: rgba(5, 136, 168, 0.1);
+      --map-boundary: #05a5ce;
+      --map-boundary-fill: rgba(5, 165, 206, 0.15);
     }
     *, *::before, *::after { box-sizing: border-box; }
     html, body {
       margin: 0;
       padding: 0;
       width: 100%;
-      min-height: 100%;
       background: var(--bg);
       color: var(--text);
       font-family: var(--font);
@@ -120,7 +119,7 @@
       line-height: 1.45;
     }
 
-    .widget-body { padding: 0 0 1rem; }
+    .widget-body { padding: 0 0 0.5rem; }
     .widget-state {
       padding: 0.5rem 0;
       text-align: left;
@@ -156,6 +155,10 @@
       padding: 1rem;
       text-align: left;
     }
+    [data-theme="light"] .stat-card {
+      background: var(--bg-map);
+      border: 1px solid var(--border);
+    }
     .stat-label {
       font-size: 0.75rem;
       font-weight: 500;
@@ -175,11 +178,11 @@
     }
 
     .widget-map-section { padding: 0 0 1rem; }
-    .widget-visual-section { padding: 0 0 1rem; }
+    .widget-visual-section { padding: 0 0 0.5rem; }
     .widget-visual-tabs {
       display: flex;
       gap: 0.35rem;
-      margin: 0 0 0.75rem;
+      margin: 0 0 0.5rem;
       border-bottom: 1px solid var(--border);
       padding-bottom: 0.35rem;
     }
@@ -209,14 +212,22 @@
     }
     .widget-visual-panel[hidden] { display: none !important; }
     .widget-visual-caption {
-      margin: 0 0 0.45rem;
-      font-size: calc(0.75rem + 1px);
-      font-weight: 500;
+      margin: 0 0 0.5rem;
+      font-size: 0.88rem;
+      font-weight: 600;
       color: var(--text-muted);
       line-height: 1.35;
     }
     .widget--full {
       --widget-visual-height: 220px;
+      --widget-visual-tabs-height: 0px;
+    }
+    .widget-visual-section--chart-only {
+      padding-top: 0.35rem;
+    }
+    .widget-visual-section--chart-only .widget-visual-viewport {
+      height: calc(var(--widget-visual-height) + var(--widget-visual-tabs-height));
+      max-height: min(calc(480px + var(--widget-visual-tabs-height)), 50vh);
     }
     .widget-visual-viewport {
       position: relative;
@@ -351,6 +362,8 @@
   document.body.setAttribute("data-theme", theme);
 
   const obMidParam = parseInt(params.get("ob_mid") || cfg.obMid || "0", 10) || null;
+  const scopeParam = (params.get("scope") || cfg.scope || "").trim().toLowerCase();
+  const isNationalScope = scopeParam === "slovenija" || scopeParam === "si";
   let lat = parseFloat(params.get("lat") || cfg.lat);
   let lon = parseFloat(params.get("lon") || cfg.lon);
   let municipalityName = (params.get("municipalityName") || params.get("label") || cfg.municipalityName || "").trim();
@@ -385,6 +398,7 @@
   let mapBounds = null;
   let layoutBounds = null;
   let storedVisualHeightPx = null;
+  let storedTabsHeightPx = null;
   let mapResizeObserver = null;
   let widgetResizeObserver = null;
   let mapFrameLock = false;
@@ -394,15 +408,17 @@
   let windowResizeBound = false;
   let dailyChart = null;
   let userVisualPanel = null;
+  let lastVisualScopeKey = null;
   let currentView = null;
   let chartResizeObserver = null;
 
-  function defaultVisualPanel(strikesLast24h) {
-    return strikesLast24h > 0 ? "map" : "chart";
+  function activeVisualPanel(view) {
+    if (!view || view.strikesLast24h <= 0) return "chart";
+    return userVisualPanel || "map";
   }
 
-  function activeVisualPanel(view) {
-    return userVisualPanel || defaultVisualPanel(view.strikesLast24h);
+  function isChartOnlyVisual(view) {
+    return !!(view && view.showMap && view.strikesLast24h <= 0);
   }
 
   function formatChartDayLabel(dateStr) {
@@ -558,6 +574,38 @@
     requestAnimationFrame(function () { whenPanelReady(panel, cb, attempts - 1); });
   }
 
+  function measureVisualTabsHeight() {
+    const tabs = document.querySelector(".widget-visual-tabs:not(.widget-visual-tabs--probe)");
+    if (tabs && tabs.offsetHeight > 0) {
+      storedTabsHeightPx = tabs.offsetHeight;
+      return storedTabsHeightPx;
+    }
+    if (storedTabsHeightPx) return storedTabsHeightPx;
+
+    const widget = document.querySelector(".widget--full");
+    if (!widget) return 0;
+
+    const probe = document.createElement("div");
+    probe.className = "widget-visual-tabs widget-visual-tabs--probe";
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.visibility = "hidden";
+    probe.style.position = "absolute";
+    probe.style.pointerEvents = "none";
+    probe.innerHTML =
+      '<button type="button" class="widget-visual-tab widget-visual-tab--active">Zemljevid</button>' +
+      '<button type="button" class="widget-visual-tab">Graf</button>';
+    widget.appendChild(probe);
+    storedTabsHeightPx = probe.offsetHeight;
+    widget.removeChild(probe);
+    return storedTabsHeightPx;
+  }
+
+  function applyVisualLayoutMetrics() {
+    const widget = document.querySelector(".widget--full");
+    if (!widget) return;
+    widget.style.setProperty("--widget-visual-tabs-height", measureVisualTabsHeight() + "px");
+  }
+
   function scheduleVisualPanel(view, panel) {
     currentView = view;
     setVisualPanel(panel, view);
@@ -584,14 +632,36 @@
     return window.innerWidth || 320;
   }
 
-  function initObcinaMapPanel(view) {
-    if (!view || !view.obMid) return;
+  function boundsFromGeoJson(geo) {
+    try {
+      const layer = L.geoJSON(geo);
+      const b = layer.getBounds();
+      return b && b.isValid() ? b : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function boundsFromFeature(feature) {
+    return boundsFromGeoJson(feature);
+  }
+
+  function visualScopeKey(view) {
+    if (!view) return "";
+    return view.isNational ? "slovenija" : String(view.obMid || "");
+  }
+
+  function initVisualMapPanel(view) {
+    if (!view) return;
+    if (!view.isNational && !view.obMid) return;
     requestAnimationFrame(function () {
       requestAnimationFrame(async function () {
         try {
-          const feature = await fetchObcinaGeometry(view.obMid);
-          if (!feature) return;
-          renderObcinaMap(view.strikes, feature);
+          const geo = view.isNational
+            ? await fetchSiGeometry()
+            : await fetchObcinaGeometry(view.obMid);
+          if (!geo) return;
+          renderObcinaMap(view.strikes, geo);
           [100, 350, 800].forEach(function (delay) {
             setTimeout(function () {
               if (mapBounds) applyMapFrame(mapBounds);
@@ -608,7 +678,27 @@
     const mapPanel = document.getElementById("visual-panel-map");
     const chartPanel = document.getElementById("visual-panel-chart");
     const tabs = document.querySelectorAll("[data-visual-tab]");
-    if (!mapPanel || !chartPanel) return;
+    if (!chartPanel) return;
+
+    const chartOnly = isChartOnlyVisual(view);
+    if (chartOnly) panel = "chart";
+
+    if (chartOnly) {
+      updateVisualCaption(panel, view);
+      applyVisualLayoutMetrics();
+      syncVisualHeights();
+      chartPanel.hidden = false;
+      teardownMap();
+      whenPanelReady("chart", function () {
+        renderDailyChart(view ? view.daily : []);
+        if (dailyChart) dailyChart.resize();
+        notifyResize();
+        requestAnimationFrame(notifyResize);
+      });
+      return;
+    }
+
+    if (!mapPanel) return;
 
     tabs.forEach(function (tab) {
       const active = tab.dataset.visualTab === panel;
@@ -617,6 +707,7 @@
     });
 
     updateVisualCaption(panel, view);
+    applyVisualLayoutMetrics();
     syncVisualHeights();
 
     mapPanel.hidden = panel !== "map";
@@ -625,7 +716,7 @@
     if (panel === "map") {
       destroyDailyChart();
       whenPanelReady("map", function () {
-        initObcinaMapPanel(view);
+        initVisualMapPanel(view);
         notifyResize();
       });
     } else {
@@ -659,15 +750,35 @@
     return layoutBounds;
   }
 
+  async function ensureLayoutBoundsForView(view) {
+    if (view && view.isNational) {
+      try {
+        const geo = await fetchSiGeometry();
+        layoutBounds = boundsFromGeoJson(geo);
+      } catch (_) {}
+      return layoutBounds;
+    }
+    if (!view || !view.obMid) return null;
+    return ensureLayoutBounds(view.obMid);
+  }
+
   function mountVisualPanel(view) {
     currentView = view;
     bindVisualTabs();
     const panel = activeVisualPanel(view);
-    ensureLayoutBounds(view.obMid).then(function (bounds) {
+    const chartOnly = isChartOnlyVisual(view);
+
+    if (chartOnly) {
+      teardownMap();
+    }
+
+    ensureLayoutBoundsForView(view).then(function (bounds) {
+      applyVisualLayoutMetrics();
       if (bounds && bounds.isValid()) applyMapFrame(bounds);
       else syncVisualHeights();
-      observeMapResize();
+      if (!chartOnly) observeMapResize();
       setVisualPanel(panel, view);
+      requestAnimationFrame(notifyResize);
     });
   }
 
@@ -704,11 +815,10 @@
 
   function setVisualPanelHeight(heightPx) {
     storedVisualHeightPx = Math.round(heightPx);
-    const h = storedVisualHeightPx + "px";
     const widget = document.querySelector(".widget--full");
-    if (widget) widget.style.setProperty("--widget-visual-height", h);
+    if (widget) widget.style.setProperty("--widget-visual-height", storedVisualHeightPx + "px");
     const viewport = document.querySelector(".widget-visual-viewport");
-    if (viewport) viewport.style.height = h;
+    if (viewport) viewport.style.height = "";
   }
 
   function resetVisualPanelHeight() {
@@ -737,16 +847,6 @@
     if (!wrap) return;
     wrap.style.aspectRatio = "";
     syncVisualHeights();
-  }
-
-  function boundsFromFeature(feature) {
-    try {
-      const layer = L.geoJSON(feature);
-      const b = layer.getBounds();
-      return b && b.isValid() ? b : null;
-    } catch (_) {
-      return null;
-    }
   }
 
   function applyMapFrame(bounds) {
@@ -889,6 +989,10 @@
     }
   }
 
+  async function fetchSiGeometry() {
+    return fetchJson(`${WIDGET_API}/si-geometry`);
+  }
+
   async function fetchJson(url, opts) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 15000);
@@ -911,16 +1015,35 @@
   }
 
   async function loadData() {
-    if (cfg.strikesLast24h != null && obMidParam) {
+    if (cfg.strikesLast24h != null && (obMidParam || isNationalScope)) {
       return {
         total_24h: cfg.strikesLast24h,
         strikes: cfg.strikes || [],
-        obcina: cfg.municipalityName || "Občina",
+        obcina: cfg.municipalityName || (isNationalScope ? "SLOVENIJA" : "Občina"),
+        scope: isNationalScope ? "slovenija" : null,
         period_total: cfg.periodTotal != null ? cfg.periodTotal : 0,
         last_strike_time: cfg.lastStrikeTime || null,
         daily: cfg.daily || [],
         period_days: cfg.periodDays || PERIOD_DAYS,
       };
+    }
+
+    if (isNationalScope) {
+      const data = await fetchJson(`${WIDGET_API}/si-widget?days=${PERIOD_DAYS}`);
+      const b = data.bounds;
+      if (b && b.length >= 2) {
+        if (!Number.isFinite(lat)) lat = (b[0][0] + b[1][0]) / 2;
+        if (!Number.isFinite(lon)) lon = (b[0][1] + b[1][1]) / 2;
+      }
+      if (!municipalityName) municipalityName = data.obcina || "SLOVENIJA";
+      if (!data.last_strike_time) {
+        try {
+          data.daily_last = await fetchJson(`${WIDGET_API}/si-daily?days=365`);
+        } catch {
+          data.daily_last = [];
+        }
+      }
+      return data;
     }
 
     const obMid = obMidParam;
@@ -963,7 +1086,7 @@
       strikesLast24h,
       lastStrikeTime,
       lastStrikeDate,
-      thirdLabel: `V zadnjih ${periodDays} dneh`,
+      thirdLabel: `Zadnjih ${periodDays} dni`,
       thirdValue: fmt.format(periodTotal),
       thirdIsZero: periodTotal === 0,
       strikes: strikes24h,
@@ -1019,14 +1142,7 @@
   }
 
   function navigateToStrelko() {
-    const url = STRELKO_SITE;
-    try {
-      if (window.top && window.top !== window) {
-        window.top.location.assign(url);
-        return;
-      }
-    } catch (_) {}
-    window.location.assign(url);
+    window.open(STRELKO_SITE, "_blank", "noopener,noreferrer");
   }
 
   function bindWidgetNavigation() {
@@ -1067,10 +1183,26 @@
       </article>`;
   }
 
-  function renderWidget(view) {
-    const showVisual = view.showMap;
+  function renderVisualBlock(view) {
     const panel = activeVisualPanel(view);
-    const visualBlock = showVisual ? `
+    const chartOnly = isChartOnlyVisual(view);
+    const caption = visualCaptionForPanel(chartOnly ? "chart" : panel, view);
+
+    if (chartOnly) {
+      return `
+      <section class="widget-visual-section widget-visual-section--chart-only" aria-label="Prikaz udarov strel">
+        <p class="widget-visual-caption" id="widget-visual-caption">${escapeHtml(caption)}</p>
+        <div class="widget-visual-viewport">
+          <div id="visual-panel-chart" class="widget-visual-panel widget-visual-panel--chart">
+            <div class="widget-chart-wrap">
+              <canvas id="daily-chart" role="img" aria-label="Graf strel v zadnjih ${view.periodDays} dneh"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>`;
+    }
+
+    return `
       <section class="widget-visual-section" aria-label="Prikaz udarov strel">
         <div class="widget-visual-tabs" role="tablist" aria-label="Preklop prikaza">
           <button type="button" class="widget-visual-tab${panel === "map" ? " widget-visual-tab--active" : ""}"
@@ -1082,7 +1214,7 @@
             Graf
           </button>
         </div>
-        <p class="widget-visual-caption" id="widget-visual-caption">${panel === "map" ? "Strele v zadnjih 24 urah" : "Strele v zadnjih " + view.periodDays + " dneh"}</p>
+        <p class="widget-visual-caption" id="widget-visual-caption">${escapeHtml(caption)}</p>
         <div class="widget-visual-viewport">
           <div id="visual-panel-map" class="widget-visual-panel widget-visual-panel--map"${panel !== "map" ? " hidden" : ""}>
             <div class="widget-map-wrap">
@@ -1095,15 +1227,28 @@
             </div>
           </div>
         </div>
-      </section>` : "";
+      </section>`;
+  }
+
+  function widgetSubtitle(view) {
+    return view.isNational ? "Udari strel" : "Udari strel v občini";
+  }
+
+  function lastStrikeLabel(view) {
+    return "Zadnja zaznana strela";
+  }
+
+  function renderWidget(view) {
+    const showVisual = view.showMap;
+    const visualBlock = showVisual ? renderVisualBlock(view) : "";
 
     document.getElementById("root").innerHTML = `
       <article class="widget widget--${size}" aria-live="polite">
         <header class="widget-head">
           ${WIDGET_LOGO_HTML}
           <div class="widget-head-text">
-            <p class="widget-subtitle">Udari strel v občini</p>
-            ${view.municipalityName ? `<h1 class="widget-muni">${escapeHtml(view.municipalityName)}</h1>` : `<h1 class="widget-title">Udari strel v občini</h1>`}
+            <p class="widget-subtitle">${escapeHtml(widgetSubtitle(view))}</p>
+            ${view.municipalityName ? `<h1 class="widget-muni">${escapeHtml(view.municipalityName)}</h1>` : `<h1 class="widget-title">${escapeHtml(widgetSubtitle(view))}</h1>`}
           </div>
         </header>
         <div class="widget-body">
@@ -1113,12 +1258,12 @@
               <p class="stat-value" aria-label="Število udarov v zadnjih 24 urah">${fmt.format(view.strikesLast24h)}</p>
             </div>
             <div class="stat-card">
-              <p class="stat-label">Zadnja zaznana strela</p>
-              <p class="stat-value${view.lastStrikeTime || view.lastStrikeDate ? "" : " stat-value--zero"}">${formatLastStrike(view.lastStrikeTime, view.lastStrikeDate)}</p>
-            </div>
-            <div class="stat-card">
               <p class="stat-label">${escapeHtml(view.thirdLabel)}</p>
               <p class="stat-value">${view.thirdValue}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">${escapeHtml(lastStrikeLabel(view))}</p>
+              <p class="stat-value${view.lastStrikeTime || view.lastStrikeDate ? "" : " stat-value--zero"}">${formatLastStrike(view.lastStrikeTime, view.lastStrikeDate)}</p>
             </div>
           </div>
         </div>
@@ -1174,7 +1319,11 @@
 
   function renderObcinaMap(strikes, feature) {
     const el = document.getElementById("map");
-    if (!el || !feature || !feature.geometry) return;
+    if (!el || !feature) return;
+    const hasGeometry = feature.type === "FeatureCollection"
+      ? Array.isArray(feature.features) && feature.features.length > 0
+      : !!feature.geometry;
+    if (!hasGeometry) return;
 
     const wrap = el.closest(".widget-map-wrap");
     const preBounds = boundsFromFeature(feature);
@@ -1247,7 +1396,8 @@
     if (!loadedOnce) renderLoading();
     try {
       const data = await loadData();
-      if (!municipalityName) municipalityName = data.obcina || "Občina";
+      const national = isNationalScope || data.scope === "slovenija";
+      if (!municipalityName) municipalityName = data.obcina || (national ? "SLOVENIJA" : "Občina");
 
       const stats = buildViewFromData(data);
       const showMap = size === "full";
@@ -1258,6 +1408,7 @@
 
       const view = {
         municipalityName,
+        isNational: national,
         showMap,
         strikesLast24h: stats.strikesLast24h,
         lastStrikeTime: stats.lastStrikeTime,
@@ -1269,7 +1420,7 @@
         strikes: stats.strikes,
         daily: stats.daily,
         periodDays: stats.periodDays,
-        obMid: data.ob_mid || obMidParam,
+        obMid: national ? null : (data.ob_mid || obMidParam),
       };
 
       renderWidget(view);
@@ -1277,11 +1428,17 @@
       bindWidgetNavigation();
 
       if (showMap) {
+        const scopeKey = visualScopeKey(view);
+        if (lastVisualScopeKey !== scopeKey || view.strikesLast24h <= 0) {
+          userVisualPanel = null;
+        }
+        lastVisualScopeKey = scopeKey;
         mountVisualPanel(view);
         observeWidgetResize();
         bindWindowResize();
       } else {
         userVisualPanel = null;
+        lastVisualScopeKey = null;
       }
 
       notifyResize();
@@ -1291,12 +1448,23 @@
     }
   }
 
+  function widgetContentHeight() {
+    const widget = document.querySelector(".widget");
+    if (widget) return Math.ceil(widget.getBoundingClientRect().height);
+    return Math.ceil(document.documentElement.scrollHeight);
+  }
+
   function notifyResize() {
     if (window.parent === window) return;
-    window.parent.postMessage({
-      type: "strele-embed-resize",
-      height: document.documentElement.scrollHeight,
-    }, "*");
+    requestAnimationFrame(function () {
+      const height = widgetContentHeight();
+      if (height > 0) {
+        window.parent.postMessage({
+          type: "strele-embed-resize",
+          height: height,
+        }, "*");
+      }
+    });
   }
 
   window.addEventListener("load", function () {

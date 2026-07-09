@@ -15,8 +15,10 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from shapely.geometry import Point, mapping
+from shapely.ops import unary_union
 
 from strele_archive.obcine import load_obcine
+from strele_archive.regions import load_regions
 
 load_dotenv()
 
@@ -78,6 +80,16 @@ app.add_middleware(
 
 # Lazy-loaded ObcinaIndex za GPS lookup (Shapely PiP)
 _obcina_index = None
+_region_index = None
+
+def _get_region_index():
+    global _region_index
+    if _region_index is None:
+        path = _DATA_DIR / "SR.geojson"
+        if not path.exists():
+            raise RuntimeError("GeoJSON za regije (Slovenija) ni najden")
+        _region_index = load_regions(path)
+    return _region_index
 
 def _get_obcina_index():
     global _obcina_index
@@ -472,6 +484,200 @@ def _fetch_daily_calm(ob_mids: list[int] | int, days: int = 30) -> tuple[list[di
     return daily, total, peak_out
 
 
+def _si_bounds() -> list[list[float]]:
+    min_lon, min_lat, max_lon, max_lat = _get_region_index().bounds
+    return [[min_lat, min_lon], [max_lat, max_lon]]
+
+
+def _si_storm_bbox_params() -> dict[str, float]:
+    min_lon, min_lat, max_lon, max_lat = _get_region_index().bounds
+    return {
+        "min_lat": min_lat,
+        "max_lat": max_lat,
+        "min_lon": min_lon,
+        "max_lon": max_lon,
+    }
+
+
+def _fetch_daily_calm_si(days: int = 30) -> tuple[list[dict], int, dict | None]:
+    end = date.today()
+    start = end - timedelta(days=days - 1)
+    sql = """
+        WITH date_series AS (
+            SELECT generate_series(%s::date, %s::date, interval '1 day')::date AS datum
+        )
+        SELECT ds.datum, COALESCE(s.stevilo, 0)::int AS stevilo
+        FROM date_series ds
+        LEFT JOIN strele_si_dnevno s ON s.datum = ds.datum
+        ORDER BY ds.datum
+    """
+    with psycopg.connect(_database_url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, (start, end))
+            rows = cur.fetchall()
+    daily = [{"datum": str(r[0]), "stevilo": r[1]} for r in rows]
+    total = sum(d["stevilo"] for d in daily)
+    peak = max(daily, key=lambda d: d["stevilo"]) if daily else None
+    peak_out = {"datum": peak["datum"], "stevilo": peak["stevilo"]} if peak and peak["stevilo"] > 0 else None
+    return daily, total, peak_out
+
+
+def _fetch_hourly_24h_si() -> tuple[int, int, list[dict]]:
+    now = _utc_now()
+    start = now - timedelta(hours=24)
+    payload = _storm_get(
+        "/strele/aggregates/series",
+        {
+            "bucket": "hour",
+            "group_by": "none",
+            "time_from_utc": _iso_utc(start),
+            "time_to_utc": _iso_utc(now),
+            **_si_storm_bbox_params(),
+        },
+    )
+    points = payload.get("series") or []
+    by_hour: dict[str, int] = {}
+    for pt in points:
+        ts = str(pt.get("t", ""))
+        if not ts:
+            continue
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        local = dt.astimezone(_LJ_TZ)
+        key = local.strftime("%Y-%m-%dT%H:00:00")
+        by_hour[key] = by_hour.get(key, 0) + int(pt.get("count") or 0)
+
+    hourly: list[dict] = []
+    cursor = now.astimezone(_LJ_TZ).replace(minute=0, second=0, microsecond=0) - timedelta(hours=23)
+    for _ in range(24):
+        key = cursor.strftime("%Y-%m-%dT%H:00:00")
+        hourly.append({
+            "ura": cursor.hour,
+            "label": f"{cursor.hour:02d}:00",
+            "stevilo": by_hour.get(key, 0),
+            "t": key,
+        })
+        cursor += timedelta(hours=1)
+
+    total = int(payload.get("total") or sum(h["stevilo"] for h in hourly))
+    last_hour = hourly[-1]["stevilo"] if hourly else 0
+    return total, last_hour, hourly
+
+
+def _fetch_strikes_24h_si() -> list[dict]:
+    idx = _get_region_index()
+    min_lon, min_lat, max_lon, max_lat = idx.bounds
+    now = _utc_now()
+    start = now - timedelta(hours=24)
+    out: list[dict] = []
+
+    url = _udari_database_url()
+    if url:
+        try:
+            with psycopg.connect(url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT lat, lon, ts_utc
+                        FROM strele.udari_24h
+                        WHERE ts_utc >= %s AND ts_utc <= %s
+                          AND lat BETWEEN %s AND %s
+                          AND lon BETWEEN %s AND %s
+                        ORDER BY ts_utc DESC
+                        LIMIT 2000
+                        """,
+                        (start, now, min_lat, max_lat, min_lon, max_lon),
+                    )
+                    rows = cur.fetchall()
+            for lat_raw, lon_raw, ts_raw in rows:
+                lat = float(lat_raw)
+                lon = float(lon_raw)
+                if not idx.contains(lon, lat):
+                    continue
+                ts = _parse_strike_ts(ts_raw)
+                out.append({
+                    "lat": lat,
+                    "lon": lon,
+                    "ts_utc": _iso_utc(ts) if ts else None,
+                })
+                if len(out) >= 500:
+                    return out
+            if out:
+                return out
+        except Exception:
+            pass
+
+    rows = _storm_get(
+        "/strele",
+        {
+            **_si_storm_bbox_params(),
+            "time_from_utc": _iso_utc(start),
+            "time_to_utc": _iso_utc(now),
+        },
+    )
+    if not isinstance(rows, list):
+        return out
+    for row in rows:
+        lat = float(row.get("lat", 0))
+        lon = float(row.get("lon", 0))
+        if not idx.contains(lon, lat):
+            continue
+        ts = row.get("ts_utc")
+        out.append({"lat": lat, "lon": lon, "ts_utc": str(ts) if ts else None})
+        if len(out) >= 500:
+            break
+    return out
+
+
+def _fetch_last_strike_time_si(daily: list[dict]) -> str | None:
+    idx = _get_region_index()
+    min_lon, min_lat, max_lon, max_lat = idx.bounds
+    url = _udari_database_url()
+    if url:
+        lookback_days = int(os.getenv("WIDGET_LAST_STRIKE_DAYS", "365"))
+        now = _utc_now()
+        start = now - timedelta(days=lookback_days)
+        try:
+            with psycopg.connect(url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT lat, lon, ts_utc
+                        FROM strele.udari
+                        WHERE ts_utc >= %s AND ts_utc <= %s
+                          AND lat BETWEEN %s AND %s
+                          AND lon BETWEEN %s AND %s
+                        ORDER BY ts_utc DESC
+                        LIMIT 500
+                        """,
+                        (start, now, min_lat, max_lat, min_lon, max_lon),
+                    )
+                    rows = cur.fetchall()
+        except Exception:
+            rows = []
+        latest: datetime | None = None
+        for lat, lon, ts_raw in rows:
+            if not idx.contains(lon, lat):
+                continue
+            ts = _parse_strike_ts(ts_raw)
+            if ts and (latest is None or ts > latest):
+                latest = ts
+        if latest:
+            return _iso_utc(latest)
+
+    latest24: datetime | None = None
+    for strike in _fetch_strikes_24h_si():
+        ts = _parse_strike_ts(strike.get("ts_utc"))
+        if ts and (latest24 is None or ts > latest24):
+            latest24 = ts
+    if latest24:
+        return _iso_utc(latest24)
+
+    last_date = _last_strike_date_from_daily(daily)
+    if last_date:
+        return last_date.isoformat()
+    return None
+
+
 def _obcina_bounds(ob) -> list[list[float]]:
     minx, miny, maxx, maxy = ob.geometry.bounds
     return [[miny, minx], [maxy, maxx]]
@@ -646,6 +852,96 @@ def api_obcina_geometry(
         "type": "Feature",
         "properties": {"ob_mid": ob.ob_mid, "name": ob.name},
         "geometry": mapping(ob.geometry),
+    }
+
+
+@app.get("/api/si-daily")
+def api_si_daily(
+    from_: date | None = Query(None, alias="from"),
+    to_: date | None = Query(None, alias="to"),
+    days: int | None = Query(None, ge=1, le=365),
+) -> list[dict]:
+    """Dnevni potek strel za celotno Slovenijo."""
+    if from_ is not None and to_ is not None:
+        start, end = from_, to_
+    elif days is not None:
+        end = date.today()
+        start = end - timedelta(days=days - 1)
+    else:
+        raise HTTPException(status_code=422, detail="Podaj days ali from+to")
+    sql = """
+        WITH date_series AS (
+            SELECT generate_series(%s::date, %s::date, interval '1 day')::date AS datum
+        )
+        SELECT ds.datum, COALESCE(s.stevilo, 0)::int AS stevilo
+        FROM date_series ds
+        LEFT JOIN strele_si_dnevno s ON s.datum = ds.datum
+        ORDER BY ds.datum
+    """
+    with psycopg.connect(_database_url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, (start, end))
+            rows = cur.fetchall()
+    return [{"datum": str(r[0]), "stevilo": r[1]} for r in rows]
+
+
+@app.get("/api/si-geometry")
+def api_si_geometry() -> dict:
+    """Zunanja obroba Slovenije (brez notranjih regijskih meja)."""
+    idx = _get_region_index()
+    outline = unary_union([region.geometry for region in idx.regions])
+    return {
+        "type": "Feature",
+        "properties": {"name": "SLOVENIJA"},
+        "geometry": mapping(outline),
+    }
+
+
+@app.get("/api/si-widget")
+def api_si_widget(
+    calm_days: int = Query(30, ge=7, le=90, alias="days"),
+) -> dict:
+    """Podatki za embed widget celotne Slovenije."""
+    daily, period_total, peak = _fetch_daily_calm_si(calm_days)
+    last_strike_time = _fetch_last_strike_time_si(daily)
+    bounds = _si_bounds()
+
+    try:
+        total_24h, last_hour, hourly = _fetch_hourly_24h_si()
+    except HTTPException:
+        total_24h, last_hour, hourly = 0, 0, []
+
+    base = {
+        "scope": "slovenija",
+        "obcina": "SLOVENIJA",
+        "period_days": calm_days,
+        "period_total": period_total,
+        "last_strike_time": last_strike_time,
+        "bounds": bounds,
+        "updated_at": _iso_utc(_utc_now()),
+    }
+
+    if total_24h > 0:
+        strikes = _fetch_strikes_24h_si()
+        return {
+            **base,
+            "mode": "storm",
+            "total_24h": total_24h,
+            "last_hour": last_hour,
+            "hourly": hourly,
+            "strikes": strikes,
+            "strike_count": len(strikes),
+            "peak": peak,
+            "daily": daily,
+        }
+
+    return {
+        **base,
+        "mode": "calm",
+        "peak": peak,
+        "daily": daily,
+        "total_24h": 0,
+        "strikes": [],
     }
 
 
