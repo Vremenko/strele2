@@ -58,7 +58,7 @@
       margin-right: 0.1rem;
     }
     #daysSelect {
-      background-color: #333333;
+      background-color: #1a1a1a;
       color: var(--text);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 10px;
@@ -73,12 +73,17 @@
       box-sizing: border-box;
       cursor: pointer;
       color-scheme: dark;
+      -webkit-tap-highlight-color: transparent;
       -webkit-appearance: none;
       -moz-appearance: none;
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f2f2f2' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 8px center;
+      background-size: 12px 12px;
+    }
+    #daysSelect:hover {
+      background-color: #262626;
     }
     #daysSelect:focus-visible {
       outline: none;
@@ -468,10 +473,12 @@
 
   function bindMapZoomGestures(mapInstance, hostEl) {
     if (!mapInstance || !hostEl) return;
+    if (mapInstance.__streleDesktopGestures) return;
     if (isMobileView()) {
       try { mapInstance.touchZoom.enable(); } catch (_) {}
       return;
     }
+    mapInstance.__streleDesktopGestures = true;
     const hintMsg = "Ctrl + kolesce ali vlečenje miške";
     const HINT_HIDE_MS = 700;
     let hintTimer = null;
@@ -554,10 +561,21 @@
     function ctrlZoom(ev) {
       return ctrlDown || !!(ev.ctrlKey || ev.metaKey || (ev.getModifierState && ev.getModifierState("Control")));
     }
+    let panPointerId = null;
+    function releasePanCapture() {
+      if (panPointerId == null) return;
+      try {
+        if (container.hasPointerCapture(panPointerId)) {
+          container.releasePointerCapture(panPointerId);
+        }
+      } catch (_) {}
+      panPointerId = null;
+    }
     function endPan() {
       panning = false;
       panArm = false;
       deskMapPanning = false;
+      releasePanCapture();
     }
     mapInstance.on("movestart", hideWheelHint);
     mapInstance.on("zoomstart", hideWheelHint);
@@ -570,8 +588,20 @@
     window.addEventListener("blur", () => {
       ctrlDown = false;
       hideWheelHint();
+      endPan();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) endPan();
     });
     container.addEventListener("mouseleave", hideWheelHint);
+    container.addEventListener("pointerdown", (ev) => {
+      if (ev.button !== 0) return;
+      if (!ctrlZoom(ev)) return;
+      panPointerId = ev.pointerId;
+      try {
+        container.setPointerCapture(ev.pointerId);
+      } catch (_) {}
+    });
     container.addEventListener("mousedown", (ev) => {
       if (ev.button !== 0) return;
       hideWheelHint();
@@ -604,6 +634,8 @@
       mapInstance.panBy([-dx, -dy], { animate: false });
     });
     window.addEventListener("mouseup", endPan);
+    window.addEventListener("pointerup", endPan);
+    window.addEventListener("pointercancel", endPan);
     container.addEventListener("wheel", (ev) => {
       if (ctrlZoom(ev)) {
         hideWheelHint();
@@ -1048,7 +1080,25 @@
     zoomOffset: -1,
   }).addTo(map);
 
-  bindMapZoomGestures(map, document.getElementById("map-stage"));
+  let desktopGesturesBound = false;
+  function ensureDesktopMapGestures() {
+    const hostEl = document.getElementById("map-stage");
+    if (!map || !hostEl || desktopGesturesBound) return;
+    if (window.innerWidth < 900) return;
+    if (isMobileView()) {
+      try { map.touchZoom.enable(); } catch (_) {}
+      return;
+    }
+    bindMapZoomGestures(map, hostEl);
+    desktopGesturesBound = true;
+  }
+  function scheduleDesktopMapGestures() {
+    ensureDesktopMapGestures();
+    if (!desktopGesturesBound && window.innerWidth < 900) {
+      requestAnimationFrame(scheduleDesktopMapGestures);
+    }
+  }
+  scheduleDesktopMapGestures();
 
   /* ——— Legend control ——— */
   const legendControl = L.control({ position: "bottomright" });
@@ -1088,11 +1138,15 @@
     }, force ? 0 : 80);
   }
 
-  window.addEventListener("resize", scheduleMapResize);
+  window.addEventListener("resize", () => {
+    scheduleMapResize();
+    ensureDesktopMapGestures();
+  });
   window.addEventListener("message", (ev) => {
     if (ev.data && ev.data.type === "strele-map-visible") {
       scheduleMapResize();
       resizeDailyChart();
+      scheduleDesktopMapGestures();
     }
   });
   scheduleMapResize();
@@ -1542,6 +1596,8 @@
 
     container.addEventListener("pointercancel", function () {
       deskPointerActive = false;
+      deskPointerMoved = false;
+      deskPointerCtrl = false;
     });
   }
 
