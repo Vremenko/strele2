@@ -39,7 +39,7 @@ WEB_DIR = ROOT / "web"
 DATA_DIR = ROOT / "data"
 
 PUBLIC_ONLY = os.getenv("STRELE_PUBLIC_ONLY", "").strip().lower() in ("1", "true", "yes")
-WEB_BASE_PATH = os.getenv("WEB_BASE_PATH", "").strip().rstrip("/")
+WEB_BASE_PATH = os.getenv("WEB_BASE_PATH", "/arhiv").strip().rstrip("/")
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", "").split(",")
