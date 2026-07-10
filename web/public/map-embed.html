@@ -653,11 +653,43 @@
 
   /** On narrow screens fit whole Slovenia; desktop keeps fixed center/zoom. */
   const SLO_MOB_BOUNDS = L.latLngBounds([45.42, 13.38], [46.88, 16.61]);
+  const MOB_VIEWPORT_PADDING = { paddingTopLeft: [10, 10], paddingBottomRight: [10, 40] };
   let sloBoundsCache = null;
-  let mobViewportDone = false;
+  let mobUserViewportLocked = false;
+  let mobViewportFitSeq = 0;
+  let mobViewportRetryTimer = null;
+  let mobViewportProgrammatic = 0;
+
+  function cancelMobileMapViewportRetries() {
+    mobViewportFitSeq += 1;
+    if (mobViewportRetryTimer) {
+      clearTimeout(mobViewportRetryTimer);
+      mobViewportRetryTimer = null;
+    }
+  }
+
+  function runProgrammaticViewport(fn) {
+    mobViewportProgrammatic += 1;
+    try {
+      return fn();
+    } finally {
+      mobViewportProgrammatic -= 1;
+    }
+  }
+
+  function lockMobileUserViewport(ev) {
+    if (!mobView || mobUserViewportLocked) return;
+    if (mobViewportProgrammatic > 0) return;
+    if (ev && ev.type === "zoomstart" && !ev.originalEvent) return;
+    mobUserViewportLocked = true;
+    cancelMobileMapViewportRetries();
+  }
 
   function getSloveniaBounds() {
-    if (geojsonLayer && _geojsonFullLoaded) return geojsonLayer.getBounds();
+    if (geojsonLayer) {
+      const layerBounds = geojsonLayer.getBounds();
+      if (layerBounds.isValid()) return layerBounds;
+    }
     if (sloBoundsCache && _geojsonFullLoaded) return sloBoundsCache;
     if (geojson && _geojsonFullLoaded) {
       sloBoundsCache = L.geoJSON(geojson).getBounds();
@@ -666,20 +698,55 @@
     return SLO_MOB_BOUNDS;
   }
 
+  function mapStageSizeReady() {
+    const stage = document.getElementById("map-stage");
+    if (!stage) return false;
+    const rect = stage.getBoundingClientRect();
+    return rect.width >= 200 && rect.height >= 200;
+  }
+
+  function fitMobileMapToSlovenia() {
+    if (!isMobileView() || mobUserViewportLocked) return false;
+    if (!mapStageSizeReady()) return false;
+    return runProgrammaticViewport(() => {
+      map.invalidateSize(true);
+      const bounds = getSloveniaBounds();
+      if (!bounds || !bounds.isValid()) return false;
+      map.fitBounds(bounds, {
+        ...MOB_VIEWPORT_PADDING,
+        maxZoom: 10,
+        animate: false,
+      });
+      return true;
+    });
+  }
+
+  function scheduleMobileMapViewport() {
+    if (!isMobileView() || mobUserViewportLocked) return;
+    mobViewportFitSeq += 1;
+    const seq = mobViewportFitSeq;
+    if (mobViewportRetryTimer) {
+      clearTimeout(mobViewportRetryTimer);
+      mobViewportRetryTimer = null;
+    }
+    const attempt = (retriesLeft) => {
+      if (seq !== mobViewportFitSeq || mobUserViewportLocked) return;
+      requestAnimationFrame(() => {
+        if (seq !== mobViewportFitSeq || mobUserViewportLocked) return;
+        if (fitMobileMapToSlovenia()) return;
+        if (retriesLeft <= 0) return;
+        mobViewportRetryTimer = setTimeout(() => attempt(retriesLeft - 1), 60);
+      });
+    };
+    attempt(8);
+  }
+
   function applyMapViewport() {
     if (!isMobileView()) {
       map.setView([46.12, 14.82], 8, { animate: false });
       return;
     }
-    if (mobViewportDone) return;
-    map.invalidateSize(true);
-    map.fitBounds(SLO_MOB_BOUNDS, {
-      paddingTopLeft: [8, 8],
-      paddingBottomRight: [8, 28],
-      maxZoom: 8,
-      animate: false,
-    });
-    mobViewportDone = true;
+    scheduleMobileMapViewport();
   }
 
   async function fetchGeojson(path) {
@@ -1080,6 +1147,11 @@
     zoomOffset: -1,
   }).addTo(map);
 
+  if (mobView) {
+    map.on("dragstart", () => lockMobileUserViewport());
+    map.on("zoomstart", (ev) => lockMobileUserViewport(ev));
+  }
+
   let desktopGesturesBound = false;
   function ensureDesktopMapGestures() {
     const hostEl = document.getElementById("map-stage");
@@ -1114,8 +1186,12 @@
 
   function scheduleMapResize() {
     requestAnimationFrame(() => {
-      map.invalidateSize(true);
-      if (!mobView) applyMapViewport();
+      if (!isMobileView()) {
+        map.invalidateSize(true);
+        applyMapViewport();
+      } else {
+        scheduleMobileMapViewport();
+      }
       notifyResize();
       resizeDailyChart();
     });
@@ -1712,6 +1788,7 @@
     _geojsonFullLoaded = true;
     if (needsUpgrade && Object.keys(obcinaData).length) {
       renderLayer(true);
+      if (mobView && !mobUserViewportLocked) scheduleMobileMapViewport();
     }
   }
 
