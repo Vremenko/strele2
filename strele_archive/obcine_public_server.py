@@ -18,6 +18,14 @@ from shapely.geometry import Point, mapping
 from shapely.ops import unary_union
 
 from strele_archive.obcine import load_obcine
+from strele_archive.obcina_widget_daily import (
+    StormObcinaLiveStats,
+    StormUnavailable,
+    apply_live_daily_sync,
+    daily_value_for_date,
+    local_today,
+    parse_storm_hourly_payload,
+)
 from strele_archive.regions import load_regions
 from strele_archive.si_widget_counts import (
     bucket_hourly_rolling_24h,
@@ -178,6 +186,17 @@ def _storm_get(path: str, params: dict) -> dict | list:
         raise HTTPException(status_code=502, detail=f"StormAPI: {exc}") from exc
 
 
+def _storm_get_safe(path: str, params: dict) -> dict | list:
+    """Kot _storm_get, a ob napaki vrne StormUnavailable (za widget fallback)."""
+    url = f"{_STORM_API}{path}"
+    try:
+        resp = requests.get(url, params=params, timeout=_STORM_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        raise StormUnavailable(str(exc)) from exc
+
+
 def _storm_post(path: str, payload: dict) -> dict | list:
     url = f"{_STORM_API}{path}"
     try:
@@ -188,11 +207,11 @@ def _storm_post(path: str, payload: dict) -> dict | list:
         raise HTTPException(status_code=502, detail=f"StormAPI: {exc}") from exc
 
 
-def _fetch_hourly_24h(muni_code: str) -> tuple[int, int, list[dict]]:
-    """Vrne (skupaj_24h, urni_podatki) za občino."""
-    now = _utc_now()
+def _fetch_obcina_live_stats(muni_code: str, *, now: datetime | None = None) -> StormObcinaLiveStats:
+    """Rolling 24 h + današnji dan od lokalne polnoči (StormAPI udari_24h)."""
+    now = now or _utc_now()
     start = now - timedelta(hours=24)
-    payload = _storm_get(
+    payload = _storm_get_safe(
         "/strele/aggregates/series",
         {
             "bucket": "hour",
@@ -202,50 +221,49 @@ def _fetch_hourly_24h(muni_code: str) -> tuple[int, int, list[dict]]:
             "time_to_utc": _iso_utc(now),
         },
     )
-    groups = payload.get("groups") or []
-    points = groups[0].get("points", []) if groups else []
-    by_hour: dict[str, int] = {}
-    for pt in points:
-        ts = str(pt.get("t", ""))
-        if not ts:
-            continue
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        local = dt.astimezone(_LJ_TZ)
-        key = local.strftime("%Y-%m-%dT%H:00:00")
-        by_hour[key] = by_hour.get(key, 0) + int(pt.get("count") or 0)
+    if not isinstance(payload, dict):
+        raise StormUnavailable("Neveljaven StormAPI odgovor")
+    return parse_storm_hourly_payload(payload, now_utc=now)
 
-    hourly: list[dict] = []
-    cursor = now.astimezone(_LJ_TZ).replace(minute=0, second=0, microsecond=0) - timedelta(hours=23)
-    for _ in range(24):
-        key = cursor.strftime("%Y-%m-%dT%H:00:00")
-        hourly.append({
-            "ura": cursor.hour,
-            "label": f"{cursor.hour:02d}:00",
-            "stevilo": by_hour.get(key, 0),
-            "t": key,
-        })
-        cursor += timedelta(hours=1)
 
-    total = int(payload.get("total") or sum(h["stevilo"] for h in hourly))
-    last_hour = hourly[-1]["stevilo"] if hourly else 0
-    return total, last_hour, hourly
+def _fetch_obcina_live_stats_multi(
+    muni_codes: list[str],
+    *,
+    now: datetime | None = None,
+) -> StormObcinaLiveStats:
+    if len(muni_codes) == 1:
+        return _fetch_obcina_live_stats(muni_codes[0], now=now)
+    now = now or _utc_now()
+    merged: list[dict] | None = None
+    total = 0
+    today_sum = 0
+    for code in muni_codes:
+        part = _fetch_obcina_live_stats(code, now=now)
+        total += part.total_24h
+        today_sum += part.today_from_midnight
+        if merged is None:
+            merged = [dict(h) for h in part.hourly]
+        else:
+            for i, h in enumerate(part.hourly):
+                merged[i]["stevilo"] += h["stevilo"]
+    last_hour = merged[-1]["stevilo"] if merged else 0
+    return StormObcinaLiveStats(
+        total_24h=total,
+        last_hour=last_hour,
+        hourly=merged or [],
+        today_from_midnight=today_sum,
+    )
+
+
+def _fetch_hourly_24h(muni_code: str) -> tuple[int, int, list[dict]]:
+    """Vrne (skupaj_24h, urni_podatki) za občino."""
+    stats = _fetch_obcina_live_stats(muni_code)
+    return stats.total_24h, stats.last_hour, stats.hourly
 
 
 def _fetch_hourly_24h_multi(muni_codes: list[str]) -> tuple[int, int, list[dict]]:
-    if len(muni_codes) == 1:
-        return _fetch_hourly_24h(muni_codes[0])
-    merged: list[dict] | None = None
-    total = 0
-    for code in muni_codes:
-        part_total, _part_last, hourly = _fetch_hourly_24h(code)
-        total += part_total
-        if merged is None:
-            merged = [dict(h) for h in hourly]
-        else:
-            for i, h in enumerate(hourly):
-                merged[i]["stevilo"] += h["stevilo"]
-    last_hour = merged[-1]["stevilo"] if merged else 0
-    return total, last_hour, merged or []
+    stats = _fetch_obcina_live_stats_multi(muni_codes)
+    return stats.total_24h, stats.last_hour, stats.hourly
 
 
 def _fetch_strikes_24h(ob) -> list[dict]:
@@ -956,13 +974,37 @@ def api_obcina_widget(
     label = _widget_obcina_label(obs, title)
     bounds = _obcina_bounds_multi(obs)
 
-    daily, period_total, peak = _fetch_daily_calm(mids, calm_days)
+    daily, _archive_period_total, peak = _fetch_daily_calm(mids, calm_days)
+    today_lj = local_today()
+    archive_today = daily_value_for_date(daily, today_lj)
     last_strike_time = _fetch_last_strike_time_multi(obs, muni_codes, daily)
 
+    data_source = "archive"
+    total_24h = 0
+    last_hour = 0
+    hourly: list[dict] = []
+    today_live: int | None = None
+
     try:
-        total_24h, last_hour, hourly = _fetch_hourly_24h_multi(muni_codes)
-    except HTTPException:
-        total_24h, last_hour, hourly = 0, 0, []
+        live = _fetch_obcina_live_stats_multi(muni_codes)
+        data_source = "live"
+        total_24h = live.total_24h
+        last_hour = live.last_hour
+        hourly = live.hourly
+        today_live = live.today_from_midnight
+    except StormUnavailable:
+        data_source = "archive_fallback"
+        total_24h = archive_today
+        today_live = archive_today
+
+    daily, period_total, peak = apply_live_daily_sync(
+        daily,
+        data_source=data_source,
+        today_live=today_live,
+        today=today_lj,
+    )
+
+    storm_active = total_24h > 0
 
     base = {
         "ob_mid": obs[0].ob_mid,
@@ -974,10 +1016,14 @@ def api_obcina_widget(
         "last_strike_time": last_strike_time,
         "bounds": bounds,
         "updated_at": _iso_utc(_utc_now()),
+        "data_source": data_source,
     }
 
-    if total_24h > 0:
-        strikes = _fetch_strikes_24h_multi(obs)
+    if storm_active:
+        try:
+            strikes = _fetch_strikes_24h_multi(obs)
+        except HTTPException:
+            strikes = []
         return {
             **base,
             "mode": "storm",
