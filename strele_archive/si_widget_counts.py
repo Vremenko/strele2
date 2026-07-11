@@ -52,3 +52,48 @@ def bucket_hourly_rolling_24h(
     total = sum(h["stevilo"] for h in hourly)
     last_hour = hourly[-1]["stevilo"] if hourly else 0
     return total, last_hour, hourly
+
+
+def dedup_pip_strikes(
+    strikes: list[tuple[float, float, datetime]],
+) -> list[tuple[float, float, datetime]]:
+    """Odstrani podvojene udare (lat, lon, ts_utc)."""
+    seen: set[tuple[float, float, datetime]] = set()
+    unique: list[tuple[float, float, datetime]] = []
+    for lat, lon, ts in strikes:
+        key = (round(lat, 6), round(lon, 6), ts)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append((lat, lon, ts))
+    return unique
+
+
+def pip_strikes_to_map_records(
+    strikes: list[tuple[float, float, datetime]],
+    *,
+    iso_utc,
+    max_strikes: int = 50_000,
+) -> tuple[list[dict], dict]:
+    """
+    Pretvori PiP udare v zapise za zemljevid (deduplikacija, ASC po času).
+    Vrne (records, meta) z map_complete / map_message ob varovalu.
+    """
+    unique = dedup_pip_strikes(strikes)
+    records: list[dict] = []
+    for lat, lon, ts in sorted(unique, key=lambda row: row[2]):
+        records.append({"lat": lat, "lon": lon, "ts_utc": iso_utc(ts)})
+
+    total = len(records)
+    meta: dict = {"map_complete": True, "map_total_pip": total}
+    if total > max_strikes:
+        meta = {
+            "map_complete": False,
+            "map_total_pip": total,
+            "map_message": (
+                f"Prikaz ni popoln: prikazanih {max_strikes:,} od {total:,} udarov "
+                f"v zadnjih 24 urah."
+            ).replace(",", "."),
+        }
+        records = records[:max_strikes]
+    return records, meta

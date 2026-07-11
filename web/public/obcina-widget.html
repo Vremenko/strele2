@@ -218,6 +218,12 @@
       color: var(--text-muted);
       line-height: 1.35;
     }
+    .widget-map-notice {
+      margin: 0 0 0.5rem;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      color: var(--accent);
+    }
     .widget--full {
       --widget-visual-height: 220px;
       --widget-visual-tabs-height: 0px;
@@ -392,6 +398,7 @@
   let map = null;
   let baseLayer = null;
   let strikeLayer = null;
+  let strikeCanvasRenderer = null;
   let boundaryLayer = null;
   let labelsLayer = null;
   let obLiteCache = null;
@@ -661,7 +668,7 @@
             ? await fetchSiGeometry()
             : await fetchObcinaGeometry(view.obMid);
           if (!geo) return;
-          renderObcinaMap(view.strikes, geo);
+          renderObcinaMap(view.strikes, geo, view.isNational);
           [100, 350, 800].forEach(function (delay) {
             setTimeout(function () {
               if (mapBounds) applyMapFrame(mapBounds);
@@ -1092,6 +1099,8 @@
       strikes: strikes24h,
       daily: data.daily || [],
       periodDays,
+      mapComplete: data.map_complete !== false,
+      mapMessage: data.map_message || null,
     };
   }
 
@@ -1187,6 +1196,9 @@
     const panel = activeVisualPanel(view);
     const chartOnly = isChartOnlyVisual(view);
     const caption = visualCaptionForPanel(chartOnly ? "chart" : panel, view);
+    const mapNotice = view && view.isNational && view.mapMessage
+      ? `<p class="widget-map-notice" role="status">${escapeHtml(view.mapMessage)}</p>`
+      : "";
 
     if (chartOnly) {
       return `
@@ -1214,6 +1226,7 @@
             Graf
           </button>
         </div>
+        ${mapNotice}
         <p class="widget-visual-caption" id="widget-visual-caption">${escapeHtml(caption)}</p>
         <div class="widget-visual-viewport">
           <div id="visual-panel-map" class="widget-visual-panel widget-visual-panel--map"${panel !== "map" ? " hidden" : ""}>
@@ -1317,7 +1330,7 @@
     }
   }
 
-  function renderObcinaMap(strikes, feature) {
+  function renderObcinaMap(strikes, feature, useCanvas) {
     const el = document.getElementById("map");
     if (!el || !feature) return;
     const hasGeometry = feature.type === "FeatureCollection"
@@ -1340,6 +1353,7 @@
         boxZoom: false,
         keyboard: false,
         scrollWheelZoom: false,
+        preferCanvas: !!useCanvas,
       });
       map.createPane("maptilerOverlayPane");
       map.getPane("maptilerOverlayPane").style.zIndex = 450;
@@ -1365,17 +1379,29 @@
       interactive: false,
     }).addTo(map);
 
+    if (useCanvas) {
+      if (!strikeCanvasRenderer) {
+        strikeCanvasRenderer = L.canvas({ padding: 0.5 });
+      }
+    } else {
+      strikeCanvasRenderer = null;
+    }
+
     if (strikeLayer) map.removeLayer(strikeLayer);
     strikeLayer = L.layerGroup();
-    (strikes || []).forEach((s) => {
+    const markerOpts = {
+      radius: 2.5,
+      color: "#e8a008",
+      fillColor: "#e8a008",
+      fillOpacity: 0.85,
+      weight: 0,
+    };
+    if (useCanvas && strikeCanvasRenderer) {
+      markerOpts.renderer = strikeCanvasRenderer;
+    }
+    (strikes || []).forEach(function (s) {
       if (s.lat == null || s.lon == null) return;
-      L.circleMarker([s.lat, s.lon], {
-        radius: 2.5,
-        color: "#e8a008",
-        fillColor: "#e8a008",
-        fillOpacity: 0.85,
-        weight: 0,
-      }).addTo(strikeLayer);
+      L.circleMarker([s.lat, s.lon], markerOpts).addTo(strikeLayer);
     });
     strikeLayer.addTo(map);
 
@@ -1420,6 +1446,8 @@
         strikes: stats.strikes,
         daily: stats.daily,
         periodDays: stats.periodDays,
+        mapComplete: stats.mapComplete,
+        mapMessage: stats.mapMessage,
         obMid: national ? null : (data.ob_mid || obMidParam),
       };
 

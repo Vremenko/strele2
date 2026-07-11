@@ -19,7 +19,14 @@ from shapely.ops import unary_union
 
 from strele_archive.obcine import load_obcine
 from strele_archive.regions import load_regions
-from strele_archive.si_widget_counts import bucket_hourly_rolling_24h, filter_pip_strikes
+from strele_archive.si_widget_counts import (
+    bucket_hourly_rolling_24h,
+    dedup_pip_strikes,
+    filter_pip_strikes,
+    pip_strikes_to_map_records,
+)
+
+SI_WIDGET_MAP_MAX_STRIKES = 50_000
 
 load_dotenv()
 
@@ -579,79 +586,30 @@ def _fetch_raw_strikes_window_si(
     return parsed
 
 
-def _fetch_hourly_24h_si() -> tuple[int, int, list[dict]]:
-    """24h urni profil in total — PiP znotraj meje Slovenije (ne bbox)."""
+def _si_rolling_24h_pip_tuples() -> list[tuple[float, float, datetime]]:
+    """PiP udari v rolling 24 h oknu — skupen vir za total_24h in zemljevid."""
     now = _utc_now()
     start = now - timedelta(hours=24)
     idx = _get_region_index()
     raw = _fetch_raw_strikes_window_si(start, now)
     inside = filter_pip_strikes(raw, idx)
-    return bucket_hourly_rolling_24h(inside, now_utc=now, tz_name="Europe/Ljubljana")
+    return dedup_pip_strikes(inside)
 
 
-def _fetch_strikes_24h_si() -> list[dict]:
-    idx = _get_region_index()
-    min_lon, min_lat, max_lon, max_lat = idx.bounds
-    now = _utc_now()
-    start = now - timedelta(hours=24)
-    out: list[dict] = []
+def _fetch_hourly_24h_si() -> tuple[int, int, list[dict]]:
+    """24h urni profil in total — PiP znotraj meje Slovenije (ne bbox)."""
+    inside = _si_rolling_24h_pip_tuples()
+    return bucket_hourly_rolling_24h(inside, now_utc=_utc_now(), tz_name="Europe/Ljubljana")
 
-    url = _udari_database_url()
-    if url:
-        try:
-            with psycopg.connect(url) as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        """
-                        SELECT lat, lon, ts_utc
-                        FROM strele.udari_24h
-                        WHERE ts_utc >= %s AND ts_utc <= %s
-                          AND lat BETWEEN %s AND %s
-                          AND lon BETWEEN %s AND %s
-                        ORDER BY ts_utc DESC
-                        LIMIT 2000
-                        """,
-                        (start, now, min_lat, max_lat, min_lon, max_lon),
-                    )
-                    rows = cur.fetchall()
-            for lat_raw, lon_raw, ts_raw in rows:
-                lat = float(lat_raw)
-                lon = float(lon_raw)
-                if not idx.contains(lon, lat):
-                    continue
-                ts = _parse_strike_ts(ts_raw)
-                out.append({
-                    "lat": lat,
-                    "lon": lon,
-                    "ts_utc": _iso_utc(ts) if ts else None,
-                })
-                if len(out) >= 500:
-                    return out
-            if out:
-                return out
-        except Exception:
-            pass
 
-    rows = _storm_get(
-        "/strele",
-        {
-            **_si_storm_bbox_params(),
-            "time_from_utc": _iso_utc(start),
-            "time_to_utc": _iso_utc(now),
-        },
+def _fetch_strikes_24h_si() -> tuple[list[dict], dict]:
+    """Vsi PiP udari v rolling 24 h (enak nabor kot total_24h)."""
+    inside = _si_rolling_24h_pip_tuples()
+    return pip_strikes_to_map_records(
+        inside,
+        iso_utc=_iso_utc,
+        max_strikes=SI_WIDGET_MAP_MAX_STRIKES,
     )
-    if not isinstance(rows, list):
-        return out
-    for row in rows:
-        lat = float(row.get("lat", 0))
-        lon = float(row.get("lon", 0))
-        if not idx.contains(lon, lat):
-            continue
-        ts = row.get("ts_utc")
-        out.append({"lat": lat, "lon": lon, "ts_utc": str(ts) if ts else None})
-        if len(out) >= 500:
-            break
-    return out
 
 
 def _fetch_last_strike_time_si(daily: list[dict]) -> str | None:
@@ -691,7 +649,8 @@ def _fetch_last_strike_time_si(daily: list[dict]) -> str | None:
             return _iso_utc(latest)
 
     latest24: datetime | None = None
-    for strike in _fetch_strikes_24h_si():
+    strikes_24h, _ = _fetch_strikes_24h_si()
+    for strike in strikes_24h:
         ts = _parse_strike_ts(strike.get("ts_utc"))
         if ts and (latest24 is None or ts > latest24):
             latest24 = ts
@@ -933,9 +892,19 @@ def api_si_widget(
     bounds = _si_bounds()
 
     try:
-        total_24h, last_hour, hourly = _fetch_hourly_24h_si()
+        inside = _si_rolling_24h_pip_tuples()
+        now = _utc_now()
+        total_24h, last_hour, hourly = bucket_hourly_rolling_24h(
+            inside, now_utc=now, tz_name="Europe/Ljubljana"
+        )
+        strikes, map_meta = pip_strikes_to_map_records(
+            inside,
+            iso_utc=_iso_utc,
+            max_strikes=SI_WIDGET_MAP_MAX_STRIKES,
+        )
     except HTTPException:
         total_24h, last_hour, hourly = 0, 0, []
+        strikes, map_meta = [], {"map_complete": True, "map_total_pip": 0}
 
     base = {
         "scope": "slovenija",
@@ -948,7 +917,6 @@ def api_si_widget(
     }
 
     if total_24h > 0:
-        strikes = _fetch_strikes_24h_si()
         return {
             **base,
             "mode": "storm",
@@ -957,6 +925,9 @@ def api_si_widget(
             "hourly": hourly,
             "strikes": strikes,
             "strike_count": len(strikes),
+            "map_complete": map_meta.get("map_complete", True),
+            "map_total_pip": map_meta.get("map_total_pip", len(strikes)),
+            "map_message": map_meta.get("map_message"),
             "peak": peak,
             "daily": daily,
         }

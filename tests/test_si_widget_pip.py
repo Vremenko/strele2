@@ -6,7 +6,12 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
-from strele_archive.si_widget_counts import bucket_hourly_rolling_24h, filter_pip_strikes
+from strele_archive.si_widget_counts import (
+    bucket_hourly_rolling_24h,
+    dedup_pip_strikes,
+    filter_pip_strikes,
+    pip_strikes_to_map_records,
+)
 
 
 class FakeRegionIndex:
@@ -42,6 +47,33 @@ class SiWidgetPipTest(unittest.TestCase):
         total, _last, hourly = bucket_hourly_rolling_24h(inside, now_utc=now)
         self.assertEqual(total, 2)
         self.assertEqual(sum(h["stevilo"] for h in hourly), 2)
+
+    def test_map_records_match_total_and_deduplicate(self):
+        ts = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+        rows = [
+            (46.1, 14.2, ts),
+            (46.1, 14.2, ts),  # duplikat
+            (46.2, 14.3, ts + timedelta(minutes=5)),
+        ]
+        iso = lambda d: d.isoformat().replace("+00:00", "Z")
+        records, meta = pip_strikes_to_map_records(rows, iso_utc=iso, max_strikes=50_000)
+        self.assertEqual(len(records), 2)
+        self.assertTrue(meta["map_complete"])
+        self.assertEqual(meta["map_total_pip"], 2)
+        total, _, _ = bucket_hourly_rolling_24h(
+            dedup_pip_strikes(rows), now_utc=ts + timedelta(hours=1)
+        )
+        self.assertEqual(total, len(records))
+
+    def test_map_records_truncation_meta(self):
+        ts = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+        rows = [(46.1, 14.2, ts + timedelta(seconds=i)) for i in range(5)]
+        iso = lambda d: d.isoformat().replace("+00:00", "Z")
+        records, meta = pip_strikes_to_map_records(rows, iso_utc=iso, max_strikes=3)
+        self.assertEqual(len(records), 3)
+        self.assertFalse(meta["map_complete"])
+        self.assertEqual(meta["map_total_pip"], 5)
+        self.assertIn("ni popoln", meta["map_message"])
 
 
 if __name__ == "__main__":
