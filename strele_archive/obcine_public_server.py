@@ -19,6 +19,7 @@ from shapely.ops import unary_union
 
 from strele_archive.obcine import load_obcine
 from strele_archive.regions import load_regions
+from strele_archive.si_widget_counts import bucket_hourly_rolling_24h, filter_pip_strikes
 
 load_dotenv()
 
@@ -522,45 +523,70 @@ def _fetch_daily_calm_si(days: int = 30) -> tuple[list[dict], int, dict | None]:
     return daily, total, peak_out
 
 
-def _fetch_hourly_24h_si() -> tuple[int, int, list[dict]]:
-    now = _utc_now()
-    start = now - timedelta(hours=24)
-    payload = _storm_get(
-        "/strele/aggregates/series",
+def _fetch_raw_strikes_window_si(
+    start: datetime,
+    end: datetime,
+    *,
+    limit: int = 50_000,
+) -> list[tuple[float, float, datetime]]:
+    """Surovi udare v oknu (bbox predfilter); brez omejitve za prikaz na zemljevidu."""
+    idx = _get_region_index()
+    min_lon, min_lat, max_lon, max_lat = idx.bounds
+    parsed: list[tuple[float, float, datetime]] = []
+
+    url = _udari_database_url()
+    if url:
+        try:
+            with psycopg.connect(url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT lat, lon, ts_utc
+                        FROM strele.udari_24h
+                        WHERE ts_utc >= %s AND ts_utc <= %s
+                          AND lat BETWEEN %s AND %s
+                          AND lon BETWEEN %s AND %s
+                        ORDER BY ts_utc ASC
+                        LIMIT %s
+                        """,
+                        (start, end, min_lat, max_lat, min_lon, max_lon, limit),
+                    )
+                    rows = cur.fetchall()
+            for lat_raw, lon_raw, ts_raw in rows:
+                ts = _parse_strike_ts(ts_raw)
+                if ts is None:
+                    continue
+                parsed.append((float(lat_raw), float(lon_raw), ts))
+            if parsed:
+                return parsed
+        except Exception:
+            pass
+
+    rows = _storm_get(
+        "/strele",
         {
-            "bucket": "hour",
-            "group_by": "none",
-            "time_from_utc": _iso_utc(start),
-            "time_to_utc": _iso_utc(now),
             **_si_storm_bbox_params(),
+            "time_from_utc": _iso_utc(start),
+            "time_to_utc": _iso_utc(end),
         },
     )
-    points = payload.get("series") or []
-    by_hour: dict[str, int] = {}
-    for pt in points:
-        ts = str(pt.get("t", ""))
-        if not ts:
-            continue
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        local = dt.astimezone(_LJ_TZ)
-        key = local.strftime("%Y-%m-%dT%H:00:00")
-        by_hour[key] = by_hour.get(key, 0) + int(pt.get("count") or 0)
+    if isinstance(rows, list):
+        for row in rows:
+            ts = _parse_strike_ts(row.get("ts_utc"))
+            if ts is None:
+                continue
+            parsed.append((float(row.get("lat", 0)), float(row.get("lon", 0)), ts))
+    return parsed
 
-    hourly: list[dict] = []
-    cursor = now.astimezone(_LJ_TZ).replace(minute=0, second=0, microsecond=0) - timedelta(hours=23)
-    for _ in range(24):
-        key = cursor.strftime("%Y-%m-%dT%H:00:00")
-        hourly.append({
-            "ura": cursor.hour,
-            "label": f"{cursor.hour:02d}:00",
-            "stevilo": by_hour.get(key, 0),
-            "t": key,
-        })
-        cursor += timedelta(hours=1)
 
-    total = int(payload.get("total") or sum(h["stevilo"] for h in hourly))
-    last_hour = hourly[-1]["stevilo"] if hourly else 0
-    return total, last_hour, hourly
+def _fetch_hourly_24h_si() -> tuple[int, int, list[dict]]:
+    """24h urni profil in total — PiP znotraj meje Slovenije (ne bbox)."""
+    now = _utc_now()
+    start = now - timedelta(hours=24)
+    idx = _get_region_index()
+    raw = _fetch_raw_strikes_window_si(start, now)
+    inside = filter_pip_strikes(raw, idx)
+    return bucket_hourly_rolling_24h(inside, now_utc=now, tz_name="Europe/Ljubljana")
 
 
 def _fetch_strikes_24h_si() -> list[dict]:
