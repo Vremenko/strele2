@@ -1389,13 +1389,21 @@
 
     if (strikeLayer) map.removeLayer(strikeLayer);
     strikeLayer = L.layerGroup();
-    const markerOpts = {
-      radius: 2.5,
-      color: "#e8a008",
-      fillColor: "#e8a008",
-      fillOpacity: 0.85,
-      weight: 0,
-    };
+    const markerOpts = useCanvas
+      ? {
+          radius: 1.15,
+          color: "#e8a008",
+          fillColor: "#e8a008",
+          fillOpacity: 0.9,
+          weight: 0,
+        }
+      : {
+          radius: 2.5,
+          color: "#e8a008",
+          fillColor: "#e8a008",
+          fillOpacity: 0.85,
+          weight: 0,
+        };
     if (useCanvas && strikeCanvasRenderer) {
       markerOpts.renderer = strikeCanvasRenderer;
     }
