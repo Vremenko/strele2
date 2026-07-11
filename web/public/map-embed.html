@@ -455,6 +455,7 @@
   let mapMode    = "stevilo"; // "stevilo" | "gostota" | "dni"
   const REFRESH_SEC = Math.max(60, parseInt(params.get("refresh_sec") || "600", 10) || 600);
   const SHOW_CHROME = params.get("chrome") !== "0";
+  const DEFAULT_RANGE_DAYS = Math.max(1, parseInt(params.get("default_range_days") || "30", 10) || 30);
 
   /* ——— Formatters ——— */
   const fmt      = new Intl.NumberFormat("sl-SI", { useGrouping: true });
@@ -1282,7 +1283,7 @@
       if (!res.ok) return;
       const data = await res.json();
       const todayTotal = data.reduce((s, r) => s + (r.stevilo || 0), 0);
-      days = todayTotal > 0 ? 1 : 30;
+      days = todayTotal > 0 ? 1 : DEFAULT_RANGE_DAYS;
       periodMode = "range";
       mapDay = null;
     } catch (_) { /* ob napaki ostane 30 dni */ }
