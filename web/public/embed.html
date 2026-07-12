@@ -6,7 +6,7 @@
   <title>Strele — graf</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/brand.css">
-  <link rel="stylesheet" href="/static/charts-shared.css?v=11">
+  <link rel="stylesheet" href="/static/charts-shared.css?v=12">
   <style>
     :root {
       --bg: var(--mi-gray-950, #1a1a1a);
@@ -1178,7 +1178,12 @@
           </div>`;
     }
 
-    function panelHtml(id, title, tall, headActions = "", periodId = "") {
+    function dailyPanelHintHtml() {
+      if (EMBED.chart !== "all") return "";
+      return `<p class="panel-chart-hint">Kliknite na stolpec, da se spodnji grafi posodobijo za izbrani dan.</p>`;
+    }
+
+    function panelHtml(id, title, tall, headActions = "", periodId = "", afterChartHtml = "") {
       const h = defaultHeight(id);
       const wrapClass = tall ? "chart-wrap tall" : "chart-wrap";
       const statsHtml = EMBED.stats
@@ -1191,6 +1196,7 @@
           <div class="${wrapClass}" id="${id}Wrap" style="height:${h}px">
             <canvas id="${id}Chart"></canvas>
           </div>
+          ${afterChartHtml}
           <p class="error" id="${id}Error"></p>
         </section>`;
     }
@@ -1293,7 +1299,14 @@
         html = compactDailyHtml();
       } else {
         if (mode === "daily" || mode === "all") {
-          html += panelHtml("daily", "Število strel po dnevih", false, dailyHeadControls(), "dailyPeriodLabel");
+          html += panelHtml(
+            "daily",
+            "Število strel po dnevih",
+            false,
+            dailyHeadControls(),
+            "dailyPeriodLabel",
+            dailyPanelHintHtml(),
+          );
         }
         if (mode === "hourly" || mode === "all") {
           html += panelHtml("hourly", "Po urah", false, "", "hourlyPeriodLabel");

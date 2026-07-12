@@ -142,6 +142,16 @@
   line-height: 1.45;
 }
 
+.panel-chart-hint {
+  margin: 0.5rem 0 0;
+  padding-left: 4px;
+  padding-right: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
 /* ——— Orodna vrstica nad grafi ——— */
 .chart-toolbar {
   padding: 0.85rem 0.9rem;
@@ -472,6 +482,11 @@
 
   .panel-period {
     font-size: 0.85rem;
+  }
+
+  .panel-chart-hint {
+    font-size: 0.6875rem;
+    margin-top: 0.45rem;
   }
 
   .panel-head-top--landing {
