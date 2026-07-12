@@ -1094,6 +1094,13 @@
     return found != null ? found : (mode === "gostota" ? Math.ceil(v) : Math.ceil(v / 100) * 100);
   }
 
+  function niceFloorStevilo(v) {
+    for (let i = NICE_STEVILO.length - 1; i >= 0; i--) {
+      if (NICE_STEVILO[i] <= v) return NICE_STEVILO[i];
+    }
+    return Math.max(1, Math.floor(v));
+  }
+
   /* Vrne "lepo" vrednost strogo med a in b (za zapolnitev vrzeli v razredih). */
   function niceBetween(a, b, mode) {
     const arr = mode === "gostota" ? NICE_GOSTOTA : NICE_STEVILO;
@@ -1107,7 +1114,65 @@
     return mode === "gostota" ? geo : Math.round(geo);
   }
 
+  function steviloTopThreshold(baseBreaks) {
+    return baseBreaks[baseBreaks.length - 1];
+  }
+
+  /* T = spodnja meja osnovnega najvišjega razreda. Dinamika samo ob presežku v zgornjem repu. */
+  function shouldAdaptSteviloScale(values, baseBreaks) {
+    const T = steviloTopThreshold(baseBreaks);
+    if (!(T > 0)) return false;
+    let count2T = 0;
+    let count4T = 0;
+    for (const v of values) {
+      if (v > 2 * T) count2T++;
+      if (v >= 4 * T) count4T++;
+    }
+    return count2T >= 5 || count4T >= 3;
+  }
+
+  /* Dinamične meje število: zgornji razredi se dvignejo bolj, spodnji ostanejo blizu osnovi. */
+  function buildDynamicSteviloBreaks(values, baseBreaks) {
+    const positive = values.filter(v => v > 0).sort((a, b) => a - b);
+    if (!positive.length) return null;
+
+    const n = positive.length;
+    const maxVal = positive[n - 1];
+    const nBands = BAND_COLOURS.length - 1;
+    const base = baseBreaks.slice(0, nBands + 1);
+    if (base.length !== nBands + 1) return null;
+
+    /* Percentili porazdelitve: višji razred → višji percentil iz podatkov. */
+    const percentiles = [0.42, 0.56, 0.68, 0.79, 0.89, 0.96];
+    /* Utež osnovne meje: 100 % pri najnižji prilagodljivi meji → 10 % pri najvišji. */
+    const baseWeights = [1.0, 0.82, 0.64, 0.46, 0.28, 0.10];
+
+    const breaks = [0, 1];
+    for (let i = 2; i <= nBands; i++) {
+      const baseVal = base[i];
+      const pi = i - 2;
+      const qIdx = Math.min(Math.floor(percentiles[pi] * (n - 1)), n - 1);
+      const dataVal = positive[qIdx];
+      const bw = baseWeights[pi];
+      const blended = baseVal * bw + dataVal * (1 - bw);
+      let next = niceNum(blended, "stevilo");
+      next = Math.max(next, breaks[i - 1] + 1);
+      breaks.push(next);
+    }
+
+    /* Najvišji razred: izrazit dvig, a še vedno dosegljiv (≤ max). */
+    let top = niceNum(base[nBands] * 0.35 + maxVal * 0.65, "stevilo");
+    top = Math.min(top, niceFloorStevilo(maxVal));
+    top = Math.max(top, breaks[nBands - 1] + 1);
+    if (top > maxVal) top = Math.max(breaks[nBands - 1] + 1, Math.floor(maxVal));
+    breaks[nBands] = top;
+
+    return breaks;
+  }
+
   function buildDynamicBreaks(values, mode) {
+    if (mode === "stevilo") return null;
+
     const positive = values.filter(v => v > 0).sort((a, b) => a - b);
     if (!positive.length) return null;
     const n = positive.length;
@@ -1152,13 +1217,14 @@
 
   function resolveScale(mode) {
     const d = scaleDaysKey();
-    if (mode === "stevilo" && STEVILO_LEGEND_LABELS[d]) {
-      const fixedBreaks = FIXED_BREAKS.stevilo[d];
-      const fixedMax = FIXED_MAX.stevilo[d] ?? FIXED_MAX.stevilo[30];
-      const values = Object.values(obcinaData).map(ob => displayValue(ob, mode));
-      const maxVal = values.length ? Math.max(0, ...values) : 0;
-      if (maxVal <= fixedMax) return { breaks: fixedBreaks, isDynamic: false };
-      const dynBreaks = buildDynamicBreaks(values, mode) || fixedBreaks;
+    const values = Object.values(obcinaData).map(ob => displayValue(ob, mode));
+
+    if (mode === "stevilo") {
+      const baseBreaks = FIXED_BREAKS.stevilo[d] || FIXED_BREAKS.stevilo[30];
+      if (!shouldAdaptSteviloScale(values, baseBreaks)) {
+        return { breaks: baseBreaks, isDynamic: false };
+      }
+      const dynBreaks = buildDynamicSteviloBreaks(values, baseBreaks) || baseBreaks;
       return { breaks: dynBreaks, isDynamic: true };
     }
     if (mode === "gostota" && GOSTOTA_LEGEND_LABELS[d]) {
@@ -1170,7 +1236,6 @@
     const fixedBreaks = FIXED_BREAKS[mode][d] || FIXED_BREAKS[mode][30];
     const fixedMax    = FIXED_MAX[mode][d]    || FIXED_MAX[mode][30];
 
-    const values = Object.values(obcinaData).map(ob => displayValue(ob, mode));
     const maxVal = values.length ? Math.max(0, ...values) : 0;
 
     if (maxVal <= fixedMax) return { breaks: fixedBreaks, isDynamic: false };
