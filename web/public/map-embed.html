@@ -961,6 +961,7 @@
   }
 
   function scaleDaysKey() {
+    /* En koledarski dan: "Danes" ali izbran datum (Obdobje → Datum). */
     if (periodMode === "day" || days === 1) return 1;
     return days;
   }
@@ -1025,6 +1026,7 @@
 
   /* Eksplicitne oznake legende za način število (fiksna lestvica po obdobju). */
   const STEVILO_LEGEND_LABELS = {
+     1: ["0", "1–10", "11–30", "31–50", "51–70", "71–100", "101–300", "301+"],
     14: ["0", "1–50", "51–150", "151–250", "251–350", "351–500", "501–1500", "1501+"],
     30: ["0", "1–100", "101–300", "301–500", "501–700", "701–1000", "1001–3000", "3001+"],
     90: ["0", "1–200", "201–600", "601–1000", "1001–1400", "1401–2000", "2001–6000", "6001+"],
@@ -1061,6 +1063,7 @@
   }
 
   function scaleDaysKey() {
+    /* En koledarski dan: "Danes" ali izbran datum (Obdobje → Datum). */
     if (periodMode === "day" || days === 1) return 1;
     return days;
   }
@@ -1150,7 +1153,13 @@
   function resolveScale(mode) {
     const d = scaleDaysKey();
     if (mode === "stevilo" && STEVILO_LEGEND_LABELS[d]) {
-      return { breaks: FIXED_BREAKS.stevilo[d], isDynamic: false };
+      const fixedBreaks = FIXED_BREAKS.stevilo[d];
+      const fixedMax = FIXED_MAX.stevilo[d] ?? FIXED_MAX.stevilo[30];
+      const values = Object.values(obcinaData).map(ob => displayValue(ob, mode));
+      const maxVal = values.length ? Math.max(0, ...values) : 0;
+      if (maxVal <= fixedMax) return { breaks: fixedBreaks, isDynamic: false };
+      const dynBreaks = buildDynamicBreaks(values, mode) || fixedBreaks;
+      return { breaks: dynBreaks, isDynamic: true };
     }
     if (mode === "gostota" && GOSTOTA_LEGEND_LABELS[d]) {
       return { breaks: FIXED_BREAKS.gostota[d], isDynamic: false };
@@ -1198,20 +1207,22 @@
     return BAND_COLOURS[0];
   }
 
-  function legendRowCount(mode) {
+  function legendRowCount(mode, isDynamic = false) {
     const d = scaleDaysKey();
-    if (mode === "stevilo" && STEVILO_LEGEND_LABELS[d]) return STEVILO_LEGEND_LABELS[d].length;
+    if (mode === "stevilo" && STEVILO_LEGEND_LABELS[d] && !isDynamic) {
+      return STEVILO_LEGEND_LABELS[d].length;
+    }
     if (mode === "gostota" && GOSTOTA_LEGEND_LABELS[d]) return GOSTOTA_LEGEND_LABELS[d].length;
     if (mode === "dni" && DNI_LEGEND_LABELS[d]) return DNI_LEGEND_LABELS[d].length;
     return BAND_COLOURS.length;
   }
 
   /* ——— Legenda ——— */
-  function legendLabel(i, breaks, mode) {
+  function legendLabel(i, breaks, mode, isDynamic = false) {
     const n = breaks.length;
     if (mode === "stevilo") {
       const labels = STEVILO_LEGEND_LABELS[scaleDaysKey()];
-      if (labels && labels[i] != null) return labels[i];
+      if (labels && labels[i] != null && !isDynamic) return labels[i];
     }
     if (mode === "gostota") {
       const labels = GOSTOTA_LEGEND_LABELS[scaleDaysKey()];
@@ -1242,8 +1253,8 @@
       : mode === "dni"
       ? "Št. dni z nevihto"
       : "Število strel";
-    const rowsHtml = Array.from({ length: legendRowCount(mode) }, (_, i) =>
-      `<div class="legend-row"><span class="legend-swatch" style="background:${BAND_COLOURS[i]}"></span>${legendLabel(i, breaks, mode)}</div>`
+    const rowsHtml = Array.from({ length: legendRowCount(mode, isDynamic) }, (_, i) =>
+      `<div class="legend-row"><span class="legend-swatch" style="background:${BAND_COLOURS[i]}"></span>${legendLabel(i, breaks, mode, isDynamic)}</div>`
     ).join("");
     el.innerHTML = `<div id="legend-title">${titleText}</div><div class="legend-rows">${rowsHtml}</div>`;
   }
