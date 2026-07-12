@@ -467,16 +467,158 @@
 
   let deskMapPanning = false;
   let suppressNextDesktopClick = false;
+  let hideMobileMapWheelHint = null;
+  let mobileGesturesBound = false;
 
   function isMobileView() {
     return window.matchMedia("(max-width:899px)").matches;
+  }
+
+  function bindMobileMapGestures(mapInstance, hostEl) {
+    if (!mapInstance || !hostEl) return;
+    if (mapInstance.__streleMobileGestures) return;
+    if (!isMobileView()) return;
+    mapInstance.__streleMobileGestures = true;
+
+    const hintMsg = "Premakni zemljevid z dvema prstoma";
+    const HINT_HIDE_MS = 700;
+    const MOB_DRAG_HINT_PX = 3;
+    const PINCH_DIST_CHANGE = 0.02;
+    let hintTimer = null;
+    let hintEl = null;
+
+    function hideWheelHint() {
+      if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+      if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
+      hintEl = null;
+    }
+
+    function scheduleWheelHint() {
+      if (!hostEl.isConnected) return;
+      if (!hintEl) {
+        hintEl = document.createElement("div");
+        hintEl.className = "strele-map-wheel-hint";
+        hintEl.textContent = hintMsg;
+        hostEl.appendChild(hintEl);
+      }
+      if (hintTimer) clearTimeout(hintTimer);
+      hintTimer = setTimeout(hideWheelHint, HINT_HIDE_MS);
+    }
+
+    hideMobileMapWheelHint = hideWheelHint;
+
+    try { mapInstance.dragging.disable(); } catch (_) {}
+    try { mapInstance.touchZoom.enable(); } catch (_) {}
+
+    const container = mapInstance.getContainer();
+    let singleActive = false;
+    let startX = 0;
+    let startY = 0;
+    let multiActive = false;
+    let midX = 0;
+    let midY = 0;
+    let multiStartDist = 0;
+    let multiPinching = false;
+
+    function touchMid(touches) {
+      return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2,
+      };
+    }
+
+    function touchDist(touches) {
+      return Math.hypot(
+        touches[1].clientX - touches[0].clientX,
+        touches[1].clientY - touches[0].clientY
+      );
+    }
+
+    function beginMulti(e) {
+      hideWheelHint();
+      multiActive = true;
+      singleActive = false;
+      multiPinching = false;
+      const mid = touchMid(e.touches);
+      midX = mid.x;
+      midY = mid.y;
+      multiStartDist = touchDist(e.touches);
+    }
+
+    function onTouchStart(e) {
+      if (e.touches.length >= 2) {
+        beginMulti(e);
+        return;
+      }
+      if (e.touches.length === 1 && !multiActive) {
+        singleActive = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    }
+
+    function onTouchMove(e) {
+      if (e.touches.length >= 2) {
+        if (!multiActive) beginMulti(e);
+        const dist = touchDist(e.touches);
+        const distChange =
+          multiStartDist > 0 ? Math.abs(dist - multiStartDist) / multiStartDist : 0;
+        if (distChange > PINCH_DIST_CHANGE) {
+          multiPinching = true;
+          return;
+        }
+        if (!multiPinching) {
+          const mid = touchMid(e.touches);
+          const dx = mid.x - midX;
+          const dy = mid.y - midY;
+          midX = mid.x;
+          midY = mid.y;
+          if (dx || dy) {
+            e.preventDefault();
+            mapInstance.panBy([-dx, -dy], { animate: false });
+          }
+        }
+        return;
+      }
+      if (!singleActive || e.touches.length !== 1) return;
+      const x = e.touches[0].clientX;
+      const y = e.touches[0].clientY;
+      if (Math.hypot(x - startX, y - startY) > MOB_DRAG_HINT_PX) {
+        scheduleWheelHint();
+      }
+    }
+
+    function onTouchEnd(e) {
+      if (e.touches.length >= 2) {
+        beginMulti(e);
+        return;
+      }
+      if (e.touches.length === 1) {
+        multiActive = false;
+        multiPinching = false;
+        singleActive = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        return;
+      }
+      singleActive = false;
+      multiActive = false;
+      multiPinching = false;
+    }
+
+    mapInstance.on("movestart", hideWheelHint);
+    mapInstance.on("zoomstart", hideWheelHint);
+    container.addEventListener("touchstart", onTouchStart, { passive: true });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    container.addEventListener("touchend", onTouchEnd, { passive: true });
+    container.addEventListener("touchcancel", onTouchEnd, { passive: true });
   }
 
   function bindMapZoomGestures(mapInstance, hostEl) {
     if (!mapInstance || !hostEl) return;
     if (mapInstance.__streleDesktopGestures) return;
     if (isMobileView()) {
-      try { mapInstance.touchZoom.enable(); } catch (_) {}
+      bindMobileMapGestures(mapInstance, hostEl);
       return;
     }
     mapInstance.__streleDesktopGestures = true;
@@ -1156,18 +1298,23 @@
   let desktopGesturesBound = false;
   function ensureDesktopMapGestures() {
     const hostEl = document.getElementById("map-stage");
-    if (!map || !hostEl || desktopGesturesBound) return;
-    if (window.innerWidth < 900) return;
+    if (!map || !hostEl) return;
     if (isMobileView()) {
-      try { map.touchZoom.enable(); } catch (_) {}
+      if (!mobileGesturesBound) {
+        bindMobileMapGestures(map, hostEl);
+        mobileGesturesBound = true;
+      }
       return;
     }
+    if (desktopGesturesBound) return;
+    if (window.innerWidth < 900) return;
     bindMapZoomGestures(map, hostEl);
     desktopGesturesBound = true;
   }
   function scheduleDesktopMapGestures() {
     ensureDesktopMapGestures();
-    if (!desktopGesturesBound && window.innerWidth < 900) {
+    if (isMobileView()) return;
+    if (!desktopGesturesBound) {
       requestAnimationFrame(scheduleDesktopMapGestures);
     }
   }
@@ -1518,6 +1665,7 @@
   }
 
   function enterMobPinchGesture() {
+    if (hideMobileMapWheelHint) hideMobileMapWheelHint();
     mobPinchGesture = true;
     mobTouchActive = false;
     cancelMobObcinaProbe();
