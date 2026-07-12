@@ -6,7 +6,7 @@
   <title>Strele — graf</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/brand.css">
-  <link rel="stylesheet" href="/static/charts-shared.css?v=12">
+  <link rel="stylesheet" href="/static/charts-shared.css?v=13">
   <style>
     :root {
       --bg: var(--mi-gray-950, #1a1a1a);
@@ -240,24 +240,6 @@
     .chart-lock-link:hover {
       text-decoration: underline;
     }
-    .chart-lock-block--hourly {
-      min-height: 210px;
-    }
-    .chart-lock-fake--hourly {
-      padding: 0.75rem 0.85rem 0.35rem;
-    }
-    .chart-lock-text {
-      margin: 0 0 0.85rem;
-      max-width: 22rem;
-      font-size: 0.82rem;
-      color: var(--muted);
-      line-height: 1.45;
-    }
-    a.chart-lock-btn {
-      display: inline-block;
-      text-decoration: none;
-      text-align: center;
-    }
     @media (max-width: 639px) {
       body.embed:not(.embed-framed):not(.embed-compact) {
         padding: 0.35rem;
@@ -292,7 +274,6 @@
       obcine: params.get("obcine") === "1",
       locked: params.get("locked") === "1",
       hourly: params.get("hourly") === "1",
-      member: params.get("member") === "1",
       compact: params.get("compact") === "1",
     };
     if (window.parent !== window) {
@@ -1247,21 +1228,14 @@
         </section>`;
     }
 
-    function hourlyLockedPanelHtml() {
-      const h = defaultHeight("hourly");
-      const ctaHtml = EMBED.member
-        ? `<a class="chart-lock-btn" href="/cenik" target="_top" rel="noopener">Aktiviraj Podpornika</a>`
-        : `<button type="button" class="chart-lock-btn" data-embed-auth="login">Prijava</button>`;
+    function hourlyLockShellHtml() {
+      const m = isMobile();
+      const lockHeight = m ? 300 : 360;
       return `
-        <section class="panel chart-lock-panel" data-panel="hourly">
+        <section class="panel archive-locked-chart-panel" data-panel="hourly">
           ${panelHeadHtml("Po urah", "", "hourlyPeriodLabel")}
-          <div class="chart-lock-block chart-lock-block--hourly" id="hourlyLock" style="min-height:${h}px">
-            <div class="chart-lock-fake chart-lock-fake--hourly" aria-hidden="true">${fakeBarsHtml(2)}</div>
-            <div class="chart-lock-cta">
-              <span class="chart-lock-icon" aria-hidden="true">🔒</span>
-              <p class="chart-lock-text">Graf po urah je na voljo s paketom Podpornik.</p>
-              ${ctaHtml}
-            </div>
+          <div class="chart-wrap tall archive-locked-chart-panel__chart locked-content-surface" style="height:${lockHeight}px;min-height:${lockHeight}px">
+            <div id="strelko-hourly-lock-root"></div>
           </div>
         </section>`;
     }
@@ -1351,7 +1325,7 @@
           if (EMBED.hourly) {
             html += panelHtml("hourly", "Po urah", false, "", "hourlyPeriodLabel");
           } else {
-            html += hourlyLockedPanelHtml();
+            html += hourlyLockShellHtml();
           }
         }
         if (mode === "regions" || mode === "all") {

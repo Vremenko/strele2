@@ -152,6 +152,25 @@
   text-align: left;
 }
 
+.panel.archive-locked-chart-panel .chart-wrap.tall.locked-content-surface {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  min-width: 0;
+  background: #1a1a1a;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.panel.archive-locked-chart-panel #strelko-hourly-lock-root {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* ——— Orodna vrstica nad grafi ——— */
 .chart-toolbar {
   padding: 0.85rem 0.9rem;
