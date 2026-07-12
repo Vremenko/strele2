@@ -386,6 +386,8 @@
     }
     Chart.defaults.font.size = isMobile() ? 10 : 12;
     const HOURLY_Y_MAX = 2000;
+    const HOURLY_Y_MIN_AUTO = 50;
+    const HOURLY_Y_TICK_COUNT = 6;
     const charts = {};
     let rangeDays = Number(EMBED.days) || 30;
     let detailMode = "range";
@@ -767,10 +769,47 @@
       return `${formatHour(ura)} - ${end}`;
     }
 
-    function hourlyYMax(values) {
-      const peak = values.length ? Math.max(...values) : 0;
-      if (peak <= HOURLY_Y_MAX) return HOURLY_Y_MAX;
-      return Math.ceil((peak * 1.08) / 100) * 100;
+    function niceStep(roughStep) {
+      if (!Number.isFinite(roughStep) || roughStep <= 0) return 1;
+      const exp = Math.floor(Math.log10(roughStep));
+      const f = roughStep / 10 ** exp;
+      const nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+      return nf * 10 ** exp;
+    }
+
+    function computeHourlyYAxis(values) {
+      const peak = values.length ? Math.max(0, ...values) : 0;
+      const yMin = 0;
+      if (peak < HOURLY_Y_MIN_AUTO) {
+        return { yMin, yMax: HOURLY_Y_MIN_AUTO, tickStep: 10 };
+      }
+      if (peak <= HOURLY_Y_MAX) {
+        return { yMin, yMax: HOURLY_Y_MAX, tickStep: HOURLY_Y_MAX / HOURLY_Y_TICK_COUNT };
+      }
+      const paddedPeak = peak * 1.08;
+      for (const tickCount of [HOURLY_Y_TICK_COUNT, HOURLY_Y_TICK_COUNT - 1]) {
+        const tickStep = niceStep(paddedPeak / tickCount);
+        const yMax = tickStep * tickCount;
+        if (yMax >= paddedPeak) {
+          return { yMin, yMax, tickStep };
+        }
+      }
+      let tickStep = niceStep(paddedPeak / HOURLY_Y_TICK_COUNT);
+      let yMax = tickStep * HOURLY_Y_TICK_COUNT;
+      while (yMax < paddedPeak) {
+        tickStep = niceStep(tickStep * 1.5);
+        yMax = tickStep * HOURLY_Y_TICK_COUNT;
+      }
+      return { yMin, yMax, tickStep };
+    }
+
+    function hourlyYAxisTicks(tickStep, size) {
+      return {
+        stepSize: tickStep,
+        precision: 0,
+        font: { size: scaledSize(size, 8) },
+        callback: slAxisTick,
+      };
     }
 
     let lastReportedHeight = 0;
@@ -1050,7 +1089,11 @@
         ds.borderWidth = cx.lineW;
         const o = charts.hourly.options;
         o.layout.padding = { top: cx.padTop, right: cx.padLg };
-        o.scales.y.ticks = countAxisTicks(m ? 10 : 12);
+        const hourlyValues = (ds.data || []).map((n) => Number(n) || 0);
+        const hourlyYAxis = computeHourlyYAxis(hourlyValues);
+        o.scales.y.min = hourlyYAxis.yMin;
+        o.scales.y.max = hourlyYAxis.yMax;
+        o.scales.y.ticks = hourlyYAxisTicks(hourlyYAxis.tickStep, m ? 10 : 12);
         o.scales.x.ticks.font.size = cx.fontSm;
         o.scales.x.ticks.maxTicksLimit = m ? 6 : 24;
         Object.assign(o.plugins.tooltip, tooltipFontOpts(cx));
@@ -1425,7 +1468,7 @@
                 min: 0,
                 max: HOURLY_Y_MAX,
                 beginAtZero: true,
-                ticks: countAxisTicks(m ? 10 : 12),
+                ticks: hourlyYAxisTicks(HOURLY_Y_MAX / HOURLY_Y_TICK_COUNT, m ? 10 : 12),
               },
               x: {
                 ticks: {
@@ -1685,9 +1728,15 @@
           data = await fetchJson(`/api/si-hourly?${periodQuery()}`);
         }
         const values = data.map((d) => d.stevilo);
+        const yAxis = computeHourlyYAxis(values);
         charts.hourly.data.labels = data.map((d) => hourEndLabel(d.ura));
         charts.hourly.data.datasets[0].data = values;
-        charts.hourly.options.scales.y.max = hourlyYMax(values);
+        charts.hourly.options.scales.y.min = yAxis.yMin;
+        charts.hourly.options.scales.y.max = yAxis.yMax;
+        charts.hourly.options.scales.y.ticks = hourlyYAxisTicks(
+          yAxis.tickStep,
+          isMobile() ? 10 : 12
+        );
         charts.hourly.update();
         total = values.reduce((s, n) => s + n, 0);
         const peak = data.reduce((best, d) => (d.stevilo > best.stevilo ? d : best), { ura: 0, stevilo: 0 });
