@@ -2145,17 +2145,18 @@
     }
   }
 
-  function renderObcinaOutlines() {
+  function renderGridBaseLayer() {
     if (!geojson) return;
     if (geojsonLayer) map.removeLayer(geojsonLayer);
     geojsonLayer = L.geoJSON(geojson, {
       smoothFactor: _geojsonFullLoaded ? 0 : 1,
       interactive: false,
       style: {
-        fillOpacity: 0,
-        color: "#8a8f96",
-        weight: 0.35,
-        opacity: 0.45,
+        fillColor:   BAND_COLOURS[0],
+        fillOpacity: 0.78,
+        color:       BAND_COLOURS[0],
+        weight:      0,
+        opacity:     0,
       },
     });
     geojsonLayer.addTo(map);
@@ -2172,7 +2173,7 @@
     removeGridLayer();
     closeAllObcinaTooltips();
     if (geojsonLayer) map.removeLayer(geojsonLayer);
-    renderObcinaOutlines();
+    renderGridBaseLayer();
 
     const zoom = map.getZoom();
     gridLayer = L.geoJSON(gridData, {
