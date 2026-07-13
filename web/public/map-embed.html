@@ -40,22 +40,46 @@
     /* toolbar */
     #toolbar {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.5rem 0.75rem;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.45rem;
       padding: 0.55rem 0.85rem;
       background: var(--panel);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
-    #toolbar.hidden { display: none; }
-    #toolbar label {
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.6rem;
+      min-width: 0;
+    }
+    .toolbar-row--period {
+      justify-content: flex-start;
+    }
+    .toolbar-row label {
       font-size: 0.78rem;
       font-weight: 600;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.04em;
       margin-right: 0.1rem;
+      flex-shrink: 0;
+    }
+    @media (min-width: 900px) {
+      #toolbar {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.75rem 1.25rem;
+      }
+      .toolbar-row {
+        display: contents;
+      }
+      .toolbar-row label {
+        font-size: 0.9rem;
+      }
     }
     #daysSelect {
       background-color: #1a1a1a;
@@ -136,8 +160,16 @@
     /* period label */
     #periodLabel {
       color: var(--muted);
-      font-size: 1.05rem;
+      font-size: 0.85rem;
       margin-left: auto;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    @media (min-width: 900px) {
+      #periodLabel {
+        font-size: 1.21rem;
+        margin-left: auto;
+      }
     }
     /* map */
     #map-stage {
@@ -193,7 +225,8 @@
       pointer-events: none;
       white-space: nowrap;
     }
-    .ob-tooltip strong { color: var(--accent); }
+    .grid-cell-tooltip strong { color: var(--accent); }
+    #toolbar.hidden { display: none; }
     /* Leaflet overrides */
     .leaflet-container { background: var(--bg); }
     .leaflet-interactive:focus,
@@ -392,24 +425,36 @@
 <body>
 <div id="root">
   <div id="toolbar">
-    <label for="daysSelect">Obdobje</label>
-    <select id="daysSelect">
-      <option value="1">Danes</option>
-      <option value="7">7 dni</option>
-      <option value="14">14 dni</option>
-      <option value="30">30 dni</option>
-      <option value="90">90 dni</option>
-      <option value="pick">Datum</option>
-    </select>
-    <span id="mapDayPickWrap" class="hidden">
-      <input type="date" id="mapDayPick" aria-label="Datum prikaza" />
-    </span>
-    <div class="map-mode-tabs" id="mapModeTabs" role="group" aria-label="Način prikaza">
-      <button type="button" class="map-mode-btn map-mode-btn--active" data-mode="stevilo">Število</button>
-      <button type="button" class="map-mode-btn" data-mode="gostota">Gostota</button>
-      <button type="button" class="map-mode-btn" id="mapModeBtnDni" data-mode="dni" hidden>Št. dni z nevihto</button>
+    <div class="toolbar-row toolbar-row--period">
+      <label for="daysSelect">Obdobje</label>
+      <select id="daysSelect">
+        <option value="1">Danes</option>
+        <option value="7">7 dni</option>
+        <option value="14">14 dni</option>
+        <option value="30">30 dni</option>
+        <option value="90">90 dni</option>
+        <option value="pick">Datum</option>
+      </select>
+      <span id="mapDayPickWrap" class="hidden">
+        <input type="date" id="mapDayPick" aria-label="Datum prikaza" />
+      </span>
+      <span id="periodLabel"></span>
     </div>
-    <span id="periodLabel"></span>
+    <div class="toolbar-row toolbar-row--view">
+      <label>Prikaz</label>
+      <div class="map-mode-tabs" id="mapViewTabs" role="group" aria-label="Prikaz zemljevida">
+        <button type="button" class="map-mode-btn map-mode-btn--active" data-view="obcine">Občine</button>
+        <button type="button" class="map-mode-btn" data-view="grid">Mreža 1 × 1 km</button>
+      </div>
+    </div>
+    <div class="toolbar-row toolbar-row--data">
+      <label>Podatek</label>
+      <div class="map-mode-tabs" id="mapModeTabs" role="group" aria-label="Način prikaza podatka">
+        <button type="button" class="map-mode-btn map-mode-btn--active" data-mode="stevilo" id="mapModeBtnStevilo">Število</button>
+        <button type="button" class="map-mode-btn" data-mode="gostota" id="mapModeBtnGostota">Gostota</button>
+        <button type="button" class="map-mode-btn" id="mapModeBtnDni" data-mode="dni" hidden>Št. dni z nevihto</button>
+      </div>
+    </div>
   </div>
   <div id="map-stage">
     <div id="map"></div>
@@ -453,6 +498,7 @@
     }
   }
   let mapMode    = "stevilo"; // "stevilo" | "gostota" | "dni"
+  let mapView    = "obcine"; // "obcine" | "grid"
   const REFRESH_SEC = Math.max(60, parseInt(params.get("refresh_sec") || "600", 10) || 600);
   const SHOW_CHROME = params.get("chrome") !== "0";
   const DEFAULT_RANGE_DAYS = Math.max(1, parseInt(params.get("default_range_days") || "30", 10) || 30);
@@ -1038,6 +1084,14 @@
     90: ["< 1", "1–2", "2–4", "4–6", "6–8", "8–10", "10–20", "20+"],
   };
 
+  /* Mreža 1 × 1 km — fiksne meje (brez razreda 0, prazne celice se ne rišejo). */
+  const GRID_STEVILO_BREAKS = [0, 1, 3, 6, 11, 21, 51, 101];
+  const GRID_STEVILO_LABELS = ["1–2", "3–5", "6–10", "11–20", "21–50", "51–100", "100+"];
+  const GRID_DNI_BREAKS = [0, 1, 2, 3, 4, 6, 8, 11];
+  const GRID_DNI_LABELS = ["1", "2", "3", "4–5", "6–7", "8–10", "11+"];
+
+  let currentGridBreaks = GRID_STEVILO_BREAKS;
+
   /* Zgornja "mirna" meja — če max > fixedMax, preklopi na dinamične razrede */
   const FIXED_MAX = {
     stevilo: {  1: 301,   7: 901,  14: 1501,  30: 3001,  90: 6001 },
@@ -1046,7 +1100,32 @@
   };
 
   function allowsDniMode() {
+    if (mapView === "grid") return true;
     return periodMode === "range" && [7, 14, 30, 90].includes(days);
+  }
+
+  function isGridView() {
+    return mapView === "grid";
+  }
+
+  function syncViewModeUi() {
+    const gostotaBtn = document.getElementById("mapModeBtnGostota");
+    const steviloBtn = document.getElementById("mapModeBtnStevilo");
+    const dniBtn = document.getElementById("mapModeBtnDni");
+    if (gostotaBtn) gostotaBtn.hidden = isGridView();
+    if (steviloBtn) {
+      steviloBtn.textContent = isGridView() ? "Število strel" : "Število";
+    }
+    if (dniBtn) {
+      dniBtn.textContent = isGridView() ? "Št. dni s strelami" : "Št. dni z nevihto";
+    }
+    if (isGridView() && mapMode === "gostota") {
+      mapMode = "stevilo";
+      document.querySelectorAll("#mapModeTabs .map-mode-btn").forEach(b =>
+        b.classList.toggle("map-mode-btn--active", b.dataset.mode === mapMode)
+      );
+    }
+    syncMapModeForPeriod();
   }
 
   function syncMapModeForPeriod() {
@@ -1313,7 +1392,25 @@
   function updateLegend(breaks, isDynamic, mode) {
     const el = document.getElementById("legend");
     if (!el) return;
-    const titleText = mode === "gostota"
+    let titleText;
+    let labels;
+    let colours;
+    if (isGridView()) {
+      if (mode === "dni") {
+        titleText = "Št. dni s strelami v celici 1 × 1 km";
+        labels = GRID_DNI_LABELS;
+      } else {
+        titleText = "Število strel v celici 1 × 1 km";
+        labels = GRID_STEVILO_LABELS;
+      }
+      colours = BAND_COLOURS.slice(1);
+      const rowsHtml = labels.map((label, i) =>
+        `<div class="legend-row"><span class="legend-swatch" style="background:${colours[i]}"></span>${label}</div>`
+      ).join("");
+      el.innerHTML = `<div id="legend-title">${titleText}</div><div class="legend-rows">${rowsHtml}</div>`;
+      return;
+    }
+    titleText = mode === "gostota"
       ? "Strele / km²"
       : mode === "dni"
       ? "Št. dni z nevihto"
@@ -1474,8 +1571,11 @@
 
   /* ——— State ——— */
   let geojsonLayer = null;
+  let gridLayer    = null;
   let obcinaData   = {};   /* ob_id (string) → { name, stevilo, pov_km2 } */
+  let gridData     = null; /* GeoJSON FeatureCollection */
   let geojson      = null;
+  let hoverGridLayer = null;
 
   /* ——— UI refs ——— */
   const sel           = document.getElementById("daysSelect");
@@ -1689,8 +1789,54 @@
   let mobProbeRaf = 0;
   let suppressNextMobileClick = false;
 
+  function gridHitAtClientPoint(clientX, clientY) {
+    if (!gridLayer || !isGridView()) return null;
+    const rect = map.getContainer().getBoundingClientRect();
+    const cp = L.point(clientX - rect.left, clientY - rect.top);
+    const latlng = map.containerPointToLatLng(cp);
+    let found = null;
+    gridLayer.eachLayer(function (layer) {
+      const feature = layer.feature;
+      if (!feature || !layer.getBounds || !layer.getBounds().contains(latlng)) return;
+      if (featureContainsLatLng(feature, latlng)) {
+        found = { layer, latlng };
+      }
+    });
+    return found;
+  }
+
+  function applyMobGridHit(hit) {
+    closeOtherObcinaTooltips();
+    clearGridHover();
+    hoverGridLayer = hit.layer;
+    syncGridLayerStyles();
+    if (typeof hit.layer.openTooltip === "function") hit.layer.openTooltip(hit.latlng);
+  }
+
+  function clearMobGridProbeHit() {
+    clearGridHover();
+    syncGridLayerStyles();
+  }
+
+  function runMobGridProbe() {
+    mobProbeRaf = 0;
+    if (!mobTouchActive || mobPinchGesture || !isGridView()) return;
+    const hit = gridHitAtClientPoint(mobTouchX, mobTouchY);
+    if (!hit) {
+      clearMobGridProbeHit();
+      return;
+    }
+    applyMobGridHit(hit);
+  }
+
+  function scheduleMobGridProbe() {
+    if (!mobTouchActive || mobPinchGesture || !isGridView()) return;
+    if (mobProbeRaf) return;
+    mobProbeRaf = requestAnimationFrame(runMobGridProbe);
+  }
+
   function obcinaHitAtClientPoint(clientX, clientY) {
-    if (!geojsonLayer) return null;
+    if (!geojsonLayer || isGridView()) return null;
     const rect = map.getContainer().getBoundingClientRect();
     const cp = L.point(clientX - rect.left, clientY - rect.top);
     const latlng = map.containerPointToLatLng(cp);
@@ -1750,7 +1896,7 @@
 
   function runMobObcinaProbe() {
     mobProbeRaf = 0;
-    if (!mobTouchActive || mobPinchGesture) return;
+    if (!mobTouchActive || mobPinchGesture || isGridView()) return;
     const hit = obcinaHitAtClientPoint(mobTouchX, mobTouchY);
     if (!hit) {
       clearMobObcinaProbeHit();
@@ -1766,9 +1912,14 @@
   }
 
   function scheduleMobObcinaProbe() {
-    if (!mobTouchActive || mobPinchGesture) return;
+    if (!mobTouchActive || mobPinchGesture || isGridView()) return;
     if (mobProbeRaf) return;
     mobProbeRaf = requestAnimationFrame(runMobObcinaProbe);
+  }
+
+  function scheduleMobMapProbe() {
+    if (isGridView()) scheduleMobGridProbe();
+    else scheduleMobObcinaProbe();
   }
 
   function bindMobileObcinaTouchProbe() {
@@ -1789,7 +1940,7 @@
         mobTouchStartY = e.touches[0].clientY;
         mobTouchX = mobTouchStartX;
         mobTouchY = mobTouchStartY;
-        scheduleMobObcinaProbe();
+        scheduleMobMapProbe();
       },
       { passive: true }
     );
@@ -1808,7 +1959,7 @@
           const dist = Math.hypot(mobTouchX - mobTouchStartX, mobTouchY - mobTouchStartY);
           if (dist > MOB_TOUCH_MOVE_PX) mobTouchMoved = true;
         }
-        scheduleMobObcinaProbe();
+        scheduleMobMapProbe();
       },
       { passive: true }
     );
@@ -1843,7 +1994,7 @@
   function isMapUiChromeTarget(target) {
     if (!target || typeof target.closest !== "function") return false;
     return !!target.closest(
-      "#toolbar, #daysSelect, #mapDayPickWrap, #mapDayPick, #mapModeTabs, .map-mode-btn, #periodLabel, #status, .leaflet-control"
+      "#toolbar, #daysSelect, #mapDayPickWrap, #mapDayPick, #mapViewTabs, #mapModeTabs, .map-mode-btn, #periodLabel, #status, .leaflet-control"
     );
   }
 
@@ -1905,6 +2056,167 @@
   if (!mobView) bindDesktopObcinaPointerPick();
 
   /* ——— Render choropleth ——— */
+  function resolveGridScale(mode) {
+    const values = (gridData?.features || []).map(f => {
+      const p = f.properties || {};
+      return mode === "dni" ? (p.storm_days || 0) : (p.strike_count || 0);
+    });
+    const base = mode === "dni" ? GRID_DNI_BREAKS : GRID_STEVILO_BREAKS;
+    if (!values.length) return base;
+    const maxVal = Math.max(...values);
+    const top = base[base.length - 1];
+    if (maxVal <= top) return base;
+    const dyn = base.slice();
+    dyn[dyn.length - 1] = niceNum(maxVal, "stevilo");
+    return dyn;
+  }
+
+  function gridDisplayValue(props, mode) {
+    if (!props) return 0;
+    return mode === "dni" ? (props.storm_days || 0) : (props.strike_count || 0);
+  }
+
+  function gridColourFor(props, mode) {
+    const v = gridDisplayValue(props, mode);
+    const breaks = mode === "dni" ? currentGridBreaks : currentGridBreaks;
+    for (let i = breaks.length - 1; i >= 1; i--) {
+      if (v >= breaks[i]) return BAND_COLOURS[i];
+    }
+    return BAND_COLOURS[1];
+  }
+
+  function gridBorderStyle(zoom, highlighted) {
+    if (highlighted) {
+      return { color: "#05a5ce", weight: 1.6, opacity: 1 };
+    }
+    const w = zoom >= 10 ? 0.75 : zoom >= 9 ? 0.45 : zoom >= 8 ? 0.2 : 0.06;
+    const opacity = zoom >= 9 ? 0.65 : zoom >= 8 ? 0.4 : 0.2;
+    return { color: "#1f1f1f", weight: w, opacity };
+  }
+
+  function gridPeriodTooltipText() {
+    if (gridData?.period?.from && gridData?.period?.to) {
+      return formatSlDateRange(gridData.period.from, gridData.period.to);
+    }
+    const { from, to } = mapDateRange();
+    return formatSlDateRange(from, to);
+  }
+
+  function gridTooltipHtml(props) {
+    const strikes = props?.strike_count ?? 0;
+    const stormDays = props?.storm_days ?? 0;
+    const lat = Number(props?.center_lat ?? 0).toFixed(6);
+    const lon = Number(props?.center_lon ?? 0).toFixed(6);
+    return `<div class="ob-tooltip grid-cell-tooltip"><strong>Celica 1 × 1 km</strong>`
+      + `<br>Število strel: <strong>${fmt.format(strikes)}</strong>`
+      + `<br>Dni s strelami: <strong>${fmt.format(stormDays)}</strong>`
+      + `<br>Obdobje: ${gridPeriodTooltipText()}`
+      + `<br>Središče: ${lat}, ${lon}</div>`;
+  }
+
+  function clearGridHover() {
+    if (!hoverGridLayer) return;
+    const layer = hoverGridLayer;
+    hoverGridLayer = null;
+    if (typeof layer.closeTooltip === "function") layer.closeTooltip();
+    if (gridLayer) gridLayer.resetStyle(layer);
+  }
+
+  function syncGridLayerStyles() {
+    if (!gridLayer) return;
+    const zoom = map.getZoom();
+    const previewActive = !!hoverGridLayer && (mobView ? mobTouchActive && !mobPinchGesture : true);
+    gridLayer.eachLayer(function (layer) {
+      const props = layer.feature?.properties || {};
+      const border = gridBorderStyle(zoom, previewActive && layer === hoverGridLayer);
+      layer.setStyle({
+        fillColor: gridColourFor(props, mapMode),
+        fillOpacity: 0.78,
+        ...border,
+      });
+    });
+  }
+
+  function removeGridLayer() {
+    clearGridHover();
+    if (gridLayer) {
+      map.removeLayer(gridLayer);
+      gridLayer = null;
+    }
+  }
+
+  function renderObcinaOutlines() {
+    if (!geojson) return;
+    if (geojsonLayer) map.removeLayer(geojsonLayer);
+    geojsonLayer = L.geoJSON(geojson, {
+      smoothFactor: _geojsonFullLoaded ? 0 : 1,
+      interactive: false,
+      style: {
+        fillOpacity: 0,
+        color: "#8a8f96",
+        weight: 0.35,
+        opacity: 0.45,
+      },
+    });
+    geojsonLayer.addTo(map);
+    geojsonLayer.bringToBack();
+  }
+
+  function renderGridLayer(skipViewport) {
+    if (!gridData || !Array.isArray(gridData.features)) return;
+
+    currentGridBreaks = resolveGridScale(mapMode);
+    scaleIsDynamic = currentGridBreaks !== (mapMode === "dni" ? GRID_DNI_BREAKS : GRID_STEVILO_BREAKS);
+    updateLegend(currentGridBreaks, scaleIsDynamic, mapMode);
+
+    removeGridLayer();
+    closeAllObcinaTooltips();
+    if (geojsonLayer) map.removeLayer(geojsonLayer);
+    renderObcinaOutlines();
+
+    const zoom = map.getZoom();
+    gridLayer = L.geoJSON(gridData, {
+      smoothFactor: 0,
+      style: function (feature) {
+        const border = gridBorderStyle(zoom, false);
+        return {
+          fillColor: gridColourFor(feature.properties, mapMode),
+          fillOpacity: 0.78,
+          ...border,
+        };
+      },
+      onEachFeature: function (feature, layer) {
+        layer.bindTooltip(() => gridTooltipHtml(feature.properties), {
+          sticky: true,
+          className: "ob-tooltip-shell",
+        });
+
+        if (!mobView) {
+          layer.on("mouseover", function (e) {
+            if (mapIsZooming) return;
+            clearGridHover();
+            hoverGridLayer = layer;
+            syncGridLayerStyles();
+            if (typeof layer.openTooltip === "function") layer.openTooltip(e.latlng);
+          });
+          layer.on("mouseout", function () {
+            if (hoverGridLayer === layer) hoverGridLayer = null;
+            if (typeof layer.closeTooltip === "function") layer.closeTooltip();
+            syncGridLayerStyles();
+          });
+        }
+      },
+    });
+    gridLayer.addTo(map);
+    if (!map.__streleGridZoomSync) {
+      map.__streleGridZoomSync = true;
+      map.on("zoomend", syncGridLayerStyles);
+    }
+
+    if (!skipViewport) applyMapViewport();
+    notifyResize(true);
+  }
+
   function renderLayer(skipViewport) {
     if (!geojson) return;
 
@@ -2002,6 +2314,15 @@
     notifyResize(true);
   }
 
+  function renderMap(skipViewport) {
+    removeGridLayer();
+    if (isGridView()) {
+      renderGridLayer(skipViewport);
+      return;
+    }
+    renderLayer(skipViewport);
+  }
+
   /* ——— Data fetching ——— */
   let _geojsonFullLoaded = false;
   let _fullFetch = null;
@@ -2011,8 +2332,8 @@
     const needsUpgrade = _hadLiteRender && geojson !== gj;
     geojson = gj;
     _geojsonFullLoaded = true;
-    if (needsUpgrade && Object.keys(obcinaData).length) {
-      renderLayer(true);
+    if (needsUpgrade && (Object.keys(obcinaData).length || (gridData?.features || []).length)) {
+      renderMap(true);
       if (mobView && !mobUserViewportLocked) scheduleMobileMapViewport();
     }
   }
@@ -2055,6 +2376,19 @@
     }
   }
 
+  async function loadGridData() {
+    let fetchUrl;
+    if (periodMode === "day" && mapDay) {
+      fetchUrl = apiUrl(`/api/grid-map?day=${encodeURIComponent(mapDay)}`);
+    } else {
+      const { from, to } = mapDateRange();
+      fetchUrl = apiUrl(`/api/grid-map?from=${from}&to=${to}`);
+    }
+    const res = await fetchWithTimeout(fetchUrl, 90000);
+    if (!res.ok) throw new Error(`Grid API HTTP ${res.status}`);
+    gridData = await res.json();
+  }
+
   async function loadObcineData() {
     let fetchUrl;
     if (periodMode === "day" && mapDay) {
@@ -2080,12 +2414,14 @@
   async function reload() {
     setStatus("Nalagam …");
     try {
+      syncViewModeUi();
       syncMapModeForPeriod();
       updatePeriodLabel();
-      await Promise.all([loadGeojson(), loadObcineData()]);
+      const dataPromise = isGridView() ? loadGridData() : loadObcineData();
+      await Promise.all([loadGeojson(), dataPromise]);
       setStatus(null);
       if (mobView && geojson && !_geojsonFullLoaded) _hadLiteRender = true;
-      renderLayer();
+      renderMap();
       notifyResize(true);
     } catch (e) {
       setStatus("Napaka pri nalaganju podatkov.", true);
@@ -2115,6 +2451,7 @@
       days = parseInt(sel.value, 10) || 30;
     }
     obcinaData = {};
+    gridData = null;
     reload().then(afterPeriodReload);
   }
 
@@ -2125,7 +2462,25 @@
     if (periodMode !== "day" || !dayPick.value) return;
     mapDay = dayPick.value;
     obcinaData = {};
+    gridData = null;
     reload().then(afterPeriodReload);
+  });
+
+  document.getElementById("mapViewTabs").addEventListener("click", function (e) {
+    const btn = e.target.closest("[data-view]");
+    if (!btn) return;
+    const newView = btn.dataset.view;
+    if (newView === mapView) return;
+    mapView = newView;
+    document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach(b =>
+      b.classList.toggle("map-mode-btn--active", b.dataset.view === mapView)
+    );
+    clearCurrentHoverObcina();
+    clearGridHover();
+    obcinaData = {};
+    gridData = null;
+    syncViewModeUi();
+    reload();
   });
 
   document.getElementById("mapModeTabs").addEventListener("click", function (e) {
@@ -2135,10 +2490,14 @@
     if (newMode === "dni" && !allowsDniMode()) return;
     if (newMode === mapMode) return;
     mapMode = newMode;
-    document.querySelectorAll(".map-mode-btn").forEach(b =>
+    document.querySelectorAll("#mapModeTabs .map-mode-btn").forEach(b =>
       b.classList.toggle("map-mode-btn--active", b.dataset.mode === mapMode)
     );
-    renderLayer(); /* podatki so že naloženi, samo preračunaj lestvico in barve */
+    if (isGridView()) {
+      renderGridLayer(true);
+    } else {
+      renderLayer(true);
+    }
   });
 
   window.addEventListener("message", function (e) {
@@ -2151,6 +2510,7 @@
         sel.value = d === 1 ? "1" : String(days);
         dayPickWrap.classList.add("hidden");
         obcinaData = {};
+        gridData = null;
         reload();
       }
     }
@@ -2163,6 +2523,7 @@
         dayPick.value = mapDay;
         dayPickWrap.classList.remove("hidden");
         obcinaData = {};
+        gridData = null;
         reload();
       }
     }
@@ -2343,6 +2704,7 @@
   }
 
   syncMapModeForPeriod();
+  syncViewModeUi();
   (async function boot() {
     if (!periodLockedByUrl) await resolveDefaultPeriod();
     syncSelectFromPeriod();
@@ -2366,6 +2728,7 @@
         && todayTotal !== _mapLastTodayCount;
       if (changed || stale) {
         obcinaData = {};
+        gridData = null;
         await reload();
         _mapLastReload = Date.now();
       }

@@ -27,6 +27,7 @@ from strele_archive.obcina_widget_daily import (
     parse_storm_hourly_payload,
 )
 from strele_archive.regions import load_regions
+from strele_archive.grid_map import fetch_grid_map
 from strele_archive.si_widget_counts import (
     bucket_hourly_rolling_24h,
     dedup_pip_strikes,
@@ -789,6 +790,41 @@ def api_obcine_map(
         }
         for r in rows
     ]
+
+
+@app.get("/api/grid-map")
+def api_grid_map(
+    from_: date | None = Query(None, alias="from"),
+    to_: date | None = Query(None, alias="to"),
+    day: date | None = Query(None),
+    days: int | None = Query(None, ge=1, le=365),
+    min_lon: float | None = Query(None, ge=12.0, le=17.5),
+    min_lat: float | None = Query(None, ge=44.0, le=48.0),
+    max_lon: float | None = Query(None, ge=12.0, le=17.5),
+    max_lat: float | None = Query(None, ge=44.0, le=48.0),
+) -> dict:
+    """Mreža 1 × 1 km — GeoJSON celic z vsaj enim udarom (PostGIS agregacija)."""
+    start, end = _date_range(from_, to_, day, days)
+    udari_url = _udari_database_url()
+    if not udari_url:
+        raise HTTPException(status_code=503, detail="Vir udarov (UDARI_DATABASE_URL) ni na voljo")
+
+    viewport: tuple[float, float, float, float] | None = None
+    if None not in (min_lon, min_lat, max_lon, max_lat):
+        if min_lon >= max_lon or min_lat >= max_lat:
+            raise HTTPException(status_code=422, detail="Neveljaven bbox")
+        viewport = (min_lon, min_lat, max_lon, max_lat)
+
+    try:
+        return fetch_grid_map(
+            start=start,
+            end=end,
+            data_dir=_DATA_DIR,
+            database_url=udari_url,
+            viewport=viewport,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Napaka pri agregaciji mreže: {exc}") from exc
 
 
 @app.get("/api/obcina-daily")
