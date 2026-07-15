@@ -432,6 +432,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/proj4@2.11.0/dist/proj4.js" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin=""></script>
 <script>
 (function () {
@@ -1699,7 +1700,10 @@
   map.on("zoomstart", function () {
     mapIsZooming = true;
     clearCurrentHoverObcina();
-    if (isGridView()) closeAllGridTooltips();
+    if (isGridView()) {
+      closeAllGridTooltips();
+      clearGridHoverHighlight();
+    }
   });
   map.on("zoomend", function () {
     mapIsZooming = false;
@@ -1708,7 +1712,10 @@
   if (!mobView) {
     map.getContainer().addEventListener("mouseleave", function () {
       closeAllObcinaTooltips();
-      if (isGridView()) closeAllGridTooltips();
+      if (isGridView()) {
+        closeAllGridTooltips();
+        clearGridHoverHighlight();
+      }
     });
   }
 
@@ -2167,6 +2174,8 @@
   let gridBaseLayer = null;
   let gridData = null; /* GeoJSON FeatureCollection */
   let gridHighlightLayer = null;
+  let gridHoverHighlightLayer = null;
+  let hoverGridCellKey = null;
   let selectedGridLat = null;
   let selectedGridLon = null;
   let hoverGridStrikeLayer = null;
@@ -2177,6 +2186,109 @@
   let gridMapClickBound = false;
   const GRID_CHART_TITLE = "Celica 1 × 1 km — radij 10 km";
   let gridCellDailyCache = null;
+  const GRID_CELL_SIZE_M = 1000;
+  const GRID_CELL_STYLE_HOVER = {
+    color: "#05a5ce",
+    weight: 1.25,
+    opacity: 0.95,
+    fillColor: "#05a5ce",
+    fillOpacity: 0.28,
+  };
+
+  proj4.defs(
+    "EPSG:3794",
+    "+proj=tmerc +lat_0=0 +lon_0=15 +k=0.9999 +x_0=500000 +y_0=-5000000 +ellps=GRS80 +units=m +no_defs"
+  );
+  const _wgs84ToGrid3794 = proj4("EPSG:4326", "EPSG:3794");
+  const _grid3794ToWgs84 = proj4("EPSG:3794", "EPSG:4326");
+
+  function snapGridOriginMeters(value, cellSize) {
+    return Math.floor(value / cellSize) * cellSize;
+  }
+
+  function gridCellKeyFromLatLng(latlng) {
+    if (!latlng) return null;
+    const projected = _wgs84ToGrid3794.forward([latlng.lng, latlng.lat]);
+    const gridX = snapGridOriginMeters(projected.x, GRID_CELL_SIZE_M);
+    const gridY = snapGridOriginMeters(projected.y, GRID_CELL_SIZE_M);
+    return gridX + ":" + gridY;
+  }
+
+  function gridCellEnvelopeGeometryFromLatLng(latlng) {
+    if (!latlng) return null;
+    const projected = _wgs84ToGrid3794.forward([latlng.lng, latlng.lat]);
+    const gridX = snapGridOriginMeters(projected.x, GRID_CELL_SIZE_M);
+    const gridY = snapGridOriginMeters(projected.y, GRID_CELL_SIZE_M);
+    const ring = [
+      [gridX, gridY],
+      [gridX + GRID_CELL_SIZE_M, gridY],
+      [gridX + GRID_CELL_SIZE_M, gridY + GRID_CELL_SIZE_M],
+      [gridX, gridY + GRID_CELL_SIZE_M],
+      [gridX, gridY],
+    ].map(function (xy) {
+      const ll = _grid3794ToWgs84.forward(xy);
+      return [ll.x, ll.y];
+    });
+    return { type: "Polygon", coordinates: [ring] };
+  }
+
+  function selectedGridCellKey() {
+    if (gridCellDailyCache && gridCellDailyCache.cell && gridCellDailyCache.cell.cell_id) {
+      const parts = String(gridCellDailyCache.cell.cell_id).split(":");
+      if (parts.length === 3) return parts[1] + ":" + parts[2];
+    }
+    if (selectedGridLat != null && selectedGridLon != null) {
+      return gridCellKeyFromLatLng({ lat: selectedGridLat, lng: selectedGridLon });
+    }
+    return null;
+  }
+
+  function isHoverOnSelectedGridCell(cellKey) {
+    const selectedKey = selectedGridCellKey();
+    return !!(selectedKey && cellKey && selectedKey === cellKey);
+  }
+
+  function clearGridHoverHighlight() {
+    hoverGridCellKey = null;
+    if (gridHoverHighlightLayer) {
+      map.removeLayer(gridHoverHighlightLayer);
+      gridHoverHighlightLayer = null;
+    }
+  }
+
+  function syncGridHoverHighlight(latlng, feature) {
+    if (!isGridView() || mobView || mapIsZooming || !latlng) {
+      clearGridHoverHighlight();
+      return;
+    }
+    const cellKey = feature && feature.properties && feature.properties.cell_id
+      ? String(feature.properties.cell_id).split(":").slice(1).join(":")
+      : gridCellKeyFromLatLng(latlng);
+    if (!cellKey || isHoverOnSelectedGridCell(cellKey)) {
+      clearGridHoverHighlight();
+      return;
+    }
+    const cellGeometry = feature && feature.geometry
+      ? feature.geometry
+      : gridCellEnvelopeGeometryFromLatLng(latlng);
+    if (!cellGeometry) {
+      clearGridHoverHighlight();
+      return;
+    }
+    if (hoverGridCellKey === cellKey && gridHoverHighlightLayer) return;
+    clearGridHoverHighlight();
+    hoverGridCellKey = cellKey;
+    gridHoverHighlightLayer = L.geoJSON(
+      { type: "Feature", geometry: cellGeometry, properties: {} },
+      {
+        interactive: false,
+        style: GRID_CELL_STYLE_HOVER,
+      }
+    ).addTo(map);
+    if (gridHighlightLayer && typeof gridHighlightLayer.bringToFront === "function") {
+      gridHighlightLayer.bringToFront();
+    }
+  }
 
   function getGridBaseGeojson() {
     // Prefer already loaded OB.geojson (or lite), otherwise fall back to cached feature collection.
@@ -2198,6 +2310,7 @@
       map.removeLayer(gridHighlightLayer);
       gridHighlightLayer = null;
     }
+    clearGridHoverHighlight();
     hoverGridStrikeLayer = null;
     gridData = null;
   }
@@ -2285,14 +2398,17 @@
       if (typeof strikeHit.layer.openTooltip === "function") {
         strikeHit.layer.openTooltip(latlng);
       }
+      syncGridHoverHighlight(latlng, strikeHit.layer.feature);
       return;
     }
     closeGridStrikeTooltips();
     if (!sloveniaHitAtLatLng(latlng)) {
       hideGridZeroTooltip();
+      clearGridHoverHighlight();
       return;
     }
     showGridZeroTooltipAt(latlng);
+    syncGridHoverHighlight(latlng, null);
   }
 
   function bindGridMapHover() {
@@ -2311,6 +2427,7 @@
     map.off("mousemove", onGridMapMouseMove);
     gridMapHoverBound = false;
     closeAllGridTooltips();
+    clearGridHoverHighlight();
   }
 
   function unbindGridMapInteraction() {
@@ -2758,6 +2875,9 @@
         },
       }
     ).addTo(map);
+    if (typeof gridHighlightLayer.bringToFront === "function") {
+      gridHighlightLayer.bringToFront();
+    }
   }
 
   function clearGridChartForLoad() {
