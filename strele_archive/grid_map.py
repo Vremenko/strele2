@@ -111,7 +111,7 @@ WHERE ST_Intersects(
 )
 """
 
-GRID_CELL_DAILY_RADII_KM: tuple[int, ...] = (5, 10, 15)
+GRID_CELL_DAILY_RADIUS_KM: int = 10
 
 _CELL_RESOLVE_SQL = """
 WITH slo AS (
@@ -157,14 +157,6 @@ _RADIUS_DAILY_SQL = """
 WITH slo AS (
     SELECT ST_SetSRID(ST_GeomFromText(%(slo_wkt)s), 4326) AS geom
 ),
-bounds AS (
-    SELECT
-        ST_XMin(geom) AS min_lon,
-        ST_YMin(geom) AS min_lat,
-        ST_XMax(geom) AS max_lon,
-        ST_YMax(geom) AS max_lat
-    FROM slo
-),
 center AS (
     SELECT ST_SetSRID(ST_MakePoint(%(center_lon)s, %(center_lat)s), 4326) AS geom
 ),
@@ -175,11 +167,10 @@ strikes AS (
     SELECT (u.ts_utc AT TIME ZONE 'Europe/Ljubljana')::date AS strike_day
     FROM strele.udari u
     CROSS JOIN slo
-    CROSS JOIN bounds b
     CROSS JOIN center c
     WHERE u.ts_utc >= %(t0)s
       AND u.ts_utc < %(t1)s
-      AND u.geom && ST_MakeEnvelope(b.min_lon, b.min_lat, b.max_lon, b.max_lat, 4326)
+      AND u.geom && ST_Envelope(ST_Buffer(c.geom::geography, %(radius_m)s::double precision)::geometry)
       AND ST_Intersects(u.geom, slo.geom)
       AND ST_DWithin(u.geom::geography, c.geom::geography, %(radius_m)s)
     %(extra_union_today)s
@@ -200,9 +191,8 @@ _EXTRA_UNION_TODAY_RADIUS = """
     SELECT (u.ts_utc AT TIME ZONE 'Europe/Ljubljana')::date AS strike_day
     FROM strele.udari_24h u
     CROSS JOIN slo
-    CROSS JOIN bounds b
     CROSS JOIN center c
-    WHERE u.geom && ST_MakeEnvelope(b.min_lon, b.min_lat, b.max_lon, b.max_lat, 4326)
+    WHERE u.geom && ST_Envelope(ST_Buffer(c.geom::geography, %(radius_m)s::double precision)::geometry)
       AND ST_Intersects(u.geom, slo.geom)
       AND ST_DWithin(u.geom::geography, c.geom::geography, %(radius_m)s)
       AND (u.ts_utc AT TIME ZONE 'Europe/Ljubljana')::date >= %(today)s
@@ -617,9 +607,8 @@ def fetch_grid_cell_daily(
     start: date,
     end: date,
     data_dir: Path | None = None,
-    radii_km: tuple[int, ...] = GRID_CELL_DAILY_RADII_KM,
 ) -> dict | None:
-    """Celica + dnevni nizi za fiksne radije okoli središča celice."""
+    """Celica + dnevni niz za fiksni radij 10 km okoli središča celice."""
     cell = resolve_grid_cell(conn, lat=lat, lon=lon, data_dir=data_dir)
     if cell is None:
         return None
@@ -631,10 +620,9 @@ def fetch_grid_cell_daily(
             center_lon=cell["center_lon"],
             start=start,
             end=end,
-            radius_km=radius_km,
+            radius_km=GRID_CELL_DAILY_RADIUS_KM,
             slo_wkt=slo_wkt,
         )
-        for radius_km in radii_km
     ]
     return {
         "cell": cell,

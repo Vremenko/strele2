@@ -954,7 +954,7 @@ def api_grid_cell_daily(
     from_: date = Query(..., alias="from"),
     to_: date = Query(..., alias="to"),
 ) -> dict:
-    """Izbrana celica 1 × 1 km + dnevni potek strel v radijih 5, 10 in 15 km."""
+    """Izbrana celica 1 × 1 km + dnevni potek strel v radiju 10 km."""
     if from_ > to_:
         raise HTTPException(status_code=422, detail="Neveljavno obdobje")
     period_days = (to_ - from_).days + 1

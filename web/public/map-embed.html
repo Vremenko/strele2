@@ -387,28 +387,6 @@
       color: var(--muted);
     }
     #chart-hint.hidden { display: none; }
-    .chart-radius-tabs {
-      display: flex;
-      gap: 0.35rem;
-      margin-bottom: 0.45rem;
-      flex-wrap: wrap;
-    }
-    .chart-radius-tabs.hidden { display: none; }
-    .chart-radius-btn {
-      font: inherit;
-      font-size: 0.72rem;
-      padding: 0.2rem 0.55rem;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      color: var(--muted);
-      cursor: pointer;
-    }
-    .chart-radius-btn--active {
-      color: var(--text);
-      border-color: var(--accent);
-      background: rgba(5, 165, 206, 0.15);
-    }
   </style>
 </head>
 <body>
@@ -445,11 +423,6 @@
     <div id="chart-header">
       <span id="chart-ob-name">–</span>
       <span id="chart-ob-meta"></span>
-    </div>
-    <div id="chart-grid-radius" class="chart-radius-tabs hidden" role="group" aria-label="Radij grafa">
-      <button type="button" class="chart-radius-btn chart-radius-btn--active" data-radius-km="5">5 km</button>
-      <button type="button" class="chart-radius-btn" data-radius-km="10">10 km</button>
-      <button type="button" class="chart-radius-btn" data-radius-km="15">15 km</button>
     </div>
     <div id="chartWrap">
       <canvas id="obcinaDailyCanvas"></canvas>
@@ -2202,7 +2175,7 @@
   let gridZeroTipMarker = null;
   let gridMapHoverBound = false;
   let gridMapClickBound = false;
-  let selectedGridRadiusKm = 5;
+  const GRID_CHART_TITLE = "Celica 1 × 1 km — radij 10 km";
   let gridCellDailyCache = null;
 
   function getGridBaseGeojson() {
@@ -2518,7 +2491,6 @@
         restoreObcineMinZoom();
         const chart = document.getElementById("chart-section");
         if (chart) chart.style.display = "";
-        setGridRadiusTabsVisible(false);
         gridCellDailyCache = null;
         const hint = document.getElementById("chart-hint");
         if (hint) {
@@ -2723,49 +2695,26 @@
   const chartObMetaEl = document.getElementById("chart-ob-meta");
   const chartHintEl   = document.getElementById("chart-hint");
 
-  const chartGridRadiusEl = document.getElementById("chart-grid-radius");
-
-  function setGridRadiusTabsVisible(show) {
-    if (!chartGridRadiusEl) return;
-    chartGridRadiusEl.classList.toggle("hidden", !show);
-  }
-
-  function syncGridRadiusTabStyles() {
-    if (!chartGridRadiusEl) return;
-    chartGridRadiusEl.querySelectorAll(".chart-radius-btn").forEach(function (btn) {
-      btn.classList.toggle(
-        "chart-radius-btn--active",
-        Number(btn.dataset.radiusKm) === selectedGridRadiusKm
-      );
-    });
-  }
-
   function formatGridStrikeTotal(n) {
     const x = Math.abs(Number(n) || 0);
-    return `Skupaj: ${fmt2.format(x)} ${gridTooltipPluralStrela(x)}`;
+    return `Skupaj: ${fmt2.format(x)} strel`;
   }
 
-  function gridSeriesForSelectedRadius() {
+  function gridSeriesFromCache() {
     if (!gridCellDailyCache || !Array.isArray(gridCellDailyCache.series)) return null;
-    return (
-      gridCellDailyCache.series.find(function (s) {
-        return Number(s.radius_km) === selectedGridRadiusKm;
-      }) || null
-    );
+    return gridCellDailyCache.series[0] || null;
   }
 
   function renderGridChartFromCache() {
-    const series = gridSeriesForSelectedRadius();
+    const series = gridSeriesFromCache();
     if (!series || !Array.isArray(series.daily) || !series.daily.length) {
       showGridChartError(GRID_CHART_LOAD_ERROR);
       return;
     }
     chartDates = series.daily.map(function (d) { return d.datum; });
-    chartObNameEl.textContent = `Celica 1 × 1 km — radij ${selectedGridRadiusKm} km`;
+    chartObNameEl.textContent = GRID_CHART_TITLE;
     chartObMetaEl.textContent = formatGridStrikeTotal(series.total || 0);
     chartHintEl.classList.add("hidden");
-    setGridRadiusTabsVisible(true);
-    syncGridRadiusTabStyles();
     if (!dailyChart || chartMode !== "grid") {
       destroyDailyChart();
       initDailyChart("grid");
@@ -2812,10 +2761,9 @@
   }
 
   function clearGridChartForLoad() {
-    chartObNameEl.textContent = `Celica 1 × 1 km — radij ${selectedGridRadiusKm} km`;
+    chartObNameEl.textContent = GRID_CHART_TITLE;
     chartObMetaEl.textContent = "";
     chartHintEl.textContent = "Nalagam graf …";
-    setGridRadiusTabsVisible(true);
     chartHintEl.classList.remove("hidden");
     if (dailyChart && chartMode === "grid") {
       destroyDailyChart();
@@ -2828,11 +2776,10 @@
     if (dailyChart && chartMode === "grid") {
       destroyDailyChart();
     }
-    chartObNameEl.textContent = `Celica 1 × 1 km — radij ${selectedGridRadiusKm} km`;
+    chartObNameEl.textContent = GRID_CHART_TITLE;
     chartObMetaEl.textContent = "";
     chartHintEl.textContent = message || GRID_CHART_LOAD_ERROR;
     chartHintEl.classList.remove("hidden");
-    setGridRadiusTabsVisible(true);
     syncGridHighlight(null);
     notifyResize(true);
   }
@@ -2889,7 +2836,6 @@
       const counts = data.map(d => d.stevilo);
       const total  = counts.reduce((s, v) => s + v, 0);
 
-      setGridRadiusTabsVisible(false);
       gridCellDailyCache = null;
       chartObNameEl.textContent = chartObcinaLabel(name);
       chartObMetaEl.textContent = `Skupaj: ${fmt2.format(total)}`;
@@ -2961,17 +2907,6 @@
 
   if (!SHOW_CHROME) {
     document.getElementById("toolbar")?.classList.add("hidden");
-  }
-
-  if (chartGridRadiusEl) {
-    chartGridRadiusEl.addEventListener("click", function (e) {
-      const btn = e.target.closest("[data-radius-km]");
-      if (!btn || !isGridView() || !gridCellDailyCache) return;
-      const km = Number(btn.dataset.radiusKm);
-      if (!km || km === selectedGridRadiusKm) return;
-      selectedGridRadiusKm = km;
-      renderGridChartFromCache();
-    });
   }
 
   /* ——— Init ——— */

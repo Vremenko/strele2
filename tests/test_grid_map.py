@@ -14,7 +14,8 @@ from strele_archive.grid_map import (
     _CACHE_VERSION,
     _DAILY_TABLE,
     _GRID_AGG_SQL,
-    GRID_CELL_DAILY_RADII_KM,
+    GRID_CELL_DAILY_RADIUS_KM,
+    _RADIUS_DAILY_SQL,
     build_cached_feature_collection,
     build_feature_collection,
     build_today_cached_feature_collection,
@@ -232,6 +233,8 @@ class GridMapEndpointTest(unittest.TestCase):
         self.assertIn("gridZeroTooltipHtml", html)
         self.assertIn("/api/grid-cell-daily", html)
         self.assertIn("0 strel / km²", html)
+        self.assertIn("Celica 1 × 1 km — radij 10 km", html)
+        self.assertNotIn("data-radius-km", html)
 
     def test_map_embed_has_no_grid_storm_mode_button(self):
         html = (Path(__file__).resolve().parent.parent / "web" / "public" / "map-embed.html").read_text(
@@ -406,8 +409,13 @@ class GridMapEndpointTest(unittest.TestCase):
 
 
 class GridCellDailyTest(unittest.TestCase):
-    def test_grid_cell_daily_radii_fixed(self):
-        self.assertEqual(GRID_CELL_DAILY_RADII_KM, (5, 10, 15))
+    def test_grid_cell_daily_radius_fixed(self):
+        self.assertEqual(GRID_CELL_DAILY_RADIUS_KM, 10)
+
+    def test_radius_daily_sql_uses_local_bbox(self):
+        self.assertIn("ST_Buffer", _RADIUS_DAILY_SQL)
+        self.assertIn("ST_Envelope", _RADIUS_DAILY_SQL)
+        self.assertNotIn("bounds AS", _RADIUS_DAILY_SQL)
 
     def test_resolve_grid_cell_outside_slovenia(self):
         mock_cursor = MagicMock()
@@ -449,8 +457,8 @@ class GridCellDailyTest(unittest.TestCase):
         self.assertEqual(out["cell"]["cell_id"], make_cell_id(478000, 66000))
         self.assertEqual(out["from"], "2026-07-09")
         self.assertEqual(out["to"], "2026-07-10")
-        self.assertEqual(len(out["series"]), 3)
-        self.assertEqual(out["series"][0]["radius_km"], 5)
+        self.assertEqual(len(out["series"]), 1)
+        self.assertEqual(out["series"][0]["radius_km"], 10)
         self.assertEqual(out["series"][0]["total"], 3)
         self.assertEqual(out["series"][0]["daily"][1]["stevilo"], 3)
 
@@ -474,7 +482,7 @@ class GridCellDailyEndpointTest(unittest.TestCase):
             },
             "from": "2026-07-09",
             "to": "2026-07-15",
-            "series": [{"radius_km": 5, "total": 0, "daily": []}],
+            "series": [{"radius_km": 10, "total": 0, "daily": []}],
         }
         mock_conn = MagicMock()
         mock_conn.__enter__.return_value = mock_conn
