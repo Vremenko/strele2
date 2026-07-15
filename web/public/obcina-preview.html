@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Cache-Control" content="no-store, must-revalidate" />
   <title>Udari strel v občini — Strelko</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <link href="https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.css" rel="stylesheet" />
@@ -1011,99 +1010,16 @@
     return fetchJson(`${WIDGET_API}/si-geometry`);
   }
 
-  function maskWidgetKey(url) {
-    return String(url || "").replace(/\/public\/[a-f0-9]{32}/gi, "/public/<key>");
-  }
-
-  function reportWidgetDiag(phase, err, extra) {
-    const detail = {
-      phase: phase,
-      name: err && err.name ? err.name : "Error",
-      message: err && err.message ? err.message : String(err),
-      stack: err && err.stack ? err.stack : null,
-    };
-    if (extra) detail.extra = extra;
-    console.error("[strelko-obcina-widget]", detail);
-  }
-
   async function fetchJson(url, opts) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 15000);
     try {
       const res = await fetch(url, { credentials: "include", ...opts, signal: ctrl.signal });
-      if (!res.ok) {
-        const err = new Error("HTTP " + res.status);
-        err.phase = "http";
-        err.status = res.status;
-        err.url = maskWidgetKey(url);
-        throw err;
-      }
-      try {
-        return await res.json();
-      } catch (parseErr) {
-        const err = new Error("Neveljaven JSON odgovor");
-        err.phase = "json";
-        err.url = maskWidgetKey(url);
-        err.cause = parseErr;
-        throw err;
-      }
-    } catch (err) {
-      if (!err.phase) {
-        err.phase = "fetch";
-        err.url = maskWidgetKey(url);
-      }
-      throw err;
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json();
     } finally {
       clearTimeout(timer);
     }
-  }
-
-  async function fetchPublicJson(url) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15000);
-    try {
-      const res = await fetch(url, { credentials: "omit", signal: ctrl.signal });
-      if (!res.ok) {
-        const err = new Error("HTTP " + res.status);
-        err.phase = "http";
-        err.status = res.status;
-        err.url = maskWidgetKey(url);
-        throw err;
-      }
-      try {
-        return await res.json();
-      } catch (parseErr) {
-        const err = new Error("Neveljaven JSON odgovor");
-        err.phase = "json";
-        err.url = maskWidgetKey(url);
-        err.cause = parseErr;
-        throw err;
-      }
-    } catch (err) {
-      if (!err.phase) {
-        err.phase = "fetch";
-        err.url = maskWidgetKey(url);
-      }
-      throw err;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  function unwrapPublicEnvelope(envelope) {
-    if (!envelope || typeof envelope !== "object") return {};
-    const nested = envelope.data;
-    if (
-      nested &&
-      typeof nested === "object" &&
-      (nested.obcina || nested.mode || nested.period_total != null || nested.daily)
-    ) {
-      return nested;
-    }
-    if (envelope.obcina || envelope.mode || envelope.period_total != null || envelope.daily) {
-      return envelope;
-    }
-    return nested && typeof nested === "object" ? nested : {};
   }
 
   function lastStrikeDateFromDaily(daily) {
@@ -1142,20 +1058,14 @@
       return hydrateWidgetData(payload, obMidParam, isNationalScope);
     }
 
-    const envelope = await fetchPublicJson(
+    const envelope = await fetchJson(
       `${STRELKO_API}/strelko/obcina-widgets/public/${encodeURIComponent(publicKey)}`
     );
     applyTheme(envelope.theme);
     size = envelope.size === "full" ? "full" : "compact";
     isNationalScope = envelope.scope === "slovenija";
     obMidParam = envelope.ob_mid || null;
-    const payload = unwrapPublicEnvelope(envelope);
-    if (!payload.obcina && !payload.mode && payload.period_total == null && !Array.isArray(payload.daily)) {
-      const err = new Error("Manjkajoči podatki v javnem odgovoru widgeta");
-      err.phase = "data-shape";
-      throw err;
-    }
-    return hydrateWidgetData(payload, obMidParam, isNationalScope);
+    return hydrateWidgetData(envelope.data || {}, obMidParam, isNationalScope);
   }
 
   async function hydrateWidgetData(data, obMid, national) {
@@ -1534,11 +1444,8 @@
 
   async function load() {
     if (!loadedOnce) renderLoading();
-    let phase = "boot";
     try {
-      phase = "data";
       const data = await loadData();
-      phase = "render";
       const national = isNationalScope || data.scope === "slovenija";
       if (!municipalityName) municipalityName = data.obcina || (national ? "SLOVENIJA" : "Občina");
 
@@ -1588,11 +1495,6 @@
 
       notifyResize();
     } catch (e) {
-      reportWidgetDiag(e && e.phase ? e.phase : phase, e, {
-        bootError: bootError,
-        isPreview: IS_PREVIEW,
-        size: size,
-      });
       if (!loadedOnce) renderError();
       notifyResize();
     }
