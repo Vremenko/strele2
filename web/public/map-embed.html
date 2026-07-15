@@ -1436,6 +1436,28 @@
     map.setMinZoom(OBCINE_MIN_ZOOM);
   }
 
+  let gridMapPanesReady = false;
+  function ensureGridMapPanes() {
+    if (gridMapPanesReady) return;
+    const specs = [
+      ["gridBasePane", 405],
+      ["gridStrikePane", 415],
+      ["gridHoverPane", 425],
+      ["gridSelectedPane", 435],
+    ];
+    specs.forEach(function (spec) {
+      const name = spec[0];
+      const z = spec[1];
+      if (!map.getPane(name)) {
+        map.createPane(name);
+      }
+      const pane = map.getPane(name);
+      pane.style.zIndex = String(z);
+      pane.style.pointerEvents = "none";
+    });
+    gridMapPanesReady = true;
+  }
+
   const baseTileLayer = L.tileLayer(maptilerTileUrl(STYLE_BASE_DARK), mobView ? {
     attribution: MAP_ATTRIBUTION,
     maxZoom: 18,
@@ -1696,7 +1718,10 @@
     syncObcinaLayerStyles();
   }
 
-  map.on("movestart", clearCurrentHoverObcina);
+  map.on("movestart", function () {
+    clearCurrentHoverObcina();
+    if (isGridView()) clearGridHoverHighlight();
+  });
   map.on("zoomstart", function () {
     mapIsZooming = true;
     clearCurrentHoverObcina();
@@ -2174,7 +2199,7 @@
   let gridBaseLayer = null;
   let gridData = null; /* GeoJSON FeatureCollection */
   let gridHighlightLayer = null;
-  let gridHoverHighlightLayer = null;
+  let gridHoverPolygon = null;
   let hoverGridCellKey = null;
   let selectedGridLat = null;
   let selectedGridLon = null;
@@ -2202,34 +2227,57 @@
   const _wgs84ToGrid3794 = proj4("EPSG:4326", "EPSG:3794");
   const _grid3794ToWgs84 = proj4("EPSG:3794", "EPSG:4326");
 
+  function projCoordXY(projected) {
+    if (Array.isArray(projected)) return { x: projected[0], y: projected[1] };
+    return { x: projected.x, y: projected.y };
+  }
+
   function snapGridOriginMeters(value, cellSize) {
     return Math.floor(value / cellSize) * cellSize;
   }
 
-  function gridCellKeyFromLatLng(latlng) {
+  function gridCellMetersFromLatLng(latlng) {
     if (!latlng) return null;
-    const projected = _wgs84ToGrid3794.forward([latlng.lng, latlng.lat]);
-    const gridX = snapGridOriginMeters(projected.x, GRID_CELL_SIZE_M);
-    const gridY = snapGridOriginMeters(projected.y, GRID_CELL_SIZE_M);
-    return gridX + ":" + gridY;
+    const projected = projCoordXY(_wgs84ToGrid3794.forward([latlng.lng, latlng.lat]));
+    return {
+      gridX: snapGridOriginMeters(projected.x, GRID_CELL_SIZE_M),
+      gridY: snapGridOriginMeters(projected.y, GRID_CELL_SIZE_M),
+    };
   }
 
-  function gridCellEnvelopeGeometryFromLatLng(latlng) {
-    if (!latlng) return null;
-    const projected = _wgs84ToGrid3794.forward([latlng.lng, latlng.lat]);
-    const gridX = snapGridOriginMeters(projected.x, GRID_CELL_SIZE_M);
-    const gridY = snapGridOriginMeters(projected.y, GRID_CELL_SIZE_M);
-    const ring = [
+  function gridCellKeyFromLatLng(latlng) {
+    const cell = gridCellMetersFromLatLng(latlng);
+    if (!cell) return null;
+    return cell.gridX + ":" + cell.gridY;
+  }
+
+  function gridCellEnvelopeLatLngs(latlng) {
+    const cell = gridCellMetersFromLatLng(latlng);
+    if (!cell) return null;
+    const gridX = cell.gridX;
+    const gridY = cell.gridY;
+    const corners = [
       [gridX, gridY],
       [gridX + GRID_CELL_SIZE_M, gridY],
       [gridX + GRID_CELL_SIZE_M, gridY + GRID_CELL_SIZE_M],
       [gridX, gridY + GRID_CELL_SIZE_M],
-      [gridX, gridY],
-    ].map(function (xy) {
-      const ll = _grid3794ToWgs84.forward(xy);
-      return [ll.x, ll.y];
+    ];
+    return corners.map(function (xy) {
+      const ll = projCoordXY(_grid3794ToWgs84.forward(xy));
+      return [ll.y, ll.x];
     });
-    return { type: "Polygon", coordinates: [ring] };
+  }
+
+  function geometryToLatLngs(geometry) {
+    if (!geometry || geometry.type !== "Polygon" || !geometry.coordinates || !geometry.coordinates[0]) {
+      return null;
+    }
+    const ring = geometry.coordinates[0];
+    if (ring.length < 4) return null;
+    const latlngs = ring.slice(0, ring.length - 1).map(function (coord) {
+      return [coord[1], coord[0]];
+    });
+    return latlngs;
   }
 
   function selectedGridCellKey() {
@@ -2250,9 +2298,8 @@
 
   function clearGridHoverHighlight() {
     hoverGridCellKey = null;
-    if (gridHoverHighlightLayer) {
-      map.removeLayer(gridHoverHighlightLayer);
-      gridHoverHighlightLayer = null;
+    if (gridHoverPolygon) {
+      map.removeLayer(gridHoverPolygon);
     }
   }
 
@@ -2261,6 +2308,7 @@
       clearGridHoverHighlight();
       return;
     }
+    ensureGridMapPanes();
     const cellKey = feature && feature.properties && feature.properties.cell_id
       ? String(feature.properties.cell_id).split(":").slice(1).join(":")
       : gridCellKeyFromLatLng(latlng);
@@ -2268,25 +2316,33 @@
       clearGridHoverHighlight();
       return;
     }
-    const cellGeometry = feature && feature.geometry
-      ? feature.geometry
-      : gridCellEnvelopeGeometryFromLatLng(latlng);
-    if (!cellGeometry) {
+    const latlngs = feature && feature.geometry
+      ? geometryToLatLngs(feature.geometry)
+      : gridCellEnvelopeLatLngs(latlng);
+    if (!latlngs || !latlngs.length) {
       clearGridHoverHighlight();
       return;
     }
-    if (hoverGridCellKey === cellKey && gridHoverHighlightLayer) return;
-    clearGridHoverHighlight();
+    if (hoverGridCellKey === cellKey && gridHoverPolygon && map.hasLayer(gridHoverPolygon)) {
+      return;
+    }
     hoverGridCellKey = cellKey;
-    gridHoverHighlightLayer = L.geoJSON(
-      { type: "Feature", geometry: cellGeometry, properties: {} },
-      {
+    if (!gridHoverPolygon) {
+      gridHoverPolygon = L.polygon(latlngs, {
+        pane: "gridHoverPane",
         interactive: false,
-        style: GRID_CELL_STYLE_HOVER,
-      }
-    ).addTo(map);
-    if (gridHighlightLayer && typeof gridHighlightLayer.bringToFront === "function") {
-      gridHighlightLayer.bringToFront();
+        color: GRID_CELL_STYLE_HOVER.color,
+        weight: GRID_CELL_STYLE_HOVER.weight,
+        opacity: GRID_CELL_STYLE_HOVER.opacity,
+        fillColor: GRID_CELL_STYLE_HOVER.fillColor,
+        fillOpacity: GRID_CELL_STYLE_HOVER.fillOpacity,
+      });
+    } else {
+      gridHoverPolygon.setLatLngs(latlngs);
+      gridHoverPolygon.setStyle(GRID_CELL_STYLE_HOVER);
+    }
+    if (!map.hasLayer(gridHoverPolygon)) {
+      gridHoverPolygon.addTo(map);
     }
   }
 
@@ -2457,10 +2513,12 @@
   async function ensureGridBaseLayer() {
     if (gridBaseLayer) return;
     try {
+      ensureGridMapPanes();
       await loadGeojson();
       const baseGJ = getGridBaseGeojson();
       if (!baseGJ) throw new Error("OB.geojson ni na voljo");
       gridBaseLayer = L.geoJSON(baseGJ, {
+        pane: "gridBasePane",
         renderer: L.canvas(),
         interactive: false,
         style: {
@@ -2521,8 +2579,10 @@
     updateLegend(currentGridBreaks, false, "gostota");
 
     if (gridLayer) map.removeLayer(gridLayer);
-    const canvas = L.canvas({ padding: 0.5 });
+    ensureGridMapPanes();
+    const canvas = L.canvas({ padding: 0.5, pane: "gridStrikePane" });
     gridLayer = L.geoJSON(gridData, {
+      pane: "gridStrikePane",
       smoothFactor: 0,
       renderer: canvas,
       interactive: false,
@@ -2862,9 +2922,11 @@
       gridHighlightLayer = null;
     }
     if (!geometry || !isGridView()) return;
+    ensureGridMapPanes();
     gridHighlightLayer = L.geoJSON(
       { type: "Feature", geometry, properties: {} },
       {
+        pane: "gridSelectedPane",
         interactive: false,
         style: {
           fillColor: "transparent",
@@ -2875,9 +2937,6 @@
         },
       }
     ).addTo(map);
-    if (typeof gridHighlightLayer.bringToFront === "function") {
-      gridHighlightLayer.bringToFront();
-    }
   }
 
   function clearGridChartForLoad() {
