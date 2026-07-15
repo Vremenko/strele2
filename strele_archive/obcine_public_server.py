@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import pathlib
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -11,9 +12,16 @@ import psycopg
 import requests
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
+
+from strele_archive.obcina_widget_auth import (
+    PREVIEW_SESSION_COOKIE,
+    legacy_widget_open,
+    require_internal_key,
+    validate_preview_token,
+)
 from shapely.geometry import Point, mapping
 from shapely.ops import unary_union
 
@@ -27,7 +35,79 @@ from strele_archive.obcina_widget_daily import (
     parse_storm_hourly_payload,
 )
 from strele_archive.regions import load_regions
-from strele_archive.grid_map import fetch_grid_map
+from strele_archive.grid_map import (
+    fetch_grid_map_from_daily,
+    local_today,
+    today_cache_basename,
+)
+
+_GRID_CACHE_DIR = pathlib.Path(__file__).resolve().parents[1] / "cache" / "grid-map"
+_GRID_CACHE_DAYS = {7, 14, 30, 90}
+_GRID_CACHE_VERSION = 4
+
+
+def _grid_cache_path(days: int) -> pathlib.Path:
+    return _GRID_CACHE_DIR / f"grid-map-{days}.json"
+
+
+def _grid_today_cache_path() -> pathlib.Path:
+    return _GRID_CACHE_DIR / today_cache_basename()
+
+
+def _grid_cache_etag(p: pathlib.Path) -> str:
+    st = p.stat()
+    return f'W/"{st.st_mtime_ns}-{st.st_size}"'
+
+
+def _grid_cache_is_valid(parsed: dict) -> bool:
+    if int(parsed.get("cache_version") or 0) != _GRID_CACHE_VERSION:
+        return False
+    if "storm_radius_km" in parsed or "storm_days" in parsed:
+        return False
+    if not parsed.get("cached"):
+        return False
+    return True
+
+
+def _accepts_gzip(request: Request) -> bool:
+    accept = (request.headers.get("accept-encoding") or "").lower()
+    return "gzip" in accept
+
+
+def _grid_cache_response(request: Request, p: pathlib.Path) -> Response:
+    if not p.exists():
+        raise HTTPException(status_code=503, detail="Grid cache še ni pripravljen.")
+    try:
+        etag = _grid_cache_etag(p)
+        if request.headers.get("if-none-match") == etag:
+            return Response(status_code=304, headers={"ETag": etag})
+        body = p.read_bytes()
+        try:
+            parsed = json.loads(body.decode("utf-8"))
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="Grid cache je poškodovan.") from exc
+        if not _grid_cache_is_valid(parsed):
+            raise HTTPException(
+                status_code=503,
+                detail="Grid cache ni kompatibilen (potreben je nov backfill).",
+            )
+        headers = {
+            "ETag": etag,
+            "Cache-Control": "public, max-age=300",
+            "X-Grid-Cache": "hit",
+        }
+        if _accepts_gzip(request):
+            import gzip
+
+            compressed = gzip.compress(body, compresslevel=6)
+            headers["Content-Encoding"] = "gzip"
+            headers["Vary"] = "Accept-Encoding"
+            return Response(content=compressed, media_type="application/json", headers=headers)
+        return Response(content=body, media_type="application/json", headers=headers)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Grid cache je poškodovan.") from exc
 from strele_archive.si_widget_counts import (
     bucket_hourly_rolling_24h,
     dedup_pip_strikes,
@@ -792,39 +872,77 @@ def api_obcine_map(
     ]
 
 
-@app.get("/api/grid-map")
+@app.get("/api/grid-map", response_model=None)
 def api_grid_map(
+    request: Request,
     from_: date | None = Query(None, alias="from"),
     to_: date | None = Query(None, alias="to"),
     day: date | None = Query(None),
     days: int | None = Query(None, ge=1, le=365),
+    today: bool = Query(False, description="Današnji lokalni dan (cache grid-map-today.json)"),
     min_lon: float | None = Query(None, ge=12.0, le=17.5),
     min_lat: float | None = Query(None, ge=44.0, le=48.0),
     max_lon: float | None = Query(None, ge=12.0, le=17.5),
     max_lat: float | None = Query(None, ge=44.0, le=48.0),
-) -> dict:
-    """Mreža 1 × 1 km — GeoJSON celic z vsaj enim udarom (PostGIS agregacija)."""
-    start, end = _date_range(from_, to_, day, days)
+) -> dict | Response:
+    """Mreža 1 × 1 km — GeoJSON celic (gostota iz dnevne agregatne tabele ali cache)."""
+    today_lj = local_today()
+
+    if None not in (min_lon, min_lat, max_lon, max_lat):
+        if min_lon >= max_lon or min_lat >= max_lat:
+            raise HTTPException(status_code=422, detail="Neveljaven bbox")
+        raise HTTPException(status_code=422, detail="Viewport filter za mrežo ni podprt.")
+
+    # Današnji dan — samo predpripravljen cache.
+    if today or (day is not None and day == today_lj) or (
+        from_ is not None
+        and to_ is not None
+        and from_ == to_ == today_lj
+        and day is None
+        and days is None
+    ):
+        return _grid_cache_response(request, _grid_today_cache_path())
+
+    if from_ is None and to_ is None and day is None and days in _GRID_CACHE_DAYS:
+        end = today_lj
+        start = end - timedelta(days=int(days) - 1)
+    else:
+        start, end = _date_range(from_, to_, day, days)
+
+    # Cached rolling periods (7/14/30/90), brez viewporta.
+    if (
+        days in _GRID_CACHE_DAYS
+        and day is None
+        and from_ is None
+        and to_ is None
+        and not today
+        and start == (end - timedelta(days=int(days) - 1))
+        and end == today_lj
+    ):
+        return _grid_cache_response(request, _grid_cache_path(int(days)))
+
     udari_url = _udari_database_url()
     if not udari_url:
         raise HTTPException(status_code=503, detail="Vir udarov (UDARI_DATABASE_URL) ni na voljo")
 
-    viewport: tuple[float, float, float, float] | None = None
-    if None not in (min_lon, min_lat, max_lon, max_lat):
-        if min_lon >= max_lon or min_lat >= max_lat:
-            raise HTTPException(status_code=422, detail="Neveljaven bbox")
-        viewport = (min_lon, min_lat, max_lon, max_lat)
-
     try:
-        return fetch_grid_map(
-            start=start,
-            end=end,
-            data_dir=_DATA_DIR,
-            database_url=udari_url,
-            viewport=viewport,
+        with psycopg.connect(udari_url) as conn:
+            out = fetch_grid_map_from_daily(conn, start=start, end=end)
+        out.update(
+            {
+                "cached": False,
+                "generated_at": datetime.now(tz=timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z"),
+                "from": start.isoformat(),
+                "to": end.isoformat(),
+                "cache_version": _GRID_CACHE_VERSION,
+            }
         )
+        return out
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Napaka pri agregaciji mreže: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"Napaka pri branju mreže: {exc}") from exc
 
 
 @app.get("/api/obcina-daily")
@@ -938,9 +1056,16 @@ def api_si_geometry() -> dict:
 
 @app.get("/api/si-widget")
 def api_si_widget(
+    request: Request,
     calm_days: int = Query(30, ge=7, le=90, alias="days"),
 ) -> dict:
     """Podatki za embed widget celotne Slovenije."""
+    if not legacy_widget_open():
+        raise HTTPException(status_code=403, detail="Dostop zavrnjen. Uporabite veljaven widget ključ.")
+    return _api_si_widget_data(calm_days)
+
+
+def _api_si_widget_data(calm_days: int) -> dict:
     daily, period_total, peak = _fetch_daily_calm_si(calm_days)
     last_strike_time = _fetch_last_strike_time_si(daily)
     bounds = _si_bounds()
@@ -996,14 +1121,41 @@ def api_si_widget(
     }
 
 
+@app.get("/api/si-widget/internal")
+def api_si_widget_internal(
+    request: Request,
+    calm_days: int = Query(30, ge=7, le=90, alias="days"),
+) -> dict:
+    require_internal_key(request)
+    return _api_si_widget_data(calm_days)
+
+
 @app.get("/api/obcina-widget")
 def api_obcina_widget(
+    request: Request,
     ob_mid: int | None = Query(None, description="OB_MID identifikator občine"),
     ob_mids: str | None = Query(None, description="Več OB_MID, ločeno z vejico (največ 10)"),
     title: str | None = Query(None, max_length=80, description="Ime widgeta pri več občinah"),
     calm_days: int = Query(30, ge=7, le=90, alias="days"),
 ) -> dict:
-    """Podatki za embed widget občine: urni profil + udari 24 h ob nevihti, sicer dnevna statistika."""
+    """Podatki za embed widget občine — legacy javni dostop (zaprt, razen če OBCINA_WIDGET_LEGACY_OPEN=1)."""
+    if not legacy_widget_open():
+        raise HTTPException(status_code=403, detail="Dostop zavrnjen. Uporabite veljaven widget ključ.")
+    return _api_obcina_widget_data(
+        ob_mid=ob_mid,
+        ob_mids=ob_mids,
+        title=title,
+        calm_days=calm_days,
+    )
+
+
+def _api_obcina_widget_data(
+    *,
+    ob_mid: int | None = None,
+    ob_mids: str | None = None,
+    title: str | None = None,
+    calm_days: int = 30,
+) -> dict:
     mids = _parse_ob_mids(ob_mid, ob_mids)
     obs = _find_obcine(mids)
     muni_codes = [str(ob.id) for ob in obs]
@@ -1086,6 +1238,46 @@ def api_obcina_widget(
     }
 
 
+@app.get("/api/obcina-widget/internal")
+def api_obcina_widget_internal(
+    request: Request,
+    ob_mid: int | None = Query(None),
+    ob_mids: str | None = Query(None),
+    title: str | None = Query(None, max_length=80),
+    calm_days: int = Query(30, ge=7, le=90, alias="days"),
+) -> dict:
+    require_internal_key(request)
+    return _api_obcina_widget_data(
+        ob_mid=ob_mid,
+        ob_mids=ob_mids,
+        title=title,
+        calm_days=calm_days,
+    )
+
+
+@app.get("/api/obcina-widget/preview")
+def api_obcina_widget_preview(
+    request: Request,
+    token: str = Query(..., min_length=10),
+) -> dict:
+    if request.query_params.get("ob_mid") or request.query_params.get("scope"):
+        raise HTTPException(status_code=400, detail="Dodatni parametri niso dovoljeni.")
+    session_id = request.cookies.get(PREVIEW_SESSION_COOKIE)
+    config = validate_preview_token(token, session_id)
+    if config["scope"]:
+        data = _api_si_widget_data(30)
+    else:
+        data = _api_obcina_widget_data(ob_mid=config["ob_mid"], calm_days=30)
+    return {
+        **data,
+        "preview": True,
+        "theme": config["theme"],
+        "size": config["size"],
+        "scope": config["scope"],
+        "ob_mid": config["ob_mid"],
+    }
+
+
 @app.get("/public/assets/{filename:path}")
 def serve_public_asset(filename: str) -> FileResponse:
     allowed = {
@@ -1107,7 +1299,24 @@ def serve_obcina_widget() -> FileResponse:
     path = _WEB_PUBLIC_DIR / "obcina-widget.html"
     if not path.exists():
         raise HTTPException(status_code=404, detail="obcina-widget.html ne obstaja")
-    return FileResponse(str(path), media_type="text/html")
+    return FileResponse(
+        str(path),
+        media_type="text/html",
+        headers={"Cache-Control": "no-store, must-revalidate"},
+    )
+
+
+@app.get("/public/obcina-preview.html")
+def serve_obcina_preview() -> FileResponse:
+    path = _WEB_PUBLIC_DIR / "obcina-preview.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="obcina-preview.html ne obstaja")
+    frame_ancestors = os.getenv("STRELKO_FRAME_ANCESTORS", "https://strelko.meteoinfo.si").strip()
+    return FileResponse(
+        str(path),
+        media_type="text/html",
+        headers={"Content-Security-Policy": f"frame-ancestors {frame_ancestors}"},
+    )
 
 
 @app.get("/public/data/{filename:path}")

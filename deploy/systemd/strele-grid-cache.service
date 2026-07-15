@@ -1,0 +1,9 @@
+[Unit]
+Description=Strelko 1km grid cache (hourly)
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Zahteva delujoč Docker kontejner strele2-obcine-public-1 (UDARI_DATABASE_URL v kontejnerju).
+# Brez EnvironmentFile — gesla ostanejo v Docker okolju kontejnerja.
+ExecStart=/usr/bin/docker exec strele2-obcine-public-1 sh -lc 'cd /app && PYTHONPATH=/app python -m strele_archive.grid_cache_job'
