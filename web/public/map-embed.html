@@ -2662,11 +2662,7 @@
         selectedGridLon = null;
         const chart = document.getElementById("chart-section");
         if (chart) chart.style.display = "";
-        const hint = document.getElementById("chart-hint");
-        if (hint && selectedGridLat == null) {
-          hint.textContent = "Kliknite na celico za prikaz grafa";
-          hint.classList.remove("hidden");
-        }
+        resetChartForGridViewSwitch();
         await ensureGridBaseLayer();
         await loadGridData();
         setStatus(null);
@@ -2884,6 +2880,20 @@
   const chartObNameEl = document.getElementById("chart-ob-name");
   const chartObMetaEl = document.getElementById("chart-ob-meta");
   const chartHintEl   = document.getElementById("chart-hint");
+  const GRID_CHART_IDLE_HINT =
+    "Kliknite na celico za prikaz statistike v radiju 10 km.";
+
+  function resetChartForGridViewSwitch() {
+    gridCellDailyCache = null;
+    chartDates = [];
+    destroyDailyChart();
+    chartMode = "grid";
+    chartObNameEl.textContent = "";
+    chartObMetaEl.textContent = "";
+    chartHintEl.textContent = GRID_CHART_IDLE_HINT;
+    chartHintEl.classList.remove("hidden");
+    syncGridHighlight(null);
+  }
 
   function formatGridStrikeTotal(n) {
     const x = Math.abs(Number(n) || 0);
