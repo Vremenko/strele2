@@ -26,6 +26,10 @@ class Settings:
     timezone: str
     dedup_retention_hours: int
     bbox_padding_deg: float
+    reconcile_interval_sec: int
+    reconcile_min_gap: int
+    finalize_local_hour: int
+    finalize_local_minute: int
 
 
 def get_settings() -> Settings:
@@ -46,4 +50,8 @@ def get_settings() -> Settings:
         timezone=os.getenv("TIMEZONE", "Europe/Ljubljana"),
         dedup_retention_hours=int(os.getenv("DEDUP_RETENTION_HOURS", "26")),
         bbox_padding_deg=float(os.getenv("SI_BBOX_PADDING_DEG", "0.02")),
+        reconcile_interval_sec=int(os.getenv("RECONCILE_INTERVAL_SEC", "900")),
+        reconcile_min_gap=int(os.getenv("RECONCILE_MIN_GAP", "50")),
+        finalize_local_hour=int(os.getenv("FINALIZE_LOCAL_HOUR", "23")),
+        finalize_local_minute=int(os.getenv("FINALIZE_LOCAL_MINUTE", "50")),
     )

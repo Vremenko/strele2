@@ -1,4 +1,8 @@
-"""Uskladitev urnih agregatov z dnevnimi (ingest vs archive sync)."""
+"""Uskladitev urnih agregatov z dnevnimi (interni popravek iz dedup).
+
+Opomba: ne pridobiva manjkajočih udarov iz StormAPI. Za popolno uskladitev
+glej strele_archive.day_reconcile (avtoritativni vir + PiP razvrstitev).
+"""
 
 from __future__ import annotations
 
