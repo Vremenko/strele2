@@ -36,13 +36,15 @@ from strele_archive.obcina_widget_daily import (
 )
 from strele_archive.regions import load_regions
 from strele_archive.grid_map import (
+    fetch_grid_cell_daily,
     fetch_grid_map_from_daily,
-    local_today,
+    resolve_grid_cell,
     today_cache_basename,
 )
 
 _GRID_CACHE_DIR = pathlib.Path(__file__).resolve().parents[1] / "cache" / "grid-map"
 _GRID_CACHE_DAYS = {7, 14, 30, 90}
+_GRID_CELL_DAILY_MAX_DAYS = 90
 _GRID_CACHE_VERSION = 4
 
 
@@ -943,6 +945,42 @@ def api_grid_map(
         return out
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Napaka pri branju mreže: {exc}") from exc
+
+
+@app.get("/api/grid-cell-daily")
+def api_grid_cell_daily(
+    lat: float = Query(..., ge=44.0, le=48.0),
+    lon: float = Query(..., ge=12.0, le=17.5),
+    from_: date = Query(..., alias="from"),
+    to_: date = Query(..., alias="to"),
+) -> dict:
+    """Izbrana celica 1 × 1 km + dnevni potek strel v radijih 5, 10 in 15 km."""
+    if from_ > to_:
+        raise HTTPException(status_code=422, detail="Neveljavno obdobje")
+    period_days = (to_ - from_).days + 1
+    if period_days > _GRID_CELL_DAILY_MAX_DAYS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Obdobje je predolgo (največ {_GRID_CELL_DAILY_MAX_DAYS} dni)",
+        )
+    udari_url = _udari_database_url()
+    if not udari_url:
+        raise HTTPException(status_code=503, detail="Vir udarov (UDARI_DATABASE_URL) ni na voljo")
+    try:
+        with psycopg.connect(udari_url) as conn:
+            out = fetch_grid_cell_daily(
+                conn,
+                lat=lat,
+                lon=lon,
+                start=from_,
+                end=to_,
+                data_dir=_DATA_DIR,
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Napaka pri branju celice: {exc}") from exc
+    if out is None:
+        raise HTTPException(status_code=404, detail="Celica ni znotraj Slovenije")
+    return out
 
 
 @app.get("/api/obcina-daily")

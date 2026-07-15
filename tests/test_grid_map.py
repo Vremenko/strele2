@@ -14,15 +14,18 @@ from strele_archive.grid_map import (
     _CACHE_VERSION,
     _DAILY_TABLE,
     _GRID_AGG_SQL,
+    GRID_CELL_DAILY_RADII_KM,
     build_cached_feature_collection,
     build_feature_collection,
     build_today_cached_feature_collection,
     calendar_bounds_utc,
+    fetch_grid_cell_daily,
     fetch_grid_map,
     fetch_grid_map_from_daily,
     make_cell_id,
     parse_cell_id,
     rebuild_grid_daily_aggregates,
+    resolve_grid_cell,
     today_cache_basename,
 )
 
@@ -222,6 +225,14 @@ class GridMapEndpointTest(unittest.TestCase):
             self.skipTest("obcine_public_server optional deps not installed")
         return srv
 
+    def test_map_embed_has_grid_cell_daily_and_zero_tooltip(self):
+        html = (Path(__file__).resolve().parent.parent / "web" / "public" / "map-embed.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("gridZeroTooltipHtml", html)
+        self.assertIn("/api/grid-cell-daily", html)
+        self.assertIn("0 strel / km²", html)
+
     def test_map_embed_has_no_grid_storm_mode_button(self):
         html = (Path(__file__).resolve().parent.parent / "web" / "public" / "map-embed.html").read_text(
             encoding="utf-8"
@@ -392,6 +403,153 @@ class GridMapEndpointTest(unittest.TestCase):
                 max_lat=None,
             )
             self.assertEqual(res.status_code, 304)
+
+
+class GridCellDailyTest(unittest.TestCase):
+    def test_grid_cell_daily_radii_fixed(self):
+        self.assertEqual(GRID_CELL_DAILY_RADII_KM, (5, 10, 15))
+
+    def test_resolve_grid_cell_outside_slovenia(self):
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = (1000, 2000, "{}", 46.0, 14.5, False)
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        out = resolve_grid_cell(mock_conn, lat=36.0, lon=14.5)
+        self.assertIsNone(out)
+        sql = mock_cursor.execute.call_args[0][0]
+        self.assertIn("SnapToGrid", sql)
+
+    def test_fetch_grid_cell_daily_shape(self):
+        geom = json.dumps(
+            {
+                "type": "Polygon",
+                "coordinates": [[[14.8, 46.1], [14.81, 46.1], [14.81, 46.11], [14.8, 46.11], [14.8, 46.1]]],
+            }
+        )
+        resolve_row = (478000, 66000, geom, 46.05, 14.5, True)
+        daily_rows = [(date(2026, 7, 9), 0), (date(2026, 7, 10), 3)]
+
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = resolve_row
+        mock_cursor.fetchall.return_value = daily_rows
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        with patch("strele_archive.grid_map._slovenia_wkt", return_value="POLYGON((0 0,1 0,1 1,0 1,0 0))"):
+            out = fetch_grid_cell_daily(
+                mock_conn,
+                lat=46.05,
+                lon=14.5,
+                start=date(2026, 7, 9),
+                end=date(2026, 7, 10),
+            )
+
+        self.assertIsNotNone(out)
+        self.assertEqual(out["cell"]["cell_id"], make_cell_id(478000, 66000))
+        self.assertEqual(out["from"], "2026-07-09")
+        self.assertEqual(out["to"], "2026-07-10")
+        self.assertEqual(len(out["series"]), 3)
+        self.assertEqual(out["series"][0]["radius_km"], 5)
+        self.assertEqual(out["series"][0]["total"], 3)
+        self.assertEqual(out["series"][0]["daily"][1]["stevilo"], 3)
+
+
+class GridCellDailyEndpointTest(unittest.TestCase):
+    def _import_server(self):
+        try:
+            import strele_archive.obcine_public_server as srv
+        except ModuleNotFoundError:
+            self.skipTest("obcine_public_server optional deps not installed")
+        return srv
+
+    def test_api_grid_cell_daily_success(self):
+        srv = self._import_server()
+        fake = {
+            "cell": {
+                "cell_id": "3794:478000:66000",
+                "center_lat": 46.05,
+                "center_lon": 14.5,
+                "geometry": {"type": "Polygon", "coordinates": []},
+            },
+            "from": "2026-07-09",
+            "to": "2026-07-15",
+            "series": [{"radius_km": 5, "total": 0, "daily": []}],
+        }
+        mock_conn = MagicMock()
+        mock_conn.__enter__.return_value = mock_conn
+        with patch.object(srv, "fetch_grid_cell_daily", return_value=fake) as fetch_mock:
+            with patch.object(srv.psycopg, "connect", return_value=mock_conn):
+                with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
+                    out = srv.api_grid_cell_daily(
+                        lat=46.05,
+                        lon=14.5,
+                        from_=date(2026, 7, 9),
+                        to_=date(2026, 7, 15),
+                    )
+        fetch_mock.assert_called_once()
+        self.assertEqual(out["cell"]["cell_id"], "3794:478000:66000")
+
+    def test_api_grid_cell_daily_not_in_slovenia(self):
+        from fastapi import HTTPException
+
+        srv = self._import_server()
+        mock_conn = MagicMock()
+        mock_conn.__enter__.return_value = mock_conn
+        with patch.object(srv, "fetch_grid_cell_daily", return_value=None):
+            with patch.object(srv.psycopg, "connect", return_value=mock_conn):
+                with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
+                    with self.assertRaises(HTTPException) as ctx:
+                        srv.api_grid_cell_daily(
+                            lat=36.0,
+                            lon=14.5,
+                            from_=date(2026, 7, 9),
+                            to_=date(2026, 7, 15),
+                        )
+        self.assertEqual(ctx.exception.status_code, 404)
+
+
+    def test_api_grid_cell_daily_90_days_ok(self):
+        srv = self._import_server()
+        mock_conn = MagicMock()
+        mock_conn.__enter__.return_value = mock_conn
+        with patch.object(srv, "fetch_grid_cell_daily", return_value={"cell": {}, "series": []}) as fetch_mock:
+            with patch.object(srv.psycopg, "connect", return_value=mock_conn):
+                with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
+                    srv.api_grid_cell_daily(
+                        lat=46.05,
+                        lon=14.5,
+                        from_=date(2026, 7, 1),
+                        to_=date(2026, 9, 28),
+                    )
+        fetch_mock.assert_called_once()
+
+    def test_api_grid_cell_daily_91_days_rejected(self):
+        from fastapi import HTTPException
+
+        srv = self._import_server()
+        with self.assertRaises(HTTPException) as ctx:
+            srv.api_grid_cell_daily(
+                lat=46.05,
+                lon=14.5,
+                from_=date(2026, 7, 1),
+                to_=date(2026, 9, 29),
+            )
+        self.assertEqual(ctx.exception.status_code, 422)
+
+    def test_api_grid_cell_daily_reversed_period(self):
+        from fastapi import HTTPException
+
+        srv = self._import_server()
+        with self.assertRaises(HTTPException) as ctx:
+            srv.api_grid_cell_daily(
+                lat=46.05,
+                lon=14.5,
+                from_=date(2026, 7, 15),
+                to_=date(2026, 7, 1),
+            )
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("Neveljavno", ctx.exception.detail)
 
 
 if __name__ == "__main__":

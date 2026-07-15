@@ -39,6 +39,8 @@ _PUBLIC_API_PREFIXES = (
     "/api/obcine-top",
     "/api/obcine-gostota",
     "/api/obcine-map",
+    "/api/grid-map",
+    "/api/grid-cell-daily",
     "/api/obcina-daily",
     "/api/obcina-by-coords",
     "/api/obcina-widget",

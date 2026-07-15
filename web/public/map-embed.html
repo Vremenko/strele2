@@ -387,6 +387,28 @@
       color: var(--muted);
     }
     #chart-hint.hidden { display: none; }
+    .chart-radius-tabs {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 0.45rem;
+      flex-wrap: wrap;
+    }
+    .chart-radius-tabs.hidden { display: none; }
+    .chart-radius-btn {
+      font: inherit;
+      font-size: 0.72rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .chart-radius-btn--active {
+      color: var(--text);
+      border-color: var(--accent);
+      background: rgba(5, 165, 206, 0.15);
+    }
   </style>
 </head>
 <body>
@@ -423,6 +445,11 @@
     <div id="chart-header">
       <span id="chart-ob-name">–</span>
       <span id="chart-ob-meta"></span>
+    </div>
+    <div id="chart-grid-radius" class="chart-radius-tabs hidden" role="group" aria-label="Radij grafa">
+      <button type="button" class="chart-radius-btn chart-radius-btn--active" data-radius-km="5">5 km</button>
+      <button type="button" class="chart-radius-btn" data-radius-km="10">10 km</button>
+      <button type="button" class="chart-radius-btn" data-radius-km="15">15 km</button>
     </div>
     <div id="chartWrap">
       <canvas id="obcinaDailyCanvas"></canvas>
@@ -1699,13 +1726,17 @@
   map.on("zoomstart", function () {
     mapIsZooming = true;
     clearCurrentHoverObcina();
+    if (isGridView()) closeAllGridTooltips();
   });
   map.on("zoomend", function () {
     mapIsZooming = false;
   });
 
   if (!mobView) {
-    map.getContainer().addEventListener("mouseleave", closeAllObcinaTooltips);
+    map.getContainer().addEventListener("mouseleave", function () {
+      closeAllObcinaTooltips();
+      if (isGridView()) closeAllGridTooltips();
+    });
   }
 
   if (mobView) {
@@ -2162,6 +2193,17 @@
   let gridLayer = null;
   let gridBaseLayer = null;
   let gridData = null; /* GeoJSON FeatureCollection */
+  let gridHighlightLayer = null;
+  let selectedGridLat = null;
+  let selectedGridLon = null;
+  let hoverGridStrikeLayer = null;
+  let gridChartLoadSeq = 0;
+  const GRID_CHART_LOAD_ERROR = "Podatkov za izbrano celico ni bilo mogoče naložiti.";
+  let gridZeroTipMarker = null;
+  let gridMapHoverBound = false;
+  let gridMapClickBound = false;
+  let selectedGridRadiusKm = 5;
+  let gridCellDailyCache = null;
 
   function getGridBaseGeojson() {
     // Prefer already loaded OB.geojson (or lite), otherwise fall back to cached feature collection.
@@ -2179,7 +2221,147 @@
       map.removeLayer(gridBaseLayer);
       gridBaseLayer = null;
     }
+    if (gridHighlightLayer) {
+      map.removeLayer(gridHighlightLayer);
+      gridHighlightLayer = null;
+    }
+    hoverGridStrikeLayer = null;
     gridData = null;
+  }
+
+  function gridZeroTooltipHtml() {
+    return `<div class="ob-tooltip grid-cell-tooltip"><strong>Celica 1 × 1 km</strong>` +
+      `<br>Gostota strel: <strong>0 strel / km²</strong></div>`;
+  }
+
+  function hideGridZeroTooltip() {
+    if (!gridZeroTipMarker) return;
+    if (typeof gridZeroTipMarker.closeTooltip === "function") gridZeroTipMarker.closeTooltip();
+    if (map.hasLayer(gridZeroTipMarker)) map.removeLayer(gridZeroTipMarker);
+  }
+
+  function closeGridStrikeTooltips() {
+    if (!gridLayer) return;
+    gridLayer.eachLayer(function (layer) {
+      if (typeof layer.closeTooltip === "function") layer.closeTooltip();
+    });
+    hoverGridStrikeLayer = null;
+  }
+
+  function closeAllGridTooltips() {
+    hideGridZeroTooltip();
+    closeGridStrikeTooltips();
+  }
+
+  function gridStrikeHitAtLatLng(latlng) {
+    if (!gridLayer || !latlng) return null;
+    let found = null;
+    gridLayer.eachLayer(function (layer) {
+      if (found) return;
+      const feature = layer.feature;
+      if (!feature || !featureContainsLatLng(feature, latlng)) return;
+      found = { layer, latlng };
+    });
+    return found;
+  }
+
+  function sloveniaHitAtLatLng(latlng) {
+    if (!gridBaseLayer || !latlng) return false;
+    let inside = false;
+    gridBaseLayer.eachLayer(function (layer) {
+      if (inside) return;
+      const feature = layer.feature;
+      if (feature && featureContainsLatLng(feature, latlng)) inside = true;
+    });
+    return inside;
+  }
+
+  function showGridZeroTooltipAt(latlng) {
+    if (!latlng) return;
+    if (!gridZeroTipMarker) {
+      gridZeroTipMarker = L.circleMarker(latlng, {
+        radius: 0,
+        interactive: false,
+        opacity: 0,
+        fillOpacity: 0,
+        stroke: false,
+      });
+      gridZeroTipMarker.bindTooltip(() => gridZeroTooltipHtml(), {
+        sticky: true,
+        className: "ob-tooltip-shell",
+      });
+    }
+    if (!map.hasLayer(gridZeroTipMarker)) gridZeroTipMarker.addTo(map);
+    gridZeroTipMarker.setLatLng(latlng);
+    if (typeof gridZeroTipMarker.openTooltip === "function") {
+      gridZeroTipMarker.openTooltip(latlng);
+    }
+  }
+
+  function onGridMapMouseMove(e) {
+    if (!isGridView() || mobView || mapIsZooming) return;
+    const latlng = e.latlng;
+    if (!latlng) return;
+    const strikeHit = gridStrikeHitAtLatLng(latlng);
+    if (strikeHit) {
+      hideGridZeroTooltip();
+      if (hoverGridStrikeLayer !== strikeHit.layer) {
+        closeGridStrikeTooltips();
+        hoverGridStrikeLayer = strikeHit.layer;
+      }
+      if (typeof strikeHit.layer.openTooltip === "function") {
+        strikeHit.layer.openTooltip(latlng);
+      }
+      return;
+    }
+    closeGridStrikeTooltips();
+    if (!sloveniaHitAtLatLng(latlng)) {
+      hideGridZeroTooltip();
+      return;
+    }
+    showGridZeroTooltipAt(latlng);
+  }
+
+  function bindGridMapHover() {
+    if (gridMapHoverBound) return;
+    map.on("mousemove", onGridMapMouseMove);
+    gridMapHoverBound = true;
+  }
+
+  function bindGridMapInteraction() {
+    bindGridMapHover();
+    bindGridMapClick();
+  }
+
+  function unbindGridMapHover() {
+    if (!gridMapHoverBound) return;
+    map.off("mousemove", onGridMapMouseMove);
+    gridMapHoverBound = false;
+    closeAllGridTooltips();
+  }
+
+  function unbindGridMapInteraction() {
+    unbindGridMapHover();
+    unbindGridMapClick();
+  }
+
+  function onGridMapClick(e) {
+    if (!isGridView()) return;
+    const ll = e && e.latlng;
+    if (!ll || !sloveniaHitAtLatLng(ll)) return;
+    selectGridCell(ll.lat, ll.lng);
+  }
+
+  function bindGridMapClick() {
+    if (gridMapClickBound) return;
+    map.on("click", onGridMapClick);
+    gridMapClickBound = true;
+  }
+
+  function unbindGridMapClick() {
+    if (!gridMapClickBound) return;
+    map.off("click", onGridMapClick);
+    gridMapClickBound = false;
   }
 
   async function ensureGridBaseLayer() {
@@ -2253,7 +2435,7 @@
     gridLayer = L.geoJSON(gridData, {
       smoothFactor: 0,
       renderer: canvas,
-      interactive: true,
+      interactive: false,
       style: function (feature) {
         const props = feature && feature.properties ? feature.properties : null;
         return {
@@ -2301,6 +2483,7 @@
       if (isGridView()) {
         removeGridLayers();
         closeAllObcinaTooltips();
+        closeAllGridTooltips();
         if (geojsonLayer) {
           map.removeLayer(geojsonLayer);
           geojsonLayer = null;
@@ -2312,17 +2495,35 @@
         }
         applyGridMinZoom();
         selectedObMid = null;
+        selectedGridLat = null;
+        selectedGridLon = null;
         const chart = document.getElementById("chart-section");
-        if (chart) chart.style.display = "none";
+        if (chart) chart.style.display = "";
+        const hint = document.getElementById("chart-hint");
+        if (hint && selectedGridLat == null) {
+          hint.textContent = "Kliknite na celico za prikaz grafa";
+          hint.classList.remove("hidden");
+        }
         await ensureGridBaseLayer();
         await loadGridData();
         setStatus(null);
         renderGridLayer();
+        bindGridMapInteraction();
       } else {
+        unbindGridMapInteraction();
         removeGridLayers();
+        closeAllGridTooltips();
+        selectedGridLat = null;
+        selectedGridLon = null;
         restoreObcineMinZoom();
         const chart = document.getElementById("chart-section");
         if (chart) chart.style.display = "";
+        setGridRadiusTabsVisible(false);
+        gridCellDailyCache = null;
+        const hint = document.getElementById("chart-hint");
+        if (hint) {
+          hint.textContent = "Kliknite na občino za prikaz grafa";
+        }
         await Promise.all([loadGeojson(), loadObcineData()]);
         setStatus(null);
         if (mobView && geojson && !_geojsonFullLoaded) _hadLiteRender = true;
@@ -2336,6 +2537,12 @@
   }
 
   function afterPeriodReload() {
+    if (isGridView()) {
+      if (selectedGridLat != null && selectedGridLon != null) {
+        selectGridCell(selectedGridLat, selectedGridLon);
+      }
+      return;
+    }
     if (selectedObMid) {
       const ob = obcinaData[String(selectedObMid)];
       if (ob) selectMunicipality(selectedObMid, ob.name);
@@ -2449,6 +2656,14 @@
 
   let dailyChart = null;
   let chartDates  = [];
+  let chartMode = "obcina"; /* "obcina" | "grid" */
+
+  function destroyDailyChart() {
+    if (dailyChart) {
+      dailyChart.destroy();
+      dailyChart = null;
+    }
+  }
 
   function resizeDailyChart() {
     if (!dailyChart) return;
@@ -2457,8 +2672,9 @@
     });
   }
 
-  function initDailyChart() {
+  function initDailyChart(mode) {
     const isMob = mobView || window.innerWidth < 640;
+    chartMode = mode;
     dailyChart = new Chart(document.getElementById("obcinaDailyCanvas"), {
       type: "bar",
       data: {
@@ -2507,6 +2723,64 @@
   const chartObMetaEl = document.getElementById("chart-ob-meta");
   const chartHintEl   = document.getElementById("chart-hint");
 
+  const chartGridRadiusEl = document.getElementById("chart-grid-radius");
+
+  function setGridRadiusTabsVisible(show) {
+    if (!chartGridRadiusEl) return;
+    chartGridRadiusEl.classList.toggle("hidden", !show);
+  }
+
+  function syncGridRadiusTabStyles() {
+    if (!chartGridRadiusEl) return;
+    chartGridRadiusEl.querySelectorAll(".chart-radius-btn").forEach(function (btn) {
+      btn.classList.toggle(
+        "chart-radius-btn--active",
+        Number(btn.dataset.radiusKm) === selectedGridRadiusKm
+      );
+    });
+  }
+
+  function formatGridStrikeTotal(n) {
+    const x = Math.abs(Number(n) || 0);
+    return `Skupaj: ${fmt2.format(x)} ${gridTooltipPluralStrela(x)}`;
+  }
+
+  function gridSeriesForSelectedRadius() {
+    if (!gridCellDailyCache || !Array.isArray(gridCellDailyCache.series)) return null;
+    return (
+      gridCellDailyCache.series.find(function (s) {
+        return Number(s.radius_km) === selectedGridRadiusKm;
+      }) || null
+    );
+  }
+
+  function renderGridChartFromCache() {
+    const series = gridSeriesForSelectedRadius();
+    if (!series || !Array.isArray(series.daily) || !series.daily.length) {
+      showGridChartError(GRID_CHART_LOAD_ERROR);
+      return;
+    }
+    chartDates = series.daily.map(function (d) { return d.datum; });
+    chartObNameEl.textContent = `Celica 1 × 1 km — radij ${selectedGridRadiusKm} km`;
+    chartObMetaEl.textContent = formatGridStrikeTotal(series.total || 0);
+    chartHintEl.classList.add("hidden");
+    setGridRadiusTabsVisible(true);
+    syncGridRadiusTabStyles();
+    if (!dailyChart || chartMode !== "grid") {
+      destroyDailyChart();
+      initDailyChart("grid");
+    }
+    dailyChart.data.labels = chartDates.map(formatDatumSlChart);
+    dailyChart.data.datasets[0].data = series.daily.map(function (d) { return d.stevilo; });
+    syncGridHighlight(gridCellDailyCache.cell && gridCellDailyCache.cell.geometry);
+    requestAnimationFrame(function () {
+      dailyChart.resize();
+      dailyChart.update("none");
+      notifyResize(true);
+    });
+  }
+
+
   function chartObcinaLabel(name) {
     if (!name || name === "—") return name;
     const trimmed = String(name).trim();
@@ -2515,6 +2789,95 @@
   }
 
   let selectedObMid = null;
+
+  function syncGridHighlight(geometry) {
+    if (gridHighlightLayer) {
+      map.removeLayer(gridHighlightLayer);
+      gridHighlightLayer = null;
+    }
+    if (!geometry || !isGridView()) return;
+    gridHighlightLayer = L.geoJSON(
+      { type: "Feature", geometry, properties: {} },
+      {
+        interactive: false,
+        style: {
+          fillColor: "transparent",
+          fillOpacity: 0,
+          color: "#ffffff",
+          weight: 2,
+          opacity: 0.95,
+        },
+      }
+    ).addTo(map);
+  }
+
+  function clearGridChartForLoad() {
+    chartObNameEl.textContent = `Celica 1 × 1 km — radij ${selectedGridRadiusKm} km`;
+    chartObMetaEl.textContent = "";
+    chartHintEl.textContent = "Nalagam graf …";
+    setGridRadiusTabsVisible(true);
+    chartHintEl.classList.remove("hidden");
+    if (dailyChart && chartMode === "grid") {
+      destroyDailyChart();
+    }
+    syncGridHighlight(null);
+    notifyResize(true);
+  }
+
+  function showGridChartError(message) {
+    if (dailyChart && chartMode === "grid") {
+      destroyDailyChart();
+    }
+    chartObNameEl.textContent = `Celica 1 × 1 km — radij ${selectedGridRadiusKm} km`;
+    chartObMetaEl.textContent = "";
+    chartHintEl.textContent = message || GRID_CHART_LOAD_ERROR;
+    chartHintEl.classList.remove("hidden");
+    setGridRadiusTabsVisible(true);
+    syncGridHighlight(null);
+    notifyResize(true);
+  }
+
+  async function loadGridCellChart(lat, lon) {
+    const loadSeq = ++gridChartLoadSeq;
+    const { from, to } = mapDateRange();
+    clearGridChartForLoad();
+    try {
+      const q = new URLSearchParams({
+        lat: String(lat),
+        lon: String(lon),
+        from,
+        to,
+      });
+      const res = await fetch(apiUrl(`/api/grid-cell-daily?${q}`));
+      if (loadSeq !== gridChartLoadSeq) return;
+      if (!res.ok) {
+        showGridChartError(GRID_CHART_LOAD_ERROR);
+        return;
+      }
+      const data = await res.json();
+      const series = Array.isArray(data.series) ? data.series : [];
+      if (!series.length || !series[0].daily || !series[0].daily.length) {
+        showGridChartError(GRID_CHART_LOAD_ERROR);
+        return;
+      }
+
+      gridCellDailyCache = data;
+      if (loadSeq !== gridChartLoadSeq) return;
+      renderGridChartFromCache();
+    } catch (e) {
+      if (loadSeq !== gridChartLoadSeq) return;
+      console.warn("Napaka pri nalaganju grafa celice", e);
+      showGridChartError(GRID_CHART_LOAD_ERROR);
+    }
+  }
+
+  function selectGridCell(lat, lon) {
+    if (!isGridView() || lat == null || lon == null) return;
+    selectedGridLat = lat;
+    selectedGridLon = lon;
+    notifyResize(true);
+    loadGridCellChart(lat, lon);
+  }
 
   async function loadObcinaChart(ob_mid, name) {
     const { from, to } = mapDateRange();
@@ -2526,11 +2889,16 @@
       const counts = data.map(d => d.stevilo);
       const total  = counts.reduce((s, v) => s + v, 0);
 
+      setGridRadiusTabsVisible(false);
+      gridCellDailyCache = null;
       chartObNameEl.textContent = chartObcinaLabel(name);
       chartObMetaEl.textContent = `Skupaj: ${fmt2.format(total)}`;
       chartHintEl.classList.add("hidden");
 
-      if (!dailyChart) initDailyChart();
+      if (!dailyChart || chartMode !== "obcina") {
+        destroyDailyChart();
+        initDailyChart("obcina");
+      }
       dailyChart.data.labels = chartDates.map(formatDatumSlChart);
       dailyChart.data.datasets[0].data = counts;
       requestAnimationFrame(() => {
@@ -2593,6 +2961,17 @@
 
   if (!SHOW_CHROME) {
     document.getElementById("toolbar")?.classList.add("hidden");
+  }
+
+  if (chartGridRadiusEl) {
+    chartGridRadiusEl.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-radius-km]");
+      if (!btn || !isGridView() || !gridCellDailyCache) return;
+      const km = Number(btn.dataset.radiusKm);
+      if (!km || km === selectedGridRadiusKm) return;
+      selectedGridRadiusKm = km;
+      renderGridChartFromCache();
+    });
   }
 
   /* ——— Init ——— */
