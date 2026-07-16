@@ -65,9 +65,9 @@
       padding: 0.35rem 1.1rem 0.35rem 0.65rem;
       font: inherit;
       font-size: 0.95rem;
-      width: 6rem;
-      min-width: 6rem;
-      max-width: 6rem;
+      width: 6.6rem;
+      min-width: 6.6rem;
+      max-width: 6.6rem;
       height: 34px;
       min-height: 34px;
       box-sizing: border-box;
@@ -133,11 +133,127 @@
       background: rgba(255,255,255,0.06);
       color: var(--text);
     }
-    /* period label */
-    #periodLabel {
-      color: var(--muted);
-      font-size: 1.05rem;
+    /* period label + custom range picker */
+    .period-label-wrap {
+      position: relative;
       margin-left: auto;
+      flex-shrink: 1;
+      min-width: 0;
+    }
+    #periodLabelBtn {
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      font: inherit;
+      font-size: 1.05rem;
+      padding: 0.15rem 0.35rem;
+      margin: 0;
+      cursor: pointer;
+      text-align: right;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color-scheme: dark;
+    }
+    #periodLabelBtn:hover {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    #periodLabelBtn:focus-visible {
+      outline: none;
+      color: var(--text);
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 2px rgba(5, 165, 206, 0.28);
+    }
+    #periodLabelBtn[aria-expanded="true"] {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+    #periodRangePicker {
+      position: absolute;
+      top: calc(100% + 0.35rem);
+      right: 0;
+      z-index: 1200;
+      width: min(18.5rem, calc(100vw - 1.25rem));
+      padding: 0.75rem 0.8rem 0.7rem;
+      background: #1a1a1a;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+      color: var(--text);
+      color-scheme: dark;
+    }
+    #periodRangePicker.hidden { display: none; }
+    .period-range-fields {
+      display: grid;
+      gap: 0.55rem;
+    }
+    .period-range-fields label {
+      display: grid;
+      gap: 0.2rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0;
+    }
+    .period-range-fields input[type="date"] {
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.35rem 0.5rem;
+      font: inherit;
+      font-size: 0.92rem;
+      color-scheme: dark;
+    }
+    .period-range-fields input[type="date"]:focus-visible {
+      outline: none;
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 2px rgba(5, 165, 206, 0.28);
+    }
+    #periodRangeError {
+      margin-top: 0.55rem;
+      font-size: 0.82rem;
+      color: #f0a0a0;
+      line-height: 1.35;
+    }
+    #periodRangeError.hidden { display: none; }
+    .period-range-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.45rem;
+      margin-top: 0.7rem;
+    }
+    .period-range-actions button {
+      appearance: none;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.88rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+    .period-range-actions button:hover {
+      background: rgba(255, 255, 255, 0.09);
+    }
+    .period-range-actions button.period-range-apply {
+      background: rgba(5, 165, 206, 0.18);
+      border-color: rgba(5, 165, 206, 0.45);
+      color: #d7f4fb;
+    }
+    .period-range-actions button.period-range-apply:hover {
+      background: rgba(5, 165, 206, 0.28);
     }
     /* map */
     #map-stage {
@@ -261,7 +377,7 @@
       #toolbar label { font-size: 0.9rem; }
       #mapDayPick { font-size: 1.01rem; }
       .map-mode-btn { font-size: 0.94rem; }
-      #periodLabel { font-size: 1.21rem; }
+      #periodLabelBtn { font-size: 1.21rem; }
       #legend { font-size: 0.9rem; }
       #legend-title { font-size: 0.92rem; }
       #chart-hint { font-size: 0.9rem; }
@@ -272,9 +388,9 @@
     }
     @media (max-width: 639px) {
       #daysSelect {
-        width: 5.75rem;
-        min-width: 5.75rem;
-        max-width: 5.75rem;
+        width: 6.25rem;
+        min-width: 6.25rem;
+        max-width: 6.25rem;
         height: 32px;
         min-height: 32px;
         font-size: 0.8125rem;
@@ -399,7 +515,7 @@
       <option value="14">14 dni</option>
       <option value="30">30 dni</option>
       <option value="90">90 dni</option>
-      <option value="pick">Datum</option>
+      <option value="custom">Po meri</option>
     </select>
     <span id="mapDayPickWrap" class="hidden">
       <input type="date" id="mapDayPick" aria-label="Datum prikaza" />
@@ -413,7 +529,26 @@
       <button type="button" class="map-mode-btn" data-mode="gostota">Gostota</button>
       <button type="button" class="map-mode-btn" data-mode="dni" hidden>Št. dni z nevihto</button>
     </div>
-    <span id="periodLabel"></span>
+    <span class="period-label-wrap">
+      <button type="button" id="periodLabelBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="periodRangePicker" title="Izberi obdobje">
+        <span id="periodLabel"></span>
+      </button>
+      <div id="periodRangePicker" class="hidden" role="dialog" aria-label="Izberi obdobje">
+        <div class="period-range-fields">
+          <label>Od
+            <input type="date" id="periodFrom" />
+          </label>
+          <label>Do
+            <input type="date" id="periodTo" />
+          </label>
+        </div>
+        <div id="periodRangeError" class="hidden" role="alert"></div>
+        <div class="period-range-actions">
+          <button type="button" id="periodRangeCancel">Prekliči</button>
+          <button type="button" id="periodRangeApply" class="period-range-apply">Prikaži</button>
+        </div>
+      </div>
+    </span>
   </div>
   <div id="map-stage">
     <div id="map"></div>
@@ -444,6 +579,7 @@
   let days       = 30;
   let periodMode = "range"; /* "range" | "day" */
   let mapDay     = null;    /* ISO datum, ko je periodMode === "day" */
+  let customRange = null;   /* { from, to } za ročno izbrano obdobje */
   /* days=30 ali brez parametra = privzeto (danes če so strele, sicer 30 dni) */
   let periodLockedByUrl = false;
   if (params.has("day")) {
@@ -967,14 +1103,65 @@
     return d.toISOString().slice(0, 10);
   }
 
+  function inclusiveDayCount(fromIso, toIso) {
+    const from = parseIsoDate(fromIso);
+    const to = parseIsoDate(toIso);
+    if (!from || !to) return 0;
+    return Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
+  }
+
+  /* Prednastavljena obdobja: točen ključ. Mreža (Po meri): najbližji ključ. */
+  function nearestFixedScaleDays(n) {
+    if (!(n > 1)) return 1;
+    const opts = [7, 14, 30, 90];
+    let best = opts[0];
+    let bestDist = Math.abs(opts[0] - n);
+    for (let i = 1; i < opts.length; i++) {
+      const dist = Math.abs(opts[i] - n);
+      if (dist < bestDist) {
+        best = opts[i];
+        bestDist = dist;
+      }
+    }
+    return best;
+  }
+
+  /* Občine / Po meri: osnovna lestvica po vključujočem številu dni (nato isti presežek). */
+  function fixedScaleDaysForSpan(n) {
+    const count = Math.max(0, Math.round(Number(n) || 0));
+    if (count <= 1) return 1;
+    if (count <= 7) return 7;
+    if (count <= 14) return 14;
+    if (count <= 30) return 30;
+    return 90;
+  }
+
+  function clearCustomRange() {
+    customRange = null;
+  }
+
+  function setCustomRange(fromIso, toIso) {
+    customRange = { from: fromIso, to: toIso };
+    periodMode = "range";
+    mapDay = null;
+    days = inclusiveDayCount(fromIso, toIso);
+  }
+
   function scaleDaysKey() {
-    /* En koledarski dan: "Danes" ali izbran datum (Obdobje → Datum). */
-    if (periodMode === "day" || days === 1) return 1;
-    return days;
+    /* En koledarski dan: "Danes" ali izbran datum. */
+    if (periodMode === "day" || (!customRange && days === 1)) return 1;
+    /* Po meri: osnovna lestvica po vključujočih dnevih (1 / 2–7 / 8–14 / 15–30 / 31–90). */
+    if (customRange) return fixedScaleDaysForSpan(days);
+    if ([7, 14, 30, 90].includes(days)) return days;
+    if (days === 1) return 1;
+    return nearestFixedScaleDays(days);
   }
 
   function mapDateRange() {
     if (periodMode === "day" && mapDay) return { from: mapDay, to: mapDay };
+    if (customRange && customRange.from && customRange.to) {
+      return { from: customRange.from, to: customRange.to };
+    }
     const to = todayIso();
     return { from: subtractDays(to, days), to };
   }
@@ -986,84 +1173,107 @@
   }
 
   /* ——— Colour scale ——— */
-  /* 8 barv: [0=siva, 1–7=gradient temno rjavo→rdeča→temno rdeča] */
-  const BAND_COLOURS = [
-    "#7a7a7a",  /* 0: temnejša siva (0 + podlaga Slovenije v mreži) */
-    "#7a5c00",  /* 1: zelo malo */
-    "#9a7200",  /* 2: malo */
-    "#c68a00",  /* 3: nizko-srednje */
-    "#fbb006",  /* 4: srednje */
-    "#e2761e",  /* 5: visoko */
-    "#e2273e",  /* 6: zelo visoko */
-    "#7a0000",  /* 7: ekstremno */
+  /* Strelko — občine / mreža (svetlo peščena→oranžna→rdeča→bordo, večji kontrast). */
+  const GRID_DENSITY_BASE_COLOUR = "#8A8F96";
+  const GRID_DENSITY_POSITIVE_COLOURS = [
+    "#F7D9A0", "#F2B447", "#EB8C1A", "#E35A18",
+    "#D12924", "#A3141A", "#5C0A12", "#3A050A",
   ];
+  /* Delež pozitivnih vrednosti v najvišjem razredu (~3 % → pri občinah le nekaj). */
+  const TOP_CLASS_SHARE = 0.03;
+  /* 2 manj kot prejšnja lestvica (10→8): 1. in 2. sivkasta razreda sta združena v novi prvi. */
+  const MAX_POSITIVE_BANDS = 8;
+
+  function gridBandColoursForBreaks(breaks) {
+    const nPositive = Math.max(0, breaks && breaks.length ? breaks.length - 1 : 0);
+    const colours = [GRID_DENSITY_BASE_COLOUR];
+    const src = GRID_DENSITY_POSITIVE_COLOURS;
+    if (nPositive === 0) return colours;
+    for (let i = 0; i < nPositive; i++) {
+      const idx = nPositive === 1
+        ? src.length - 1
+        : Math.round((i * (src.length - 1)) / (nPositive - 1));
+      colours.push(src[idx]);
+    }
+    return colours;
+  }
+
+  /* Zgornja meja števila pozitivnih razredov (dejansko število je lahko manjše). */
+  const CHOROPLETH_BAND_COUNT = MAX_POSITIVE_BANDS;
 
   /* Fiksne spodnje meje (breaks[0]=0). Razred i = vrednost >= breaks[i] in < breaks[i+1].
      Za gostoto: breaks[1]=1e-9 = katera koli vrednost > 0.                         */
   const FIXED_BREAKS = {
     stevilo: {
-       1: [0,   1,  11,  31,  51,  71, 101,  301],
-       7: [0,   1,  31,  91, 151, 211, 301,  901],
-      14: [0,   1,  51, 151, 251, 351, 501, 1501],
-      30: [0,   1, 101, 301, 501, 701,1001, 3001],
-      90: [0,   1, 201, 601,1001,1401,2001, 6001],
+       1: [0,   1,  11,  31,  51,  81, 111, 151,  201],
+       7: [0,   1,  21,  51, 101, 181, 261, 351,  501],
+      14: [0,   1,  31,  81, 151, 261, 401, 601,  901],
+      30: [0,   1,  61, 161, 301, 521, 821,1251, 1851],
+      90: [0,   1, 121, 321, 601,1051,1651,2501, 3701],
     },
     gostota: {
        1: [0, 1e-9, 0.05, 0.15, 0.30, 0.55, 0.85, 1.2],
-       7: [0, 1e-9, 0.10, 0.30, 0.60, 1.0, 1.5, 2.0],
-      14: [0, 1e-9, 0.20, 0.60, 1.20, 2.0, 3.0, 4.0],
-      30: [0, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 10.0],
-      90: [0, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 20.0],
+       7: [0, 0.01, 0.11, 0.26, 0.51, 1.01, 2.01, 3.01, 5.01],
+      14: [0, 0.01, 0.16, 0.41, 0.81, 1.61, 3.21, 4.81, 8.01],
+      30: [0, 0.01, 0.26, 0.71, 1.41, 2.81, 5.51, 8.01, 13.51],
+      90: [0, 0.01, 2.01, 3.51, 6.01, 9.01, 12.01, 18.01, 24.01],
     },
     dni: {
        7: [0,  1,  2,  3,  4,  5,  6,  7],
-      14: [0,  1,  2,  3,  4,  5,  6,  7],
-      30: [0,  1,  3,  5,  7,  9, 11, 13],
-      90: [0,  1,  4,  8, 12, 16, 20, 25],
+      14: [0,  1,  2,  3,  4,  5,  7,  9, 12],
+      30: [0,  1,  3,  5,  8, 11, 14, 17, 20],
+      90: [0,  1,  7, 12, 16, 22, 29, 36, 42],
     },
   };
 
   /* Eksplicitne oznake legende za način dni (fiksna lestvica). */
   const DNI_LEGEND_LABELS = {
      7: ["0", "1", "2", "3", "4", "5", "6", "7"],
-    14: ["0", "1", "2", "3", "4", "5", "6", "7+"],
-    30: ["0", "1–2", "3–4", "5–6", "7–8", "9–10", "11–12", "13+"],
-    90: ["0", "1–3", "4–7", "8–11", "12–15", "16–19", "20–23", "25+"],
+    14: ["0", "1", "2", "3", "4", "5–6", "7–8", "9–11", "12–14"],
+    30: ["0", "1–2", "3–4", "5–7", "8–10", "11–13", "14–16", "17–19", "20+"],
+    90: ["0", "1–6", "7–11", "12–15", "16–21", "22–28", "29–35", "36–41", "42+"],
   };
 
   /* Eksplicitne oznake legende za način število (fiksna lestvica po obdobju). */
   const STEVILO_LEGEND_LABELS = {
-     1: ["0", "1–10", "11–30", "31–50", "51–70", "71–100", "101–300", "301+"],
-    14: ["0", "1–50", "51–150", "151–250", "251–350", "351–500", "501–1500", "1501+"],
-    30: ["0", "1–100", "101–300", "301–500", "501–700", "701–1000", "1001–3000", "3001+"],
-    90: ["0", "1–200", "201–600", "601–1000", "1001–1400", "1401–2000", "2001–6000", "6001+"],
+     1: ["0", "1–10", "11–30", "31–50", "51–80", "81–110", "111–150", "151–200", "201+"],
+     7: ["0", "1–20", "21–50", "51–100", "101–180", "181–260", "261–350", "351–500", "501+"],
+    14: ["0", "1–30", "31–80", "81–150", "151–260", "261–400", "401–600", "601–900", "901+"],
+    30: ["0", "1–60", "61–160", "161–300", "301–520", "521–820", "821–1250", "1251–1850", "1851+"],
+    90: ["0", "1–120", "121–320", "321–600", "601–1050", "1051–1650", "1651–2500", "2501–3700", "3701+"],
   };
 
   /* Eksplicitne oznake legende za način gostota (30/90 dni — fiksna lestvica, siva < prva meja). */
   const GOSTOTA_LEGEND_LABELS = {
-    30: ["< 0,5", "0,5–1", "1–2", "2–3", "3–4", "4–5", "5–10", "10+"],
-    90: ["< 1", "1–2", "2–4", "4–6", "6–8", "8–10", "10–20", "20+"],
+     7: ["0", "0,01–0,10", "0,11–0,25", "0,26–0,50", "0,51–1,00", "1,01–2,00", "2,01–3,00", "3,01–5,00", "5,01+"],
+    14: ["0", "0,01–0,15", "0,16–0,40", "0,41–0,80", "0,81–1,60", "1,61–3,20", "3,21–4,80", "4,81–8,00", "8,01+"],
+    30: ["0", "0,01–0,25", "0,26–0,70", "0,71–1,40", "1,41–2,80", "2,81–5,50", "5,51–8,00", "8,01–13,50", "13,51+"],
+    90: ["0", "0,01–2,00", "2,01–3,50", "3,51–6,00", "6,01–9,00", "9,01–12,00", "12,01–18,00", "18,01–24,00", "24,01+"],
   };
 
-  /* Mreža 1 × 1 km — fiksne meje za GOSTOTO (strike_count / km²; celica=1 km², zato = strike_count).
-     Razredi so po obdobjih fiksni (brez dinamičnega prilagajanja). */
+  /* Mreža 1 × 1 km — fiksne celoštevilske meje gostote (celica = 1 km²). */
   const GRID_GOSTOTA_BREAKS_BY_DAYS = {
-    1:  [0, 1, 2, 3, 5, 10, 20, 50],
-    7:  [0, 1, 2, 3, 4, 7, 15, 30],
-    14: [0, 1, 2, 3, 5, 9, 15, 25],
-    30: [0, 1, 2, 3, 5, 8, 13, 25],
-    90: [0, 1, 3, 5, 8, 11, 17, 26],
+    7: [0, 1, 2, 3, 5, 7, 9, 13, 16, 19],
+    14: [0, 1, 3, 5, 8, 11, 14, 20, 25, 30],
+    30: [0, 1, 4, 8, 13, 18, 23, 33, 42, 50],
+    90: [0, 1, 6, 11, 17, 25, 35, 48, 63, 80],
   };
-  let currentGridBreaks = GRID_GOSTOTA_BREAKS_BY_DAYS[30];
+  const GRID_GOSTOTA_LEGEND_LABELS = {
+    7: ["0", "1", "2", "3–4", "5–6", "7–8", "9–12", "13–15", "16–18", "19+"],
+    14: ["0", "1–2", "3–4", "5–7", "8–10", "11–13", "14–19", "20–24", "25–29", "30+"],
+    30: ["0", "1–3", "4–7", "8–12", "13–17", "18–22", "23–32", "33–41", "42–49", "50+"],
+    90: ["0", "1–5", "6–10", "11–16", "17–24", "25–34", "35–47", "48–62", "63–79", "80+"],
+  };
 
-  function gridGostotaBreaksForDays(d) {
-    const key = Number(d) || 30;
-    return GRID_GOSTOTA_BREAKS_BY_DAYS[key] || GRID_GOSTOTA_BREAKS_BY_DAYS[30];
-  }
+  /* Mreža 1 × 1 km — meje gostote se izračunajo dinamično iz celic (do MAX_POSITIVE_BANDS). */
+  let currentGridBreaks = [0, 1];
+  let currentGridBandColours = gridBandColoursForBreaks(currentGridBreaks);
 
   function gridScaleDaysKey() {
+    /* Mreža: ohrani prejšnje mapiranje (točen ključ ali najbližji); brez občinskih bucketov. */
     if (periodMode === "day" || days === 1) return 1;
-    return days;
+    if ([7, 14, 30, 90].includes(days)) return days;
+    return nearestFixedScaleDays(days);
   }
 
   function gridRangeLabel(minVal, maxVal, openEnded) {
@@ -1075,28 +1285,37 @@
   }
 
   function gridLabelsFromBreaks(breaks) {
-    // breaks: [0, b1, b2, ... b7] (8 entries)
     const labels = ["0"];
+    const floatScale = breaks.some((b, i) => i > 0 && !Number.isInteger(Number(b)));
     for (let i = 1; i < breaks.length; i++) {
       const lo = breaks[i];
       const isLast = i === breaks.length - 1;
-      const hi = isLast ? null : (breaks[i + 1] - 1);
-      labels.push(isLast ? gridRangeLabel(lo, null, true) : gridRangeLabel(lo, hi, false));
+      if (isLast) {
+        labels.push(floatScale ? `${fmtBreakVal(lo, "gostota")}+` : gridRangeLabel(lo, null, true));
+        continue;
+      }
+      if (floatScale) {
+        labels.push(`${fmtBreakVal(lo, "gostota")}–${fmtBreakVal(breaks[i + 1], "gostota")}`);
+      } else {
+        const hi = breaks[i + 1] - 1;
+        labels.push(gridRangeLabel(lo, hi, false));
+      }
     }
     return labels;
   }
 
   /* Zgornja "mirna" meja — če max > fixedMax, preklopi na dinamične razrede */
   const FIXED_MAX = {
-    stevilo: {  1: 301,   7: 901,  14: 1501,  30: 3001,  90: 6001 },
-    gostota: {  1: 1.2,   7: 2.0,  14: 4.0,  30: 10.0,  90: 20.0 },
-    dni:     {  7:  7,  14: 14,  30: 13,  90: 25 },
+    stevilo: {  1: 301,   7: 901,  14:  901,  30: 1851,  90: 3701 },
+    gostota: {  1: 1.2,   7: 2.0,  14: 8.01,  30: 13.51,  90: 24.01 },
+    dni:     {  7:  7,  14: 14,  30: 20,  90: 42 },
   };
 
   function allowsDniMode() {
     if (isGridView()) return false;
     const isOneDay = (periodMode === "day") || (days === 1);
     if (isOneDay) return false;
+    if (customRange) return true;
     return periodMode === "range" && [7, 14, 30, 90].includes(days);
   }
 
@@ -1121,13 +1340,20 @@
   }
 
   function scaleDaysKey() {
-    /* En koledarski dan: "Danes" ali izbran datum (Obdobje → Datum). */
-    if (periodMode === "day" || days === 1) return 1;
-    return days;
+    /* En koledarski dan: "Danes" ali izbran datum. */
+    if (periodMode === "day" || (!customRange && days === 1)) return 1;
+    /* Po meri: osnovna lestvica po vključujočih dnevih (1 / 2–7 / 8–14 / 15–30 / 31–90). */
+    if (customRange) return fixedScaleDaysForSpan(days);
+    if ([7, 14, 30, 90].includes(days)) return days;
+    if (days === 1) return 1;
+    return nearestFixedScaleDays(days);
   }
 
   function mapDateRange() {
     if (periodMode === "day" && mapDay) return { from: mapDay, to: mapDay };
+    if (customRange && customRange.from && customRange.to) {
+      return { from: customRange.from, to: customRange.to };
+    }
     const to = todayIso();
     return { from: subtractDays(to, days), to };
   }
@@ -1139,6 +1365,7 @@
   }
 
   function isViewingLiveDay() {
+    if (customRange) return customRange.to === todayIso();
     return periodMode === "range" || (periodMode === "day" && mapDay === todayIso());
   }
 
@@ -1176,55 +1403,187 @@
     return baseBreaks[baseBreaks.length - 1];
   }
 
-  /* T = spodnja meja osnovnega najvišjega razreda. Dinamika samo ob presežku v zgornjem repu. */
+  /* T = spodnja meja osnovnega najvišjega razreda (odprti razred).
+     Prilagodi, če ≥5 vrednosti ≥ 2×T ali ≥3 vrednosti ≥ 4×T. */
   function shouldAdaptSteviloScale(values, baseBreaks) {
     const T = steviloTopThreshold(baseBreaks);
     if (!(T > 0)) return false;
     let count2T = 0;
     let count4T = 0;
     for (const v of values) {
-      if (v > 2 * T) count2T++;
+      if (v >= 2 * T) count2T++;
       if (v >= 4 * T) count4T++;
     }
     return count2T >= 5 || count4T >= 3;
   }
 
-  /* Dinamične meje število: zgornji razredi se dvignejo bolj, spodnji ostanejo blizu osnovi. */
+  /* Prilagodljive meje iz kvantilov podatkov — več razredov naj bo zasedenih.
+     Najvišji razred ostane redek (~TOP_CLASS_SHARE), a ne raztegujemo skale daleč čez max. */
+  function buildAdaptiveBreaks(values, opts) {
+    const options = opts || {};
+    const maxBands = options.maxBands != null ? options.maxBands : MAX_POSITIVE_BANDS;
+    const integer = options.integer !== false;
+    const topShare = options.topShare != null ? options.topShare : TOP_CLASS_SHARE;
+    const forcedFirst = options.firstPositive;
+
+    let sorted = (Array.isArray(values) ? values : [])
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && v > 0)
+      .sort((a, b) => a - b);
+    if (!sorted.length) return [0];
+    if (integer) sorted = sorted.map((v) => Math.round(v));
+
+    const minPos = sorted[0];
+    const maxVal = sorted[sorted.length - 1];
+    let firstPositive = forcedFirst != null ? forcedFirst : (integer ? 1 : minPos);
+    if (integer) firstPositive = Math.max(1, Math.round(firstPositive));
+    else {
+      /* Gostota: začni pri dejanskem minimumu (lahko < 1), da se razredi ne sesujejo. */
+      firstPositive = Math.min(firstPositive, minPos);
+      firstPositive = niceNum(Math.max(firstPositive, minPos * 0.85), "gostota");
+      if (firstPositive > minPos) firstPositive = minPos;
+    }
+
+    if (!(maxVal >= firstPositive)) return [0, firstPositive];
+    if (maxVal <= firstPositive) return [0, firstPositive];
+
+    const pool = sorted.filter((v) => v >= firstPositive);
+    const n = pool.length;
+    if (!n) return [0, firstPositive];
+
+    let nBands = Math.max(1, maxBands);
+    if (integer) {
+      nBands = Math.min(nBands, Math.max(1, Math.floor(maxVal) - firstPositive + 1));
+    } else {
+      /* Manj razredov, če je premalo različnih vrednosti. */
+      const distinct = new Set(pool.map((v) => Number(v.toPrecision(4))));
+      nBands = Math.min(nBands, Math.max(1, distinct.size));
+    }
+    if (nBands <= 1) return [0, firstPositive];
+
+    /* Kvantili znotraj dejanskih podatkov — vsak razred naj dobi delež občin/celic. */
+    const edges = [firstPositive];
+    for (let i = 1; i < nBands; i++) {
+      const p = (i === nBands - 1)
+        ? Math.min(0.99, Math.max(0.85, 1 - topShare))
+        : i / nBands;
+      let v = pool[Math.min(Math.floor(p * (n - 1)), n - 1)];
+      if (integer) v = Math.round(v);
+      else v = niceNum(v, "gostota");
+      if (v <= edges[edges.length - 1]) {
+        if (integer) v = edges[edges.length - 1] + 1;
+        else {
+          const bumped = edges[edges.length - 1] * 1.2;
+          v = niceNum(bumped, "gostota");
+          if (!(v > edges[edges.length - 1])) v = edges[edges.length - 1] + (maxVal - firstPositive) / nBands;
+        }
+      }
+      /* Ne skáči čez maxVal pri notranjih mejah — sicer ostanejo razredi prazni. */
+      if (i < nBands - 1 && v >= maxVal) {
+        if (integer) break;
+        v = firstPositive + (maxVal - firstPositive) * (i / nBands);
+        if (!integer) v = niceNum(v, "gostota");
+        if (!(v > edges[edges.length - 1])) continue;
+      }
+      edges.push(v);
+    }
+
+    /* Zadnja meja ≤ maxVal, a čim višje → redek najvišji razred, a vsaj dosegljiv. */
+    let last = edges[edges.length - 1];
+    const maxInTop = Math.max(1, Math.ceil(n * topShare));
+    if (last > maxVal) last = integer ? Math.floor(maxVal) : maxVal;
+    let inTop = pool.filter((v) => v >= last).length;
+    while (inTop > maxInTop && last < maxVal) {
+      if (integer) last += 1;
+      else {
+        const hi = pool.find((v) => v > last);
+        if (hi == null) break;
+        last = hi;
+      }
+      inTop = pool.filter((v) => v >= last).length;
+    }
+    if (last <= edges[edges.length - 2]) {
+      last = integer
+        ? Math.min(maxVal, edges[edges.length - 2] + 1)
+        : Math.min(maxVal, edges[edges.length - 2] * 1.15);
+    }
+    edges[edges.length - 1] = last;
+
+    const out = [];
+    for (const e of edges) {
+      if (!out.length || e > out[out.length - 1]) out.push(e);
+    }
+    if (out.length < 2) return [0, firstPositive];
+    return [0, ...out];
+  }
+
+  /* Dinamične meje število: isto število razredov; spodnje meje manj, zgornje bolj. */
   function buildDynamicSteviloBreaks(values, baseBreaks) {
     const positive = values.filter(v => v > 0).sort((a, b) => a - b);
     if (!positive.length) return null;
 
     const n = positive.length;
     const maxVal = positive[n - 1];
-    const nBands = BAND_COLOURS.length - 1;
+    const nBands = baseBreaks.length - 1;
+    if (nBands < 1) return null;
     const base = baseBreaks.slice(0, nBands + 1);
     if (base.length !== nBands + 1) return null;
 
-    /* Percentili porazdelitve: višji razred → višji percentil iz podatkov. */
-    const percentiles = [0.42, 0.56, 0.68, 0.79, 0.89, 0.96];
-    /* Utež osnovne meje: 100 % pri najnižji prilagodljivi meji → 10 % pri najvišji. */
-    const baseWeights = [1.0, 0.82, 0.64, 0.46, 0.28, 0.10];
-
-    const breaks = [0, 1];
+    const breaks = [0, base[1]];
     for (let i = 2; i <= nBands; i++) {
-      const baseVal = base[i];
-      const pi = i - 2;
-      const qIdx = Math.min(Math.floor(percentiles[pi] * (n - 1)), n - 1);
+      const t = (i - 2) / Math.max(1, nBands - 2);
+      const percentile = 0.40 + t * 0.56;
+      const bw = 1.0 - t * 0.90; /* spodnje blizu osnovi, zgornje sledijo podatkom */
+      const qIdx = Math.min(Math.floor(percentile * (n - 1)), n - 1);
       const dataVal = positive[qIdx];
-      const bw = baseWeights[pi];
-      const blended = baseVal * bw + dataVal * (1 - bw);
+      const blended = base[i] * bw + dataVal * (1 - bw);
       let next = niceNum(blended, "stevilo");
       next = Math.max(next, breaks[i - 1] + 1);
       breaks.push(next);
     }
 
-    /* Najvišji razred: izrazit dvig, a še vedno dosegljiv (≤ max). */
     let top = niceNum(base[nBands] * 0.35 + maxVal * 0.65, "stevilo");
     top = Math.min(top, niceFloorStevilo(maxVal));
     top = Math.max(top, breaks[nBands - 1] + 1);
     if (top > maxVal) top = Math.max(breaks[nBands - 1] + 1, Math.floor(maxVal));
     breaks[nBands] = top;
 
+    return breaks;
+  }
+
+  /* Dinamične meje gostota iz osnovne lestvice (isto število razredov). */
+  function buildDynamicGostotaBreaksFromBase(values, baseBreaks) {
+    const positive = values.filter(v => v > 0).sort((a, b) => a - b);
+    if (!positive.length) return null;
+
+    const n = positive.length;
+    const maxVal = positive[n - 1];
+    const nBands = baseBreaks.length - 1;
+    if (nBands < 1) return null;
+    const base = baseBreaks.slice(0, nBands + 1);
+
+    const breaks = [0, base[1]];
+    for (let i = 2; i <= nBands; i++) {
+      const t = (i - 2) / Math.max(1, nBands - 2);
+      const percentile = 0.40 + t * 0.56;
+      const bw = 1.0 - t * 0.90;
+      const qIdx = Math.min(Math.floor(percentile * (n - 1)), n - 1);
+      const dataVal = positive[qIdx];
+      const blended = base[i] * bw + dataVal * (1 - bw);
+      let next = niceNum(blended, "gostota");
+      if (!(next > breaks[i - 1])) {
+        next = niceNum(breaks[i - 1] * 1.25 + 0.01, "gostota");
+        if (!(next > breaks[i - 1])) next = breaks[i - 1] + Math.max(0.01, breaks[i - 1] * 0.1);
+      }
+      breaks.push(next);
+    }
+
+    let top = niceNum(base[nBands] * 0.35 + maxVal * 0.65, "gostota");
+    if (top > maxVal) top = maxVal;
+    if (!(top > breaks[nBands - 1])) {
+      top = Math.max(maxVal, breaks[nBands - 1] * 1.15);
+    }
+    breaks[nBands] = top;
     return breaks;
   }
 
@@ -1247,7 +1606,7 @@
 
     /* Unikatne vrednosti, urejene naraščajoče */
     const unique = [...new Set(rounded)].sort((a, b) => a - b);
-    const nBands = BAND_COLOURS.length - 1; // 7
+    const nBands = CHOROPLETH_BAND_COUNT;
     const actualMax = positive[n - 1];
 
     /* Zapolni manjkajoče razrede z lepo vrednostjo v največji vrzeli */
@@ -1271,34 +1630,272 @@
 
   /* ——— Aktivna lestvica (globalni state) ——— */
   let currentBreaks = FIXED_BREAKS.stevilo[30];
+  let currentBandColours = gridBandColoursForBreaks(currentBreaks);
   let scaleIsDynamic = false;
 
-  function resolveScale(mode) {
-    const d = scaleDaysKey();
-    const values = Object.values(obcinaData).map(ob => displayValue(ob, mode));
+  /* En dan (Danes ALI izbrani datum prek scaleDaysKey()===1) — število: fiksna skala.
+     Prilagoditev samo, če sta izpolnjena OBA pogoja:
+       1) >5 občin z ≥500 strelami,
+       2) >10 občin bi padlo v najvišji razred fiksne skale (201+).
+     Nato meje sorazmerno raztegni in poskrbi, da v najvišjem razredu ostane ≤10 občin. */
+  const ONE_DAY_STEVILO_EXTREME_THRESHOLD = 500;
+  const ONE_DAY_STEVILO_EXTREME_COUNT = 5;
+  const ONE_DAY_STEVILO_TOP_CLASS_MAX = 10;
 
-    if (mode === "stevilo") {
-      const baseBreaks = FIXED_BREAKS.stevilo[d] || FIXED_BREAKS.stevilo[30];
-      if (!shouldAdaptSteviloScale(values, baseBreaks)) {
-        return { breaks: baseBreaks, isDynamic: false };
-      }
-      const dynBreaks = buildDynamicSteviloBreaks(values, baseBreaks) || baseBreaks;
-      return { breaks: dynBreaks, isDynamic: true };
+  function resolveOneDaySteviloScale(values) {
+    const base = FIXED_BREAKS.stevilo[1];
+    const baseTop = base[base.length - 1]; // 201
+    const extremeCount = values.filter((v) => v >= ONE_DAY_STEVILO_EXTREME_THRESHOLD).length;
+    const inFixedTop = values.filter((v) => v >= baseTop).length;
+
+    /* Oba pogoja morata biti izpolnjena. */
+    if (
+      extremeCount <= ONE_DAY_STEVILO_EXTREME_COUNT
+      || inFixedTop <= ONE_DAY_STEVILO_TOP_CLASS_MAX
+    ) {
+      return { breaks: base, isDynamic: false };
     }
-    if (mode === "gostota" && GOSTOTA_LEGEND_LABELS[d]) {
-      return { breaks: FIXED_BREAKS.gostota[d], isDynamic: false };
-    }
-    if (mode === "dni" && DNI_LEGEND_LABELS[d]) {
-      return { breaks: FIXED_BREAKS.dni[d], isDynamic: false };
-    }
-    const fixedBreaks = FIXED_BREAKS[mode][d] || FIXED_BREAKS[mode][30];
-    const fixedMax    = FIXED_MAX[mode][d]    || FIXED_MAX[mode][30];
 
     const maxVal = values.length ? Math.max(0, ...values) : 0;
+    let factor = Math.max(maxVal / baseTop, ONE_DAY_STEVILO_EXTREME_THRESHOLD / baseTop);
+    if (!(factor > 1)) factor = 1;
 
-    if (maxVal <= fixedMax) return { breaks: fixedBreaks, isDynamic: false };
-    const dynBreaks = buildDynamicBreaks(values, mode) || fixedBreaks;
-    return { breaks: dynBreaks, isDynamic: true };
+    const breaks = [0];
+    for (let i = 1; i < base.length; i++) {
+      /* Prvi pozitivni razred ostane vedno pri 1. */
+      let next = (i === 1) ? 1 : niceNum(base[i] * factor, "stevilo");
+      next = Math.max(next, breaks[breaks.length - 1] + 1);
+      breaks.push(next);
+    }
+
+    /* Dvigni spodnjo mejo najvišjega razreda, dokler v njem ni več kot 10 občin. */
+    let top = breaks[breaks.length - 1];
+    top = Math.max(top, breaks[breaks.length - 2] + 1);
+    let inTop = values.filter((v) => v >= top).length;
+    while (inTop > ONE_DAY_STEVILO_TOP_CLASS_MAX && top < maxVal) {
+      top += 1;
+      inTop = values.filter((v) => v >= top).length;
+    }
+    /* Razred mora ostati dosegljiv (vsaj 1 občina, če je max dovolj visok). */
+    while (values.filter((v) => v >= top).length === 0 && top > breaks[breaks.length - 2] + 1) {
+      top -= 1;
+    }
+    if (top > maxVal) top = Math.max(breaks[breaks.length - 2] + 1, Math.floor(maxVal));
+    breaks[breaks.length - 1] = top;
+
+    return { breaks, isDynamic: true };
+  }
+
+  /* 7 dni — osnovne fiksne meje; pri stevilu/gostoti morebitna prilagoditev ob 2×T / 4×T.
+     Št. dni z nevihto: vedno 0–7, brez presežkov. */
+  function resolveSevenDayScale(mode, values) {
+    if (mode === "dni") {
+      return { breaks: FIXED_BREAKS.dni[7], isDynamic: false };
+    }
+    const base = FIXED_BREAKS[mode] && FIXED_BREAKS[mode][7];
+    if (!base) return null;
+    if (!shouldAdaptSteviloScale(values, base)) {
+      return { breaks: base, isDynamic: false };
+    }
+    let dyn = null;
+    if (mode === "stevilo") dyn = buildDynamicSteviloBreaks(values, base);
+    else if (mode === "gostota") dyn = buildDynamicGostotaBreaksFromBase(values, base);
+    return { breaks: dyn || base, isDynamic: !!(dyn && dyn !== base) };
+  }
+
+  function clampIntegerBreaksToBase(dyn, base) {
+    const out = dyn.slice();
+    for (let i = 1; i < out.length; i++) {
+      out[i] = Math.max(Math.round(out[i]), base[i]);
+      if (i > 1 && !(out[i] > out[i - 1])) {
+        out[i] = Math.max(base[i], out[i - 1] + 1);
+      }
+    }
+    return out;
+  }
+
+  /* Mreža — fiksne celoštevilske meje gostote; isti 2×T/4×T presežek kot občine. */
+  function resolveGridGostotaScale(daysKey, values) {
+    const base = GRID_GOSTOTA_BREAKS_BY_DAYS[daysKey];
+    if (!base) return null;
+    if (!shouldAdaptSteviloScale(values, base)) {
+      return { breaks: base, isDynamic: false };
+    }
+    const raw = buildDynamicSteviloBreaks(values, base);
+    if (!raw) return { breaks: base, isDynamic: false };
+    const dyn = clampIntegerBreaksToBase(raw, base);
+    const changed = dyn.some((v, i) => v !== base[i]);
+    return { breaks: dyn, isDynamic: changed };
+  }
+
+  function resolveSevenDayGridGostotaScale(values) {
+    return resolveGridGostotaScale(7, values);
+  }
+
+  /* 14 dni — Občine / Število: fiksne osnovne meje; prilagoditev ob 2×T / 4×T (T=901). */
+  function resolveFourteenDaySteviloScale(values) {
+    const base = FIXED_BREAKS.stevilo[14];
+    if (!base) return null;
+    if (!shouldAdaptSteviloScale(values, base)) {
+      return { breaks: base, isDynamic: false };
+    }
+    const dyn = buildDynamicSteviloBreaks(values, base);
+    return { breaks: dyn || base, isDynamic: !!dyn };
+  }
+
+  function clampGostotaBreaksToBase(dyn, base) {
+    const out = dyn.slice();
+    for (let i = 1; i < out.length; i++) {
+      out[i] = Math.max(out[i], base[i]);
+      if (i > 1 && !(out[i] > out[i - 1])) {
+        out[i] = Math.max(base[i], out[i - 1] + 0.01);
+      }
+    }
+    return out;
+  }
+
+  /* 14 dni — Občine / Gostota: fiksne osnovne meje; prilagoditev ob 2×T / 4×T (T=8,01). */
+  function resolveFourteenDayGostotaScale(values) {
+    const base = FIXED_BREAKS.gostota[14];
+    if (!base) return null;
+    if (!shouldAdaptSteviloScale(values, base)) {
+      return { breaks: base, isDynamic: false };
+    }
+    const raw = buildDynamicGostotaBreaksFromBase(values, base);
+    if (!raw) return { breaks: base, isDynamic: false };
+    const dyn = clampGostotaBreaksToBase(raw, base);
+    const changed = dyn.some((v, i) => v !== base[i]);
+    return { breaks: dyn, isDynamic: changed };
+  }
+
+  /* 14 dni — Občine / Št. dni z nevihto: fiksna lestvica, brez presežkov. */
+  function resolveFourteenDayDniScale() {
+    return { breaks: FIXED_BREAKS.dni[14], isDynamic: false };
+  }
+
+  /* 30 dni — Občine / Število: fiksne osnovne meje; prilagoditev ob 2×T / 4×T (T=1851). */
+  function resolveThirtyDaySteviloScale(values) {
+    const base = FIXED_BREAKS.stevilo[30];
+    if (!base) return null;
+    if (!shouldAdaptSteviloScale(values, base)) {
+      return { breaks: base, isDynamic: false };
+    }
+    const raw = buildDynamicSteviloBreaks(values, base);
+    if (!raw) return { breaks: base, isDynamic: false };
+    const dyn = clampIntegerBreaksToBase(raw, base);
+    const changed = dyn.some((v, i) => v !== base[i]);
+    return { breaks: dyn, isDynamic: changed };
+  }
+
+  /* 30 dni — Občine / Gostota: fiksne osnovne meje; prilagoditev ob 2×T / 4×T (T=13,51). */
+  function resolveThirtyDayGostotaScale(values) {
+    const base = FIXED_BREAKS.gostota[30];
+    if (!base) return null;
+    if (!shouldAdaptSteviloScale(values, base)) {
+      return { breaks: base, isDynamic: false };
+    }
+    const raw = buildDynamicGostotaBreaksFromBase(values, base);
+    if (!raw) return { breaks: base, isDynamic: false };
+    const dyn = clampGostotaBreaksToBase(raw, base);
+    const changed = dyn.some((v, i) => v !== base[i]);
+    return { breaks: dyn, isDynamic: changed };
+  }
+
+  /* 30 dni — Občine / Št. dni z nevihto: fiksna lestvica 0–30, brez presežkov. */
+  function resolveThirtyDayDniScale() {
+    return { breaks: FIXED_BREAKS.dni[30], isDynamic: false };
+  }
+
+  /* 90 dni — Občine / Število: fiksne osnovne meje; prilagoditev ob 2×T / 4×T (T=3701). */
+  function resolveNinetyDaySteviloScale(values) {
+    const base = FIXED_BREAKS.stevilo[90];
+    if (!base) return null;
+    if (!shouldAdaptSteviloScale(values, base)) {
+      return { breaks: base, isDynamic: false };
+    }
+    const raw = buildDynamicSteviloBreaks(values, base);
+    if (!raw) return { breaks: base, isDynamic: false };
+    const dyn = clampIntegerBreaksToBase(raw, base);
+    const changed = dyn.some((v, i) => v !== base[i]);
+    return { breaks: dyn, isDynamic: changed };
+  }
+
+  /* 90 dni — Občine / Gostota: fiksne osnovne meje; prilagoditev ob 2×T / 4×T (T=24,01). */
+  function resolveNinetyDayGostotaScale(values) {
+    const base = FIXED_BREAKS.gostota[90];
+    if (!base) return null;
+    if (!shouldAdaptSteviloScale(values, base)) {
+      return { breaks: base, isDynamic: false };
+    }
+    const raw = buildDynamicGostotaBreaksFromBase(values, base);
+    if (!raw) return { breaks: base, isDynamic: false };
+    const dyn = clampGostotaBreaksToBase(raw, base);
+    const changed = dyn.some((v, i) => v !== base[i]);
+    return { breaks: dyn, isDynamic: changed };
+  }
+
+  /* 90 dni — Občine / Št. dni z nevihto: fiksna lestvica 0–90, brez presežkov. */
+  function resolveNinetyDayDniScale() {
+    return { breaks: FIXED_BREAKS.dni[90], isDynamic: false };
+  }
+
+  function resolveScale(mode) {
+    const values = Object.values(obcinaData).map(ob => displayValue(ob, mode));
+    /* Danes in izbrani datum: isti helper (scaleDaysKey()===1). */
+    if (mode === "stevilo" && scaleDaysKey() === 1) {
+      return resolveOneDaySteviloScale(values);
+    }
+    if (scaleDaysKey() === 7) {
+      const seven = resolveSevenDayScale(mode, values);
+      if (seven) return seven;
+    }
+    if (scaleDaysKey() === 14) {
+      if (mode === "stevilo") {
+        const fourteen = resolveFourteenDaySteviloScale(values);
+        if (fourteen) return fourteen;
+      }
+      if (mode === "gostota") {
+        const fourteen = resolveFourteenDayGostotaScale(values);
+        if (fourteen) return fourteen;
+      }
+      if (mode === "dni") {
+        return resolveFourteenDayDniScale();
+      }
+    }
+    if (scaleDaysKey() === 30) {
+      if (mode === "stevilo") {
+        const thirty = resolveThirtyDaySteviloScale(values);
+        if (thirty) return thirty;
+      }
+      if (mode === "gostota") {
+        const thirty = resolveThirtyDayGostotaScale(values);
+        if (thirty) return thirty;
+      }
+      if (mode === "dni") {
+        return resolveThirtyDayDniScale();
+      }
+    }
+    if (scaleDaysKey() === 90) {
+      if (mode === "stevilo") {
+        const ninety = resolveNinetyDaySteviloScale(values);
+        if (ninety) return ninety;
+      }
+      if (mode === "gostota") {
+        const ninety = resolveNinetyDayGostotaScale(values);
+        if (ninety) return ninety;
+      }
+      if (mode === "dni") {
+        return resolveNinetyDayDniScale();
+      }
+    }
+    const integer = mode !== "gostota";
+    const breaks = buildAdaptiveBreaks(values, {
+      maxBands: MAX_POSITIVE_BANDS,
+      /* Gostota: first iz podatkov (<1 dovoljen). Število/dni: začetek pri 1. */
+      firstPositive: integer ? 1 : null,
+      integer,
+    });
+    return { breaks, isDynamic: true };
   }
 
   function displayValue(ob, mode) {
@@ -1314,58 +1911,54 @@
 
   function colourFor(ob) {
     const v = displayValue(ob, mapMode);
-    if (mapMode === "gostota" && GOSTOTA_LEGEND_LABELS[scaleDaysKey()]) {
-      if (v < currentBreaks[1]) return BAND_COLOURS[0];
-      for (let i = currentBreaks.length - 1; i >= 1; i--) {
-        if (v >= currentBreaks[i]) return BAND_COLOURS[i];
-      }
-      return BAND_COLOURS[0];
+    const colours = currentBandColours;
+    if (v === 0) return colours[0];
+    for (let i = currentBreaks.length - 1; i >= 1; i--) {
+      if (v >= currentBreaks[i]) return colours[i] || colours[colours.length - 1];
     }
-    if (v === 0) return BAND_COLOURS[0];
-    for (let i = currentBreaks.length - 1; i >= 0; i--) {
-      if (v >= currentBreaks[i]) return BAND_COLOURS[i];
-    }
-    /* Gostota > 0 pod najnižjo mejo — obarva najnižji razred, ne siva. */
-    if (mapMode === "gostota") return BAND_COLOURS[1];
-    return BAND_COLOURS[0];
+    /* Gostota > 0 pod najnižjo mejo — obarva najnižji pozitivni razred, ne siva. */
+    if (mapMode === "gostota") return colours[1] || colours[0];
+    return colours[0];
+  }
+
+  function fixedLegendLabels(mode) {
+    const d = scaleDaysKey();
+    if (mode === "stevilo") return STEVILO_LEGEND_LABELS[d] || null;
+    if (mode === "gostota") return GOSTOTA_LEGEND_LABELS[d] || null;
+    if (mode === "dni") return DNI_LEGEND_LABELS[d] || null;
+    return null;
   }
 
   function legendRowCount(mode, isDynamic = false) {
-    const d = scaleDaysKey();
-    if (mode === "stevilo" && STEVILO_LEGEND_LABELS[d] && !isDynamic) {
-      return STEVILO_LEGEND_LABELS[d].length;
+    if (!isDynamic) {
+      const labels = fixedLegendLabels(mode);
+      if (labels) return labels.length;
     }
-    if (mode === "gostota" && GOSTOTA_LEGEND_LABELS[d]) return GOSTOTA_LEGEND_LABELS[d].length;
-    if (mode === "dni" && DNI_LEGEND_LABELS[d]) return DNI_LEGEND_LABELS[d].length;
-    return BAND_COLOURS.length;
+    return currentBandColours.length;
   }
 
   /* ——— Legenda ——— */
   function legendLabel(i, breaks, mode, isDynamic = false) {
+    if (!isDynamic) {
+      const labels = fixedLegendLabels(mode);
+      if (labels && labels[i] != null) return labels[i];
+    }
     const n = breaks.length;
-    if (mode === "stevilo") {
-      const labels = STEVILO_LEGEND_LABELS[scaleDaysKey()];
-      if (labels && labels[i] != null && !isDynamic) return labels[i];
-    }
-    if (mode === "gostota") {
-      const labels = GOSTOTA_LEGEND_LABELS[scaleDaysKey()];
-      if (labels && labels[i] != null) return labels[i];
-    }
-    if (mode === "dni") {
-      const labels = DNI_LEGEND_LABELS[scaleDaysKey()];
-      if (labels && labels[i] != null) return labels[i];
-    }
     if (i === 0) return "0";
     if (i === n - 1) return `${fmtBreakVal(breaks[i], mode)}+`;
-    /* Band 1 pri gostoti: vedno prikaži "< naslednja_meja" — spodnja meja je 1e-9 ali
-       dinamična najmanjša vrednost, ki izgleda grdo v legendi. */
-    if (mode === "gostota" && i === 1) {
-      return `< ${fmtBreakVal(breaks[i + 1], mode)}`;
+    const lo = breaks[i];
+    const next = breaks[i + 1];
+    /* Celoštevilčni razredi (število/dni/gostota z celimi mejami): zgornja meja je exclusive. */
+    const intLike = mode === "stevilo" || mode === "dni"
+      || (Number.isInteger(lo) && Number.isInteger(next));
+    if (intLike) {
+      const hi = next - 1;
+      if (lo === hi) return fmtBreakVal(lo, mode);
+      if (hi < lo) return fmtBreakVal(lo, mode);
+      return `${fmtBreakVal(lo, mode)}–${fmtBreakVal(hi, mode)}`;
     }
-    if (mode === "stevilo" || mode === "dni") {
-      return `${fmtBreakVal(breaks[i], mode)}–${fmtBreakVal(breaks[i + 1] - 1, mode)}`;
-    }
-    return `${fmtBreakVal(breaks[i], mode)}–${fmtBreakVal(breaks[i + 1], mode)}`;
+    if (lo === next) return fmtBreakVal(lo, mode);
+    return `${fmtBreakVal(lo, mode)}–${fmtBreakVal(next, mode)}`;
   }
 
   function updateLegend(breaks, isDynamic, mode) {
@@ -1373,9 +1966,14 @@
     if (!el) return;
     if (isGridView()) {
       const titleText = "Gostota strel";
-      const labels = gridLabelsFromBreaks(breaks);
+      const _gd = gridScaleDaysKey();
+      const fixedLabels = (!isDynamic && (GRID_GOSTOTA_LEGEND_LABELS[_gd] || GOSTOTA_LEGEND_LABELS[_gd])) || null;
+      const labels = fixedLabels || gridLabelsFromBreaks(breaks);
+      const colours = currentGridBandColours.length === labels.length
+        ? currentGridBandColours
+        : gridBandColoursForBreaks(breaks);
       const rowsHtml = labels.map((lbl, i) =>
-        `<div class="legend-row"><span class="legend-swatch" style="background:${BAND_COLOURS[i]}"></span>${lbl}</div>`
+        `<div class="legend-row"><span class="legend-swatch" style="background:${colours[i]}"></span>${lbl}</div>`
       ).join("");
       el.innerHTML = `<div id="legend-title">${titleText}</div><div class="legend-rows">${rowsHtml}</div>`;
       return;
@@ -1385,8 +1983,11 @@
       : mode === "dni"
       ? "Št. dni z nevihto"
       : "Število strel";
+    const colours = currentBandColours.length === legendRowCount(mode, isDynamic)
+      ? currentBandColours
+      : gridBandColoursForBreaks(breaks);
     const rowsHtml = Array.from({ length: legendRowCount(mode, isDynamic) }, (_, i) =>
-      `<div class="legend-row"><span class="legend-swatch" style="background:${BAND_COLOURS[i]}"></span>${legendLabel(i, breaks, mode, isDynamic)}</div>`
+      `<div class="legend-row"><span class="legend-swatch" style="background:${colours[i]}"></span>${legendLabel(i, breaks, mode, isDynamic)}</div>`
     ).join("");
     el.innerHTML = `<div id="legend-title">${titleText}</div><div class="legend-rows">${rowsHtml}</div>`;
   }
@@ -1591,10 +2192,16 @@
   dayPick.max = todayIso();
 
   function syncSelectFromPeriod() {
+    if (customRange) {
+      sel.value = "custom";
+      dayPickWrap.classList.add("hidden");
+      return;
+    }
     if (periodMode === "day" && mapDay) {
-      sel.value = "pick";
+      /* En dan iz URL/API: v meniju Po meri (brez locene moznosti Datum). */
+      sel.value = "custom";
       dayPick.value = mapDay;
-      dayPickWrap.classList.remove("hidden");
+      dayPickWrap.classList.add("hidden");
     } else if (days === 1) {
       sel.value = "1";
       dayPickWrap.classList.add("hidden");
@@ -1613,6 +2220,7 @@
       days = todayTotal > 0 ? 1 : DEFAULT_RANGE_DAYS;
       periodMode = "range";
       mapDay = null;
+      clearCustomRange();
     } catch (_) { /* ob napaki ostane 30 dni */ }
   }
 
@@ -1621,7 +2229,7 @@
       periodLabelEl.textContent = fmtFull(mapDay);
       return;
     }
-    if (days === 1) {
+    if (!customRange && days === 1) {
       periodLabelEl.textContent = fmtFull(todayIso());
       return;
     }
@@ -2028,6 +2636,7 @@
     /* izračunaj in nastavi lestvico */
     const scale = resolveScale(mapMode);
     currentBreaks  = scale.breaks;
+    currentBandColours = gridBandColoursForBreaks(currentBreaks);
     scaleIsDynamic = scale.isDynamic;
     updateLegend(currentBreaks, scaleIsDynamic, mapMode);
 
@@ -2210,7 +2819,7 @@
   let gridZeroTipMarker = null;
   let gridMapHoverBound = false;
   let gridMapClickBound = false;
-  const GRID_CHART_TITLE = "Celica 1 × 1 km — radij 10 km";
+  const GRID_CHART_RADIUS_LABEL = "radij 10 km";
   let gridCellDailyCache = null;
   const GRID_CELL_SIZE_M = 1000;
   const GRID_CELL_STYLE_HOVER = {
@@ -2377,9 +2986,64 @@
     gridData = null;
   }
 
-  function gridZeroTooltipHtml() {
-    return `<div class="ob-tooltip grid-cell-tooltip"><strong>Celica 1 × 1 km</strong>` +
-      `<br>Gostota strel: <strong>0 strel / km²</strong></div>`;
+  function gridCellCenterFromMeters(gridX, gridY) {
+    if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) return null;
+    if (!_grid3794ToWgs84) return null;
+    const ll = projCoordXY(_grid3794ToWgs84.forward([
+      gridX + GRID_CELL_SIZE_M / 2,
+      gridY + GRID_CELL_SIZE_M / 2,
+    ]));
+    return { lat: ll.y, lon: ll.x };
+  }
+
+  function gridCellCenterFromLatLng(latlng) {
+    const cell = gridCellMetersFromLatLng(latlng);
+    if (!cell) return null;
+    return gridCellCenterFromMeters(cell.gridX, cell.gridY);
+  }
+
+  function gridCellCenterFromProps(props) {
+    if (!props || props.cell_id == null) return null;
+    const parts = String(props.cell_id).split(":");
+    if (parts.length < 3) return null;
+    const gridX = Number(parts[parts.length - 2]);
+    const gridY = Number(parts[parts.length - 1]);
+    return gridCellCenterFromMeters(gridX, gridY);
+  }
+
+  function formatGridLocationTitle(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return "—";
+    const fmtCoord = new Intl.NumberFormat("sl-SI", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return `${fmtCoord.format(lat)}° N, ${fmtCoord.format(lon)}° E`;
+  }
+
+  function formatGridChartTitle(lat, lon) {
+    const center = (lat != null && lon != null)
+      ? gridCellCenterFromLatLng({ lat: Number(lat), lng: Number(lon) })
+      : null;
+    const loc = center
+      ? formatGridLocationTitle(center.lat, center.lon)
+      : "—";
+    return `${loc} — ${GRID_CHART_RADIUS_LABEL}`;
+  }
+
+  function currentGridChartTitle() {
+    if (selectedGridLat != null && selectedGridLon != null) {
+      return formatGridChartTitle(selectedGridLat, selectedGridLon);
+    }
+    return `— — ${GRID_CHART_RADIUS_LABEL}`;
+  }
+
+  function gridZeroTooltipHtml(latlng) {
+    const center = latlng ? gridCellCenterFromLatLng(latlng) : null;
+    const title = center
+      ? formatGridLocationTitle(center.lat, center.lon)
+      : "—";
+    return `<div class="ob-tooltip grid-cell-tooltip"><strong>${title}</strong>` +
+      `<br>Gostota strel: <strong>0 st. / km²</strong></div>`;
   }
 
   function hideGridZeroTooltip() {
@@ -2429,7 +3093,7 @@
         fillOpacity: 0,
         stroke: false,
       });
-      gridZeroTipMarker.bindTooltip(() => gridZeroTooltipHtml(), {
+      gridZeroTipMarker.bindTooltip(() => gridZeroTooltipHtml(gridZeroTipMarker.getLatLng()), {
         sticky: true,
         className: "ob-tooltip-shell",
       });
@@ -2524,7 +3188,7 @@
         renderer: L.canvas(),
         interactive: false,
         style: {
-          fillColor: BAND_COLOURS[0],
+          fillColor: GRID_DENSITY_BASE_COLOUR,
           fillOpacity: 0.78,
           weight: 0,
           opacity: 0,
@@ -2556,27 +3220,22 @@
     const v = gridDisplayValue(props);
     if (v <= 0) return "transparent";
     const breaks = currentGridBreaks;
+    const colours = currentGridBandColours;
     for (let i = breaks.length - 1; i >= 1; i--) {
-      if (v >= breaks[i]) return BAND_COLOURS[i];
+      if (v >= breaks[i]) return colours[i];
     }
-    return BAND_COLOURS[1];
+    return colours[1];
   }
 
-  function gridTooltipPluralStrela(n) {
-    const x = Math.abs(Number(n) || 0);
-    const mod100 = x % 100;
-    const mod10 = x % 10;
-    if (mod100 >= 11 && mod100 <= 14) return "strel";
-    if (mod10 === 1) return "strela";
-    if (mod10 === 2) return "streli";
-    if (mod10 === 3 || mod10 === 4) return "strele";
-    return "strel";
-  }
 
   function gridTooltipHtml(props) {
     const v = gridDisplayValue(props);
-    let html = `<div class="ob-tooltip grid-cell-tooltip"><strong>Celica 1 × 1 km</strong>`;
-    html += `<br>Gostota strel: <strong>${fmt.format(v)} ${gridTooltipPluralStrela(v)} / km²</strong>`;
+    const center = gridCellCenterFromProps(props);
+    const title = center
+      ? formatGridLocationTitle(center.lat, center.lon)
+      : "—";
+    let html = `<div class="ob-tooltip grid-cell-tooltip"><strong>${title}</strong>`;
+    html += `<br>Gostota strel: <strong>${fmt.format(v)} st. / km²</strong>`;
     html += `</div>`;
     return html;
   }
@@ -2588,8 +3247,26 @@
   function renderGridLayer() {
     if (!gridData || !Array.isArray(gridData.features)) return;
 
-    currentGridBreaks = gridGostotaBreaksForDays(gridScaleDaysKey());
-    updateLegend(currentGridBreaks, false, "gostota");
+    const gridValues = (gridData.features || []).map((f) => {
+      const props = f && f.properties ? f.properties : null;
+      return props ? (Number(props.strike_count) || 0) : 0;
+    });
+    const gridDays = gridScaleDaysKey();
+    /* 7 dni — ista gostota kot občine (fiksno + morebitni 2×T/4×T presežek). */
+    if (GRID_GOSTOTA_BREAKS_BY_DAYS[gridDays]) {
+      const gridScale = resolveGridGostotaScale(gridDays, gridValues);
+      currentGridBreaks = gridScale.breaks;
+      currentGridBandColours = gridBandColoursForBreaks(currentGridBreaks);
+      updateLegend(currentGridBreaks, gridScale.isDynamic, "gostota");
+    } else {
+      currentGridBreaks = buildAdaptiveBreaks(gridValues, {
+        maxBands: MAX_POSITIVE_BANDS,
+        firstPositive: 1,
+        integer: true,
+      });
+      currentGridBandColours = gridBandColoursForBreaks(currentGridBreaks);
+      updateLegend(currentGridBreaks, true, "gostota");
+    }
 
     if (gridLayer) map.removeLayer(gridLayer);
     ensureGridMapPanes();
@@ -2621,7 +3298,10 @@
   async function loadGridData() {
     let fetchUrl;
     const today = todayIso();
-    if (periodMode === "range" && days === 1) {
+    if (customRange) {
+      const { from, to } = mapDateRange();
+      fetchUrl = apiUrl(`/api/grid-map?from=${from}&to=${to}`);
+    } else if (periodMode === "range" && days === 1) {
       fetchUrl = apiUrl("/api/grid-map?today=1");
     } else if (periodMode === "day" && mapDay) {
       fetchUrl = mapDay === today
@@ -2710,17 +3390,16 @@
   }
 
   function applyPeriodSelection() {
-    if (sel.value === "pick") {
-      periodMode = "day";
-      dayPickWrap.classList.remove("hidden");
-      if (!mapDay) mapDay = todayIso();
-      dayPick.value = mapDay;
-    } else {
-      periodMode = "range";
-      dayPickWrap.classList.add("hidden");
-      mapDay = null;
-      days = parseInt(sel.value, 10) || 30;
+    if (sel.value === "custom") {
+      openPeriodRangePicker();
+      return;
     }
+    clearCustomRange();
+    periodMode = "range";
+    dayPickWrap.classList.add("hidden");
+    mapDay = null;
+    days = parseInt(sel.value, 10) || 30;
+    closePeriodRangePicker();
     obcinaData = {};
     reload().then(afterPeriodReload);
   }
@@ -2730,10 +3409,132 @@
 
   dayPick.addEventListener("change", function () {
     if (periodMode !== "day" || !dayPick.value) return;
+    clearCustomRange();
     mapDay = dayPick.value;
     obcinaData = {};
     reload().then(afterPeriodReload);
   });
+
+  /* Custom period range picker (klik na datum zgoraj desno) */
+  const periodLabelBtn = document.getElementById("periodLabelBtn");
+  const periodRangePicker = document.getElementById("periodRangePicker");
+  const periodFromInput = document.getElementById("periodFrom");
+  const periodToInput = document.getElementById("periodTo");
+  const periodRangeError = document.getElementById("periodRangeError");
+  const periodRangeCancel = document.getElementById("periodRangeCancel");
+  const periodRangeApply = document.getElementById("periodRangeApply");
+
+  function setPeriodRangeError(msg) {
+    if (!periodRangeError) return;
+    if (!msg) {
+      periodRangeError.textContent = "";
+      periodRangeError.classList.add("hidden");
+      return;
+    }
+    periodRangeError.textContent = msg;
+    periodRangeError.classList.remove("hidden");
+  }
+
+  function isPeriodRangePickerOpen() {
+    return periodRangePicker && !periodRangePicker.classList.contains("hidden");
+  }
+
+  function closePeriodRangePicker() {
+    if (!periodRangePicker) return;
+    periodRangePicker.classList.add("hidden");
+    if (periodLabelBtn) periodLabelBtn.setAttribute("aria-expanded", "false");
+    setPeriodRangeError("");
+  }
+
+  function openPeriodRangePicker() {
+    if (!periodRangePicker || !periodFromInput || !periodToInput) return;
+    const today = todayIso();
+    const current = mapDateRange();
+    periodFromInput.max = today;
+    periodToInput.max = today;
+    periodFromInput.value = current.from;
+    periodToInput.value = current.to;
+    setPeriodRangeError("");
+    periodRangePicker.classList.remove("hidden");
+    if (periodLabelBtn) periodLabelBtn.setAttribute("aria-expanded", "true");
+  }
+
+  function validatePeriodRange(fromIso, toIso) {
+    const today = todayIso();
+    if (!fromIso || !toIso || !parseIsoDate(fromIso) || !parseIsoDate(toIso)) {
+      return "Izberi veljavna datuma Od in Do.";
+    }
+    if (toIso > today) return "Datum Do ne sme biti v prihodnosti.";
+    if (fromIso > today) return "Datum Od ne sme biti v prihodnosti.";
+    if (fromIso > toIso) return "Datum Od ne sme biti za datumom Do.";
+    const n = inclusiveDayCount(fromIso, toIso);
+    if (n < 1) return "Obdobje mora obsegati najmanj 1 dan.";
+    if (n > 90) return "Obdobje sme obsegati največ 90 dni.";
+    return "";
+  }
+
+  function applyCustomPeriodRange() {
+    const fromIso = periodFromInput.value;
+    const toIso = periodToInput.value;
+    const err = validatePeriodRange(fromIso, toIso);
+    if (err) {
+      setPeriodRangeError(err);
+      return;
+    }
+    setCustomRange(fromIso, toIso);
+    dayPickWrap.classList.add("hidden");
+    syncSelectFromPeriod();
+    closePeriodRangePicker();
+    obcinaData = {};
+    reload().then(afterPeriodReload);
+  }
+
+  if (periodLabelBtn) {
+    periodLabelBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isPeriodRangePickerOpen()) closePeriodRangePicker();
+      else openPeriodRangePicker();
+    });
+  }
+  if (periodRangeCancel) {
+    periodRangeCancel.addEventListener("click", function (e) {
+      e.preventDefault();
+      closePeriodRangePicker();
+      if (!customRange) syncSelectFromPeriod();
+    });
+  }
+  if (periodRangeApply) {
+    periodRangeApply.addEventListener("click", function (e) {
+      e.preventDefault();
+      applyCustomPeriodRange();
+    });
+  }
+  if (periodFromInput) {
+    periodFromInput.addEventListener("change", function () {
+      setPeriodRangeError("");
+    });
+  }
+  if (periodToInput) {
+    periodToInput.addEventListener("change", function () {
+      setPeriodRangeError("");
+    });
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && isPeriodRangePickerOpen()) {
+      closePeriodRangePicker();
+      if (!customRange) syncSelectFromPeriod();
+    }
+  });
+  document.addEventListener("mousedown", function (e) {
+    if (!isPeriodRangePickerOpen()) return;
+    const wrap = periodLabelBtn && periodLabelBtn.closest(".period-label-wrap");
+    if (wrap && wrap.contains(e.target)) return;
+    closePeriodRangePicker();
+    if (!customRange) syncSelectFromPeriod();
+  });
+
+
 
   document.getElementById("mapModeTabs").addEventListener("click", function (e) {
     const btn = e.target.closest("[data-mode]");
@@ -2775,24 +3576,28 @@
   window.addEventListener("message", function (e) {
     if (e.data?.type === "strele-map-set-days") {
       const d = parseInt(e.data.days, 10);
-      if (d && (d !== days || periodMode !== "range")) {
+      if (d && (d !== days || periodMode !== "range" || customRange)) {
+        clearCustomRange();
         periodMode = "range";
         mapDay = null;
         days = d;
         sel.value = d === 1 ? "1" : String(days);
         dayPickWrap.classList.add("hidden");
+        closePeriodRangePicker();
         obcinaData = {};
         reload();
       }
     }
     if (e.data?.type === "strele-map-set-day") {
       const iso = e.data.day;
-      if (iso && parseIsoDate(iso) && iso !== mapDay) {
+      if (iso && parseIsoDate(iso) && (iso !== mapDay || customRange)) {
+        clearCustomRange();
         periodMode = "day";
         mapDay = iso;
-        sel.value = "pick";
+        sel.value = "custom";
         dayPick.value = mapDay;
-        dayPickWrap.classList.remove("hidden");
+        dayPickWrap.classList.add("hidden");
+        closePeriodRangePicker();
         obcinaData = {};
         reload();
       }
@@ -2912,7 +3717,7 @@
       return;
     }
     chartDates = series.daily.map(function (d) { return d.datum; });
-    chartObNameEl.textContent = GRID_CHART_TITLE;
+    chartObNameEl.textContent = currentGridChartTitle();
     chartObMetaEl.textContent = formatGridStrikeTotal(series.total || 0);
     chartHintEl.classList.add("hidden");
     if (!dailyChart || chartMode !== "grid") {
@@ -2963,7 +3768,7 @@
   }
 
   function clearGridChartForLoad() {
-    chartObNameEl.textContent = GRID_CHART_TITLE;
+    chartObNameEl.textContent = currentGridChartTitle();
     chartObMetaEl.textContent = "";
     chartHintEl.textContent = "Nalagam graf …";
     chartHintEl.classList.remove("hidden");
@@ -2978,7 +3783,7 @@
     if (dailyChart && chartMode === "grid") {
       destroyDailyChart();
     }
-    chartObNameEl.textContent = GRID_CHART_TITLE;
+    chartObNameEl.textContent = currentGridChartTitle();
     chartObMetaEl.textContent = "";
     chartHintEl.textContent = message || GRID_CHART_LOAD_ERROR;
     chartHintEl.classList.remove("hidden");
