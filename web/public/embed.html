@@ -91,59 +91,163 @@
     body.embed-compact .panel-period {
       font-family: var(--font);
     }
-    body.embed-compact .chart-toolbar-inline {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 0.5rem;
+    /* klikljivo obdobje = enak videz kot .panel-period; samo cursor */
+    .period-label-wrap {
+      position: relative;
+      display: block;
+      width: 100%;
+      max-width: 100%;
     }
-    body.embed-compact .chart-toolbar-inline .toolbar-field {
-      flex-direction: row;
-      align-items: center;
-      gap: 0.45rem;
+    .period-label-trigger {
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
-    body.embed-compact .toolbar-label {
-      text-transform: none;
-      font-size: 0.8125rem;
-      font-weight: 400;
-      letter-spacing: 0;
+    .period-label-trigger:hover,
+    .period-label-trigger:focus,
+    .period-label-trigger:focus-visible,
+    .period-label-trigger:active {
+      outline: none;
       color: var(--muted);
+      background: transparent;
+      text-decoration: none;
     }
-    body.embed-compact .toolbar-field select {
-      min-height: 34px;
-      min-width: 7.5rem;
-      padding: 0.35rem 0.5rem;
-      font-size: 0.875rem;
-    }
-    body.embed.embed-framed.embed-compact .panel-head-actions #daysSelect {
-      width: 6rem;
-      min-width: 6rem;
-      max-width: 6rem;
-      height: 34px;
-      min-height: 34px;
-      padding: 0.35rem 1.1rem 0.35rem 0.65rem;
+    #periodRangePicker {
+      position: fixed;
+      z-index: 1200;
+      width: min(18.5rem, calc(100vw - 1.25rem));
+      padding: 0.75rem 0.8rem 0.7rem;
+      background: #1a1a1a;
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: #333333;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
       color: var(--text);
-      font-size: 0.95rem;
+      color-scheme: dark;
+    }
+    #periodRangePicker.hidden { display: none; }
+    .period-range-fields {
+      display: grid;
+      gap: 0.55rem;
+    }
+    .period-range-fields label {
+      display: grid;
+      gap: 0.2rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0;
+    }
+    /* Enak vzorec kot /pomoc-pri-zavarovalnici: levi datum + ikona desno */
+    .period-date-wrap {
+      position: relative;
+      display: block;
+      cursor: pointer;
+      isolation: isolate;
+      min-height: 2.5rem;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
       box-sizing: border-box;
     }
-    body.embed.embed-framed.embed-compact .panel-head-actions #daysSelect:focus-visible {
-      outline: none;
-      border-color: var(--accent2);
-      box-shadow: 0 0 0 2px rgba(5, 165, 206, 0.35);
+    .period-date-label {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      min-height: 2.5rem;
+      padding: 0.45rem 2.75rem 0.45rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.92rem;
+      line-height: 1.35;
+      text-align: left;
+      text-transform: none;
+      box-sizing: border-box;
+      pointer-events: none;
+      position: relative;
+      z-index: 1;
     }
-    @media (max-width: 639px) {
-      body.embed.embed-framed.embed-compact .panel-head-actions #daysSelect {
-        width: 5.75rem;
-        min-width: 5.75rem;
-        max-width: 5.75rem;
-        height: 32px;
-        min-height: 32px;
-        font-size: 0.8125rem;
-        padding-left: 0.55rem;
-        padding-right: 1.1rem;
-      }
+    .period-date-icon {
+      position: absolute;
+      top: 50%;
+      right: 0.65rem;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 17px;
+      color: var(--text);
+      pointer-events: none;
+      transform: translateY(-50%);
+    }
+    .period-date-input {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      min-height: 2.5rem;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      opacity: 0;
+      cursor: pointer;
+      color-scheme: dark;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .period-date-input::-webkit-calendar-picker-indicator {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .period-date-wrap:focus-within .period-date-label {
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 2px rgba(5, 165, 206, 0.28);
+    }
+    #periodRangeError {
+      margin-top: 0.55rem;
+      font-size: 0.82rem;
+      color: #f0a0a0;
+      line-height: 1.35;
+    }
+    #periodRangeError.hidden { display: none; }
+    .period-range-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.45rem;
+      margin-top: 0.7rem;
+    }
+    .period-range-actions button {
+      appearance: none;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.88rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+    .period-range-actions button:hover {
+      background: rgba(255, 255, 255, 0.09);
+    }
+    .period-range-actions button.period-range-apply {
+      background: rgba(5, 165, 206, 0.18);
+      border-color: rgba(5, 165, 206, 0.45);
+      color: #d7f4fb;
+    }
+    .period-range-actions button.period-range-apply:hover {
+      background: rgba(5, 165, 206, 0.28);
     }
     .credit {
       margin-top: 0.35rem;
@@ -246,6 +350,57 @@
         padding-left: max(0.35rem, env(safe-area-inset-left));
         padding-right: max(0.35rem, env(safe-area-inset-right));
         padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+      }
+      /* Po meri: enak mobilni vzorec kot map-embed.html (iPhone Safari) */
+      .period-label-wrap {
+        max-width: min(100%, calc(100vw - 1rem));
+      }
+      #periodRangePicker {
+        position: fixed;
+        left: 0.75rem !important;
+        right: 0.75rem !important;
+        width: auto !important;
+        max-width: calc(100vw - 1.5rem) !important;
+        box-sizing: border-box;
+        padding: 0.7rem 0.75rem 0.65rem;
+        overflow-x: hidden;
+      }
+      .period-range-fields {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .period-range-fields label {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .period-date-wrap {
+        min-height: 2.75rem;
+      }
+      .period-date-label {
+        min-height: 2.75rem;
+        font-size: 1rem;
+        padding: 0.55rem 2.75rem 0.55rem 0.65rem;
+      }
+      .period-date-input {
+        min-height: 2.75rem;
+        font-size: 16px;
+      }
+      .period-range-actions {
+        width: 100%;
+        max-width: 100%;
+        flex-wrap: wrap;
+        justify-content: stretch;
+        gap: 0.4rem;
+      }
+      .period-range-actions button {
+        flex: 1 1 calc(50% - 0.2rem);
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+        padding: 0.45rem 0.55rem;
       }
     }
   </style>
@@ -391,6 +546,8 @@
     const HOURLY_Y_TICK_COUNT = 6;
     const charts = {};
     let rangeDays = Number(EMBED.days) || 30;
+    let customRange = null; /* { from, to } za Po meri */
+    const CUSTOM_RANGE_MIN_ISO = "2026-03-30";
     let detailMode = "range";
     let selectedDay = "";
     let dailyChartDates = [];
@@ -413,8 +570,45 @@
       charts.daily.update("none");
     }
 
+    function inclusiveDayCount(fromIso, toIso) {
+      const a = parseIsoDateLocal(fromIso);
+      const b = parseIsoDateLocal(toIso);
+      if (!a || !b) return 0;
+      return Math.round((b - a) / 86400000) + 1;
+    }
+
+    function clearCustomRange() {
+      customRange = null;
+    }
+
+    function setCustomRange(fromIso, toIso) {
+      customRange = { from: fromIso, to: toIso };
+      rangeDays = inclusiveDayCount(fromIso, toIso);
+      detailMode = "range";
+      selectedDay = "";
+      linkedDay = null;
+    }
+
+    function currentChartRange() {
+      if (customRange && customRange.from && customRange.to) {
+        return { from: customRange.from, to: customRange.to };
+      }
+      const d = getRangeDays();
+      const to = todayIso();
+      return { from: addDaysIso(to, -(d - 1)), to };
+    }
+
+    function chartPeriodQuery() {
+      if (customRange && customRange.from && customRange.to) {
+        return `from=${encodeURIComponent(customRange.from)}&to=${encodeURIComponent(customRange.to)}`;
+      }
+      return `days=${getRangeDays()}`;
+    }
+
     function getRangeDays() {
+      if (customRange) return inclusiveDayCount(customRange.from, customRange.to);
       const sel = document.getElementById("daysSelect");
+      if (sel && sel.value === "custom") return rangeDays;
       return sel ? Number(sel.value) : rangeDays;
     }
 
@@ -423,6 +617,7 @@
     }
 
     function periodQuery() {
+      /* Občine/regije še vedno uporabljajo days (brez from/to). */
       if (isDetailRange()) return `days=${getRangeDays()}`;
       return `day=${selectedDay}`;
     }
@@ -433,6 +628,7 @@
 
     function detailEmptyMessage(kind) {
       if (isDetailRange()) {
+        if (customRange) return `Za izbrano obdobje še ni ${kind}.`;
         return `Za zadnjih ${getRangeDays()} dni še ni ${kind}.`;
       }
       return `Za izbrani datum še ni ${kind}.`;
@@ -735,9 +931,18 @@
 
     function updateScopeLabels(days) {
       const d = days ?? getRangeDays();
-      const count = dailyChartDates.length || d;
-      const from = dailyChartDates[0] || addDaysIso(todayIso(), -(d - 1));
-      const to = dailyChartDates[count - 1] || todayIso();
+      let from;
+      let to;
+      if (customRange && customRange.from && customRange.to) {
+        from = customRange.from;
+        to = customRange.to;
+      } else if (dailyChartDates.length) {
+        from = dailyChartDates[0];
+        to = dailyChartDates[dailyChartDates.length - 1];
+      } else {
+        to = todayIso();
+        from = addDaysIso(to, -(d - 1));
+      }
       const obdobjeText = formatSlDateRange(from, to);
       const detailText = !isDetailRange() && selectedDay
         ? formatSlDateFull(selectedDay)
@@ -907,6 +1112,36 @@
 
     function handleExternalChartTap(clientX, clientY) {
       const local = parentViewportToEmbed(clientX, clientY);
+      const hit = document.elementFromPoint(local.x, local.y);
+
+      if (isPeriodRangePickerOpen()) {
+        const picker = document.getElementById("periodRangePicker");
+        if (picker && hit && picker.contains(hit)) {
+          const target = hit.closest("button, input") || hit;
+          if (target.matches && target.matches('input[type="date"]')) {
+            target.focus();
+            try {
+              if (typeof target.showPicker === "function") target.showPicker();
+              else target.click();
+            } catch (_) {
+              target.click();
+            }
+          } else if (target.click) {
+            target.click();
+          }
+          return;
+        }
+        closePeriodRangePicker();
+        syncSelectFromPeriod();
+        return;
+      }
+
+      const trigger = hit && hit.closest ? hit.closest("[data-period-trigger]") : null;
+      if (trigger) {
+        openPeriodRangePicker(trigger);
+        return;
+      }
+
       const canvases = [...document.querySelectorAll(".chart-wrap canvas")];
       for (const canvas of canvases) {
         const rect = canvas.getBoundingClientRect();
@@ -965,9 +1200,16 @@
           }
           return;
         }
+        if (data.type === "strele-embed-open-period-picker") {
+          const sel = document.getElementById("daysSelect");
+          if (sel) sel.value = "custom";
+          openPeriodRangePicker(document.getElementById("dailyPeriodLabel"));
+          return;
+        }
         if (data.type === "strele-embed-set-days") {
           const days = Number(data.days);
           if (!Number.isFinite(days) || days <= 0) return;
+          clearCustomRange();
           rangeDays = days;
           const sel = document.getElementById("daysSelect");
           if (sel) sel.value = String(days);
@@ -1000,7 +1242,8 @@
           left: r.left,
           width: r.width,
           height: r.height,
-          days: Number(sel.value) || rangeDays,
+          days: sel.value === "custom" ? rangeDays : (Number(sel.value) || rangeDays),
+          custom: sel.value === "custom" || !!customRange,
         },
         "*",
       );
@@ -1161,9 +1404,41 @@
       const titleHtml = EMBED.title
         ? `<h2 class="panel-head-title">${title}</h2>`
         : "";
-      const periodHtml = periodId
-        ? `<p class="panel-period" id="${periodId}"></p>`
-        : "";
+      let periodHtml = "";
+      if (periodId === "dailyPeriodLabel" && EMBED.controls) {
+        periodHtml = `
+            <div class="period-label-wrap">
+              <p class="panel-period period-label-trigger" id="dailyPeriodLabel" data-period-trigger role="button" tabindex="0" title="Izberi obdobje"></p>
+              <div id="periodRangePicker" class="hidden" role="dialog" aria-label="Izberi obdobje">
+                <div class="period-range-fields">
+                  <label>Od
+                    <div class="period-date-wrap">
+                      <span class="period-date-label" id="periodFromLabel"></span>
+                      <span class="period-date-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                      <input type="date" id="periodFrom" class="period-date-input" />
+                    </div>
+                  </label>
+                  <label>Do
+                    <div class="period-date-wrap">
+                      <span class="period-date-label" id="periodToLabel"></span>
+                      <span class="period-date-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                      <input type="date" id="periodTo" class="period-date-input" />
+                    </div>
+                  </label>
+                </div>
+                <div id="periodRangeError" class="hidden" role="alert"></div>
+                <div class="period-range-actions">
+                  <button type="button" id="periodRangeCancel">Prekliči</button>
+                  <button type="button" id="periodRangeApply" class="period-range-apply">Prikaži</button>
+                </div>
+              </div>
+            </div>`;
+      } else if (periodId === "hourlyPeriodLabel" && EMBED.controls) {
+        periodHtml = `
+            <p class="panel-period period-label-trigger" id="hourlyPeriodLabel" data-period-trigger role="button" tabindex="0" title="Izberi obdobje"></p>`;
+      } else if (periodId) {
+        periodHtml = `<p class="panel-period" id="${periodId}"></p>`;
+      }
       if (!titleHtml && !actionsHtml && !periodHtml) return "";
 
       const topClass = EMBED.title
@@ -1256,10 +1531,12 @@
       return `
         <label class="toolbar-field toolbar-field--compact toolbar-field--head">
           <select id="daysSelect" aria-label="Obdobje">
+            <option value="1">Danes</option>
             <option value="7">7 dni</option>
             <option value="14">14 dni</option>
             <option value="30">30 dni</option>
             <option value="90">90 dni</option>
+            <option value="custom">Po meri</option>
           </select>
         </label>`;
     }
@@ -1268,9 +1545,41 @@
       const actionsHtml = headActions
         ? `<div class="panel-head-actions">${headActions}</div>`
         : "";
-      const periodHtml = periodId
-        ? `<p class="panel-period" id="${periodId}"></p>`
-        : "";
+      let periodHtml = "";
+      if (periodId === "dailyPeriodLabel" && EMBED.controls) {
+        periodHtml = `
+            <div class="period-label-wrap">
+              <p class="panel-period period-label-trigger" id="dailyPeriodLabel" data-period-trigger role="button" tabindex="0" title="Izberi obdobje"></p>
+              <div id="periodRangePicker" class="hidden" role="dialog" aria-label="Izberi obdobje">
+                <div class="period-range-fields">
+                  <label>Od
+                    <div class="period-date-wrap">
+                      <span class="period-date-label" id="periodFromLabel"></span>
+                      <span class="period-date-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                      <input type="date" id="periodFrom" class="period-date-input" />
+                    </div>
+                  </label>
+                  <label>Do
+                    <div class="period-date-wrap">
+                      <span class="period-date-label" id="periodToLabel"></span>
+                      <span class="period-date-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                      <input type="date" id="periodTo" class="period-date-input" />
+                    </div>
+                  </label>
+                </div>
+                <div id="periodRangeError" class="hidden" role="alert"></div>
+                <div class="period-range-actions">
+                  <button type="button" id="periodRangeCancel">Prekliči</button>
+                  <button type="button" id="periodRangeApply" class="period-range-apply">Prikaži</button>
+                </div>
+              </div>
+            </div>`;
+      } else if (periodId === "hourlyPeriodLabel" && EMBED.controls) {
+        periodHtml = `
+            <p class="panel-period period-label-trigger" id="hourlyPeriodLabel" data-period-trigger role="button" tabindex="0" title="Izberi obdobje"></p>`;
+      } else if (periodId) {
+        periodHtml = `<p class="panel-period" id="${periodId}"></p>`;
+      }
       return `
           <div class="panel-head">
             <div class="panel-head-top">
@@ -1663,15 +1972,21 @@
     async function loadDaily() {
       hideError("dailyError");
       try {
-        const days = Number(EMBED.controls
-          ? document.getElementById("daysSelect").value
-          : EMBED.days);
+        const days = getRangeDays();
+        const range = currentChartRange();
         let data;
         if (useMeteoinfo && shouldUseMeteoinfoProxy()) {
-          data = await fetchMeteoinfoData("si-daily", { days: String(days) });
+          if (customRange) {
+            data = await fetchMeteoinfoData("si-daily", {
+              from: customRange.from,
+              to: customRange.to,
+            });
+          } else {
+            data = await fetchMeteoinfoData("si-daily", { days: String(days) });
+          }
         } else if (useMeteoinfo) {
-          const to = todayIso();
-          const from = addDaysIso(to, -(days - 1));
+          const from = range.from;
+          const to = range.to;
           const payload = await meteoinfoSeries(
             "day",
             ljDayStartUtc(from),
@@ -1682,12 +1997,13 @@
             byDay.set(ljDateFromUtcIso(point.t), Number(point.count || 0));
           }
           data = [];
-          for (let i = 0; i < days; i += 1) {
+          const n = inclusiveDayCount(from, to);
+          for (let i = 0; i < n; i += 1) {
             const datum = addDaysIso(from, i);
             data.push({ datum, stevilo: byDay.get(datum) || 0 });
           }
         } else {
-          data = await fetchJson(`/api/si-daily?days=${days}`);
+          data = await fetchJson(`/api/si-daily?${chartPeriodQuery()}`);
         }
         dailyChartDates = data.map((d) => d.datum);
         dailyCountsByDay = new Map(data.map((d) => [d.datum, d.stevilo]));
@@ -1731,7 +2047,14 @@
         let data;
         if (useMeteoinfo && shouldUseMeteoinfoProxy()) {
           if (isDetailRange()) {
-            data = await fetchMeteoinfoData("si-hourly", { days: String(getRangeDays()) });
+            if (customRange) {
+              data = await fetchMeteoinfoData("si-hourly", {
+                from: customRange.from,
+                to: customRange.to,
+              });
+            } else {
+              data = await fetchMeteoinfoData("si-hourly", { days: String(getRangeDays()) });
+            }
           } else {
             data = await fetchMeteoinfoData("si-hourly", { day: selectedDay });
           }
@@ -1739,10 +2062,9 @@
           let timeFrom;
           let timeTo;
           if (isDetailRange()) {
-            const to = todayIso();
-            const from = addDaysIso(to, -(getRangeDays() - 1));
-            timeFrom = ljDayStartUtc(from);
-            timeTo = ljDayEndUtc(to);
+            const range = currentChartRange();
+            timeFrom = ljDayStartUtc(range.from);
+            timeTo = ljDayEndUtc(range.to);
           } else {
             timeFrom = ljDayStartUtc(selectedDay);
             timeTo = ljDayEndUtc(selectedDay);
@@ -1754,6 +2076,8 @@
             totals[p.h] += Number(point.count || 0);
           }
           data = totals.map((stevilo, ura) => ({ ura, stevilo }));
+        } else if (isDetailRange() && customRange) {
+          data = await fetchJson(`/api/si-hourly?${chartPeriodQuery()}`);
         } else {
           data = await fetchJson(`/api/si-hourly?${periodQuery()}`);
         }
@@ -1894,10 +2218,248 @@
       notifyResize();
     }
 
+    function setPeriodRangeError(msg) {
+      const el = document.getElementById("periodRangeError");
+      if (!el) return;
+      if (msg) {
+        el.textContent = msg;
+        el.classList.remove("hidden");
+      } else {
+        el.textContent = "";
+        el.classList.add("hidden");
+      }
+    }
+
+    function isPeriodRangePickerOpen() {
+      const picker = document.getElementById("periodRangePicker");
+      return !!(picker && !picker.classList.contains("hidden"));
+    }
+
+    function notifyPeriodPickerPointer(open) {
+      if (window.parent === window) return;
+      window.parent.postMessage(
+        { type: open ? "strele-embed-period-picker-open" : "strele-embed-period-picker-close" },
+        "*",
+      );
+    }
+
+    function positionPeriodRangePicker(anchorEl) {
+      const picker = document.getElementById("periodRangePicker");
+      if (!picker) return;
+      const anchor = anchorEl || document.getElementById("dailyPeriodLabel");
+      const rect = (anchor || document.body).getBoundingClientRect();
+      const width = Math.min(296, window.innerWidth - 20);
+      let left = rect.left;
+      if (left + width > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - width - 10);
+      }
+      picker.style.left = `${Math.max(10, left)}px`;
+      picker.style.top = `${Math.max(10, rect.bottom + 6)}px`;
+    }
+
+    function closePeriodRangePicker() {
+      const picker = document.getElementById("periodRangePicker");
+      if (picker) picker.classList.add("hidden");
+      document.querySelectorAll("[data-period-trigger]").forEach((el) => {
+        el.setAttribute("aria-expanded", "false");
+      });
+      setPeriodRangeError("");
+      notifyPeriodPickerPointer(false);
+      notifyDaysSelectRect();
+    }
+
+    function validatePeriodRange(fromIso, toIso) {
+      if (!fromIso || !toIso || !parseIsoDateLocal(fromIso) || !parseIsoDateLocal(toIso)) {
+        return "Izberi veljavna datuma Od in Do.";
+      }
+      if (fromIso < CUSTOM_RANGE_MIN_ISO) {
+        return "Datum Od ne sme biti pred 30. 3. 2026.";
+      }
+      if (toIso < CUSTOM_RANGE_MIN_ISO) {
+        return "Datum Do ne sme biti pred 30. 3. 2026.";
+      }
+      const today = todayIso();
+      if (toIso > today) return "Datum Do ne sme biti v prihodnosti.";
+      if (fromIso > today) return "Datum Od ne sme biti v prihodnosti.";
+      if (fromIso > toIso) return "Datum Od ne sme biti za datumom Do.";
+      const n = inclusiveDayCount(fromIso, toIso);
+      if (n < 1) return "Obdobje mora obsegati najmanj 1 dan.";
+      if (n > 90) return "Obdobje sme obsegati največ 90 dni.";
+      return "";
+    }
+
+    function formatPeriodDateLabel(iso) {
+      const d = parseIsoDateLocal(iso);
+      if (!d) return iso || "—";
+      return d.toLocaleDateString("sl-SI", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).toLocaleLowerCase("sl-SI");
+    }
+
+    function syncPeriodDateLabels() {
+      const fromInput = document.getElementById("periodFrom");
+      const toInput = document.getElementById("periodTo");
+      const fromLabel = document.getElementById("periodFromLabel");
+      const toLabel = document.getElementById("periodToLabel");
+      if (fromLabel && fromInput) fromLabel.textContent = formatPeriodDateLabel(fromInput.value);
+      if (toLabel && toInput) toLabel.textContent = formatPeriodDateLabel(toInput.value);
+    }
+
+    function openNativePeriodDatePicker(input, event) {
+      if (!input || input.disabled) return;
+      if (typeof input.showPicker !== "function") return;
+      if (event && event.preventDefault) event.preventDefault();
+      input.focus({ preventScroll: true });
+      try { input.showPicker(); } catch (_) {}
+    }
+
+    function openPeriodRangePicker(anchorEl) {
+      const picker = document.getElementById("periodRangePicker");
+      const fromInput = document.getElementById("periodFrom");
+      const toInput = document.getElementById("periodTo");
+      if (!picker || !fromInput || !toInput) return;
+      const today = todayIso();
+      const current = currentChartRange();
+      let from = current.from;
+      let to = current.to;
+      if (from < CUSTOM_RANGE_MIN_ISO) from = CUSTOM_RANGE_MIN_ISO;
+      if (to < CUSTOM_RANGE_MIN_ISO) to = CUSTOM_RANGE_MIN_ISO;
+      fromInput.min = CUSTOM_RANGE_MIN_ISO;
+      toInput.min = CUSTOM_RANGE_MIN_ISO;
+      fromInput.max = today;
+      toInput.max = today;
+      fromInput.value = from;
+      toInput.value = to;
+      syncPeriodDateLabels();
+      setPeriodRangeError(validatePeriodRange(fromInput.value, toInput.value));
+      positionPeriodRangePicker(anchorEl);
+      picker.classList.remove("hidden");
+      document.querySelectorAll("[data-period-trigger]").forEach((el) => {
+        el.setAttribute("aria-expanded", "true");
+      });
+      notifyPeriodPickerPointer(true);
+      notifyResize();
+    }
+
+    async function applyCustomPeriodRange() {
+      const fromInput = document.getElementById("periodFrom");
+      const toInput = document.getElementById("periodTo");
+      if (!fromInput || !toInput) return;
+      const fromIso = fromInput.value;
+      const toIso = toInput.value;
+      const err = validatePeriodRange(fromIso, toIso);
+      if (err) {
+        setPeriodRangeError(err);
+        return;
+      }
+      setCustomRange(fromIso, toIso);
+      const sel = document.getElementById("daysSelect");
+      if (sel) sel.value = "custom";
+      closePeriodRangePicker();
+      syncFilterUi();
+      updateScopeLabels();
+      await loadDaily();
+      if ((EMBED.chart === "hourly" || EMBED.chart === "all") && EMBED.hourly) {
+        await loadHourly();
+      }
+      notifyDaysSelectRect();
+      notifyResize();
+    }
+
+    function syncSelectFromPeriod() {
+      const sel = document.getElementById("daysSelect");
+      if (!sel) return;
+      if (customRange) {
+        sel.value = "custom";
+        return;
+      }
+      if ([1, 7, 14, 30, 90].includes(rangeDays)) {
+        sel.value = String(rangeDays);
+      }
+    }
+
+    function bindPeriodRangePicker() {
+      if (!EMBED.controls) return;
+      const cancel = document.getElementById("periodRangeCancel");
+      const apply = document.getElementById("periodRangeApply");
+      const fromInput = document.getElementById("periodFrom");
+      const toInput = document.getElementById("periodTo");
+
+      document.addEventListener("click", (e) => {
+        const trigger = e.target.closest && e.target.closest("[data-period-trigger]");
+        if (trigger) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isPeriodRangePickerOpen()) closePeriodRangePicker();
+          else openPeriodRangePicker(trigger);
+          return;
+        }
+        if (!isPeriodRangePickerOpen()) return;
+        const picker = document.getElementById("periodRangePicker");
+        if (picker && picker.contains(e.target)) return;
+        closePeriodRangePicker();
+        syncSelectFromPeriod();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          const trigger = e.target.closest && e.target.closest("[data-period-trigger]");
+          if (trigger) {
+            e.preventDefault();
+            if (isPeriodRangePickerOpen()) closePeriodRangePicker();
+            else openPeriodRangePicker(trigger);
+            return;
+          }
+        }
+        if (e.key !== "Escape" || !isPeriodRangePickerOpen()) return;
+        closePeriodRangePicker();
+        syncSelectFromPeriod();
+      });
+
+      if (cancel) {
+        cancel.addEventListener("click", (e) => {
+          e.preventDefault();
+          closePeriodRangePicker();
+          syncSelectFromPeriod();
+        });
+      }
+      if (apply) {
+        apply.addEventListener("click", (e) => {
+          e.preventDefault();
+          void applyCustomPeriodRange();
+        });
+      }
+      if (fromInput) {
+        fromInput.addEventListener("click", (e) => openNativePeriodDatePicker(fromInput, e));
+        fromInput.addEventListener("change", () => {
+          syncPeriodDateLabels();
+          setPeriodRangeError(validatePeriodRange(fromInput.value, toInput?.value));
+        });
+        fromInput.addEventListener("input", () => syncPeriodDateLabels());
+      }
+      if (toInput) {
+        toInput.addEventListener("click", (e) => openNativePeriodDatePicker(toInput, e));
+        toInput.addEventListener("change", () => {
+          syncPeriodDateLabels();
+          setPeriodRangeError(validatePeriodRange(fromInput?.value, toInput.value));
+        });
+        toInput.addEventListener("input", () => syncPeriodDateLabels());
+      }
+    }
+
     function bindControls() {
       if (!EMBED.controls) return;
       document.getElementById("daysSelect")?.addEventListener("change", () => {
-        rangeDays = getRangeDays();
+        const sel = document.getElementById("daysSelect");
+        if (!sel) return;
+        if (sel.value === "custom") {
+          openPeriodRangePicker(document.getElementById("dailyPeriodLabel"));
+          return;
+        }
+        clearCustomRange();
+        rangeDays = Number(sel.value) || rangeDays;
         updateScopeLabels(getRangeDays());
         void loadDaily().then(() => {
           if (isDetailRange()) {
@@ -1907,6 +2469,7 @@
         });
         notifyDaysSelectRect();
       });
+      bindPeriodRangePicker();
     }
 
     async function init() {

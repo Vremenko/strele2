@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
@@ -33,6 +34,61 @@ from strele_archive.strelko_auth import (
     verify_strelko_token,
     wants_html,
 )
+
+CHART_CUSTOM_MIN = date(2026, 3, 30)
+CHART_CUSTOM_MAX_DAYS = 90
+
+
+def _lj_today() -> date:
+    return datetime.now(ZoneInfo(get_settings().timezone)).date()
+
+
+def _parse_chart_custom_range(
+    from_: date | None,
+    to_: date | None,
+) -> tuple[date, date] | None:
+    """Validate from+to for charts. None if neither set; 400 if incomplete/invalid."""
+    if from_ is None and to_ is None:
+        return None
+    if from_ is None or to_ is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Podaj oba parametra from in to",
+        )
+    if from_ < CHART_CUSTOM_MIN:
+        raise HTTPException(
+            status_code=400,
+            detail="Datum from ne sme biti pred 30. 3. 2026",
+        )
+    if to_ < CHART_CUSTOM_MIN:
+        raise HTTPException(
+            status_code=400,
+            detail="Datum to ne sme biti pred 30. 3. 2026",
+        )
+    today = _lj_today()
+    if to_ > today:
+        raise HTTPException(
+            status_code=400,
+            detail="Datum to ne sme biti v prihodnosti",
+        )
+    if from_ > today:
+        raise HTTPException(
+            status_code=400,
+            detail="Datum from ne sme biti v prihodnosti",
+        )
+    if from_ > to_:
+        raise HTTPException(
+            status_code=400,
+            detail="Datum from ne sme biti za datumom to",
+        )
+    span = (to_ - from_).days + 1
+    if span < 1 or span > CHART_CUSTOM_MAX_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail="Obdobje mora obsegati 1–90 vključujočih dni",
+        )
+    return from_, to_
+
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_DIR = ROOT / "web"
@@ -216,12 +272,20 @@ def api_latest_date(response: Response) -> dict:
 @app.get("/api/si-daily")
 def api_si_daily(
     response: Response,
-    days: int = Query(30, ge=1, le=365),
+    days: int | None = Query(None, ge=1, le=365),
+    from_: date | None = Query(None, alias="from"),
+    to_: date | None = Query(None, alias="to"),
 ) -> list[dict]:
+    custom = _parse_chart_custom_range(from_, to_)
     try:
-        data, source = get_si_daily(days)
+        if custom is not None:
+            data, source = get_si_daily(from_=custom[0], to_=custom[1])
+        else:
+            data, source = get_si_daily(days if days is not None else 30)
         _with_source(response, source)
         return data
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -231,7 +295,14 @@ def api_si_hourly(
     response: Response,
     day: date | None = Query(None, description="Datum (YYYY-MM-DD)"),
     days: int | None = Query(None, ge=1, le=365, description="Agregat zadnjih N dni"),
+    from_: date | None = Query(None, alias="from"),
+    to_: date | None = Query(None, alias="to"),
 ) -> list[dict]:
+    custom = _parse_chart_custom_range(from_, to_)
+    if custom is not None:
+        data, source = get_si_hourly(from_=custom[0], to_=custom[1])
+        _with_source(response, source)
+        return data
     if day is None and days is None:
         raise HTTPException(status_code=422, detail="Podaj day ali days")
     data, source = get_si_hourly(day, days=days)

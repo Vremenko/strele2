@@ -23,8 +23,25 @@ def _date_bounds(*, day: date | None = None, days: int | None = None) -> tuple[d
     return start, end
 
 
-def export_si_daily(days: int) -> list[dict]:
-    start, end = _date_bounds(days=days)
+def _period_bounds(
+    *,
+    days: int | None = None,
+    from_: date | None = None,
+    to_: date | None = None,
+) -> tuple[date, date]:
+    """Resolved inclusive [start, end] for chart exports. from+to wins over days."""
+    if from_ is not None and to_ is not None:
+        return from_, to_
+    return _date_bounds(days=days)
+
+
+def export_si_daily(
+    days: int | None = None,
+    *,
+    from_: date | None = None,
+    to_: date | None = None,
+) -> list[dict]:
+    start, end = _period_bounds(days=days, from_=from_, to_=to_)
     sql = """
         WITH date_series AS (
             SELECT generate_series(%s::date, %s::date, interval '1 day')::date AS datum
@@ -41,8 +58,13 @@ def export_si_daily(days: int) -> list[dict]:
     return [{"datum": str(r[0]), "stevilo": int(r[1])} for r in rows]
 
 
-def export_si_hourly_period(days: int) -> list[dict]:
-    start, end = _date_bounds(days=days)
+def export_si_hourly_period(
+    days: int | None = None,
+    *,
+    from_: date | None = None,
+    to_: date | None = None,
+) -> list[dict]:
+    start, end = _period_bounds(days=days, from_=from_, to_=to_)
     sql = """
         SELECT ura, COALESCE(SUM(stevilo), 0)::int AS stevilo
         FROM strele_si_urno

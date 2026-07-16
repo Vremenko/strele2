@@ -16,12 +16,25 @@ def _local():
     return local
 
 
-def get_si_daily(days: int) -> tuple[list[dict], str]:
-    return _local().export_si_daily(days), "local"
+def get_si_daily(
+    days: int | None = None,
+    *,
+    from_: date | None = None,
+    to_: date | None = None,
+) -> tuple[list[dict], str]:
+    return _local().export_si_daily(days, from_=from_, to_=to_), "local"
 
 
-def get_si_hourly(day: date | None = None, *, days: int | None = None) -> tuple[list[dict], str]:
+def get_si_hourly(
+    day: date | None = None,
+    *,
+    days: int | None = None,
+    from_: date | None = None,
+    to_: date | None = None,
+) -> tuple[list[dict], str]:
     try:
+        if from_ is not None and to_ is not None:
+            return _local().export_si_hourly_period(from_=from_, to_=to_), "local"
         if days is not None:
             return _local().export_si_hourly_period(days), "local"
         if day is not None:
