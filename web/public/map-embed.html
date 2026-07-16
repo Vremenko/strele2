@@ -580,6 +580,7 @@
   let periodMode = "range"; /* "range" | "day" */
   let mapDay     = null;    /* ISO datum, ko je periodMode === "day" */
   let customRange = null;   /* { from, to } za ročno izbrano obdobje */
+  const CUSTOM_RANGE_MIN_ISO = "2026-03-11"; /* najzgodnejši dovoljeni Od */
   /* days=30 ali brez parametra = privzeto (danes če so strele, sicer 30 dni) */
   let periodLockedByUrl = false;
   if (params.has("day")) {
@@ -1141,6 +1142,8 @@
   }
 
   function setCustomRange(fromIso, toIso) {
+    const err = validatePeriodRange(fromIso, toIso);
+    if (err) throw new Error(err);
     customRange = { from: fromIso, to: toIso };
     periodMode = "range";
     mapDay = null;
@@ -3450,11 +3453,14 @@
     if (!periodRangePicker || !periodFromInput || !periodToInput) return;
     const today = todayIso();
     const current = mapDateRange();
+    periodFromInput.min = CUSTOM_RANGE_MIN_ISO;
+    periodToInput.min = CUSTOM_RANGE_MIN_ISO;
     periodFromInput.max = today;
     periodToInput.max = today;
     periodFromInput.value = current.from;
     periodToInput.value = current.to;
-    setPeriodRangeError("");
+    /* Če je stanje/URL podal datum pred dovoljenim, pokaži napako (ne sprejmi tiho). */
+    setPeriodRangeError(validatePeriodRange(current.from, current.to));
     periodRangePicker.classList.remove("hidden");
     if (periodLabelBtn) periodLabelBtn.setAttribute("aria-expanded", "true");
   }
@@ -3463,6 +3469,12 @@
     const today = todayIso();
     if (!fromIso || !toIso || !parseIsoDate(fromIso) || !parseIsoDate(toIso)) {
       return "Izberi veljavna datuma Od in Do.";
+    }
+    if (fromIso < CUSTOM_RANGE_MIN_ISO) {
+      return "Datum Od ne sme biti pred 11. 3. 2026.";
+    }
+    if (toIso < CUSTOM_RANGE_MIN_ISO) {
+      return "Datum Do ne sme biti pred 11. 3. 2026.";
     }
     if (toIso > today) return "Datum Do ne sme biti v prihodnosti.";
     if (fromIso > today) return "Datum Od ne sme biti v prihodnosti.";
