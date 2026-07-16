@@ -203,20 +203,79 @@
       letter-spacing: 0.04em;
       margin: 0;
     }
-    .period-range-fields input[type="date"] {
+    /* Enak vzorec kot /pomoc-pri-zavarovalnici: levi datum + ikona desno */
+    .period-date-wrap {
+      position: relative;
+      display: block;
+      cursor: pointer;
+      isolation: isolate;
+      min-height: 2.5rem;
       width: 100%;
+      max-width: 100%;
+      min-width: 0;
       box-sizing: border-box;
+    }
+    .period-date-label {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      min-height: 2.5rem;
+      padding: 0.45rem 2.75rem 0.45rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
       background: var(--bg);
       color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.35rem 0.5rem;
       font: inherit;
       font-size: 0.92rem;
-      color-scheme: dark;
+      line-height: 1.35;
+      text-align: left;
+      text-transform: none;
+      box-sizing: border-box;
+      pointer-events: none;
+      position: relative;
+      z-index: 1;
     }
-    .period-range-fields input[type="date"]:focus-visible {
-      outline: none;
+    .period-date-icon {
+      position: absolute;
+      top: 50%;
+      right: 0.65rem;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 17px;
+      color: var(--text);
+      pointer-events: none;
+      transform: translateY(-50%);
+    }
+    .period-date-input {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      min-height: 2.5rem;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      opacity: 0;
+      cursor: pointer;
+      color-scheme: dark;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    .period-date-input::-webkit-calendar-picker-indicator {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .period-date-wrap:focus-within .period-date-label {
       border-color: var(--accent2);
       box-shadow: 0 0 0 2px rgba(5, 165, 206, 0.28);
     }
@@ -398,6 +457,60 @@
         padding-right: 1.1rem;
         background-position: right 6px center;
       }
+      /* Po meri: modal in date polja naj se prilegajo ozkemu zaslonu (iPhone Safari) */
+      .period-label-wrap {
+        max-width: min(100%, calc(100vw - 1rem));
+      }
+      #periodRangePicker {
+        position: fixed;
+        top: auto;
+        right: 0.75rem;
+        left: 0.75rem;
+        width: auto;
+        max-width: calc(100vw - 1.5rem);
+        box-sizing: border-box;
+        padding: 0.7rem 0.75rem 0.65rem;
+        overflow-x: hidden;
+        /* JS/CSS ne pozicionirata top — poravnaj pod toolbarjem */
+        top: max(0.75rem, env(safe-area-inset-top, 0px));
+      }
+      .period-range-fields {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .period-range-fields label {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .period-date-wrap {
+        min-height: 2.75rem;
+      }
+      .period-date-label {
+        min-height: 2.75rem;
+        font-size: 1rem;
+        padding: 0.55rem 2.75rem 0.55rem 0.65rem;
+      }
+      .period-date-input {
+        min-height: 2.75rem;
+        font-size: 16px;
+      }
+      .period-range-actions {
+        width: 100%;
+        max-width: 100%;
+        flex-wrap: wrap;
+        justify-content: stretch;
+        gap: 0.4rem;
+      }
+      .period-range-actions button {
+        flex: 1 1 calc(50% - 0.2rem);
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+        padding: 0.45rem 0.55rem;
+      }
     }
     @media (max-width: 899px) {
       :root { --font: system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -536,10 +649,18 @@
       <div id="periodRangePicker" class="hidden" role="dialog" aria-label="Izberi obdobje">
         <div class="period-range-fields">
           <label>Od
-            <input type="date" id="periodFrom" />
+            <div class="period-date-wrap">
+              <span class="period-date-label" id="periodFromLabel"></span>
+              <span class="period-date-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+              <input type="date" id="periodFrom" class="period-date-input" />
+            </div>
           </label>
           <label>Do
-            <input type="date" id="periodTo" />
+            <div class="period-date-wrap">
+              <span class="period-date-label" id="periodToLabel"></span>
+              <span class="period-date-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+              <input type="date" id="periodTo" class="period-date-input" />
+            </div>
           </label>
         </div>
         <div id="periodRangeError" class="hidden" role="alert"></div>
@@ -2020,6 +2141,7 @@
     doubleClickZoom: false,
     scrollWheelZoom: false,
     boxZoom: false,
+    keyboard: false,
     touchZoom: true,
     ...(mobView ? {} : {
       zoomSnap: 0,
@@ -2133,15 +2255,27 @@
     notifyResize(true);
   }
 
+  function clearEmbedFocus() {
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && ae !== document.documentElement && typeof ae.blur === "function") {
+      ae.blur();
+    }
+  }
+
   function notifyResize(force) {
     if (window.parent === window) return;
     clearTimeout(_resizeTimer);
     _resizeTimer = setTimeout(() => {
       const root = document.getElementById("root");
       const h = Math.ceil(root ? root.getBoundingClientRect().height : 0);
-      if (!force && Math.abs(h - _lastReportedH) < 3) return;
-      _lastReportedH = h;
-      window.parent.postMessage({ type: "strele-embed-resize", height: h }, "*");
+      const unchanged = Math.abs(h - _lastReportedH) < 3;
+      /* force only skips debounce; never rewrite parent height when size is stable —
+         rewriting iframe height can shift the parent page scroll position. */
+      if (unchanged && !force) return;
+      if (!unchanged) {
+        _lastReportedH = h;
+        window.parent.postMessage({ type: "strele-embed-resize", height: h }, "*");
+      }
       resizeDailyChart();
     }, force ? 0 : 80);
   }
@@ -2683,6 +2817,13 @@
         }
 
         layer.bindTooltip(() => tooltipHtml(), { sticky: true, className: "ob-tooltip-shell" });
+        layer.on("add", function () {
+          const el = typeof layer.getElement === "function" ? layer.getElement() : null;
+          if (el) {
+            el.setAttribute("tabindex", "-1");
+            el.setAttribute("focusable", "false");
+          }
+        });
 
         if (!mobView) {
           layer.on("mouseover", function (e) {
@@ -3292,6 +3433,13 @@
       onEachFeature: function (feature, layer) {
         const props = feature && feature.properties ? feature.properties : null;
         layer.bindTooltip(() => gridTooltipHtml(props), { sticky: true, className: "ob-tooltip-shell" });
+        layer.on("add", function () {
+          const el = typeof layer.getElement === "function" ? layer.getElement() : null;
+          if (el) {
+            el.setAttribute("tabindex", "-1");
+            el.setAttribute("focusable", "false");
+          }
+        });
       },
     }).addTo(map);
 
@@ -3449,6 +3597,31 @@
     setPeriodRangeError("");
   }
 
+  function formatPeriodDateLabel(iso) {
+    const d = parseIsoDate(iso);
+    if (!d) return iso || "—";
+    return d.toLocaleDateString("sl-SI", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).toLocaleLowerCase("sl-SI");
+  }
+
+  function syncPeriodDateLabels() {
+    const fromLabel = document.getElementById("periodFromLabel");
+    const toLabel = document.getElementById("periodToLabel");
+    if (fromLabel && periodFromInput) fromLabel.textContent = formatPeriodDateLabel(periodFromInput.value);
+    if (toLabel && periodToInput) toLabel.textContent = formatPeriodDateLabel(periodToInput.value);
+  }
+
+  function openNativePeriodDatePicker(input, event) {
+    if (!input || input.disabled) return;
+    if (typeof input.showPicker !== "function") return;
+    if (event && event.preventDefault) event.preventDefault();
+    input.focus({ preventScroll: true });
+    try { input.showPicker(); } catch (_) {}
+  }
+
   function openPeriodRangePicker() {
     if (!periodRangePicker || !periodFromInput || !periodToInput) return;
     const today = todayIso();
@@ -3459,6 +3632,7 @@
     periodToInput.max = today;
     periodFromInput.value = current.from;
     periodToInput.value = current.to;
+    syncPeriodDateLabels();
     /* Če je stanje/URL podal datum pred dovoljenim, pokaži napako (ne sprejmi tiho). */
     setPeriodRangeError(validatePeriodRange(current.from, current.to));
     periodRangePicker.classList.remove("hidden");
@@ -3523,13 +3697,27 @@
     });
   }
   if (periodFromInput) {
+    periodFromInput.addEventListener("click", function (e) {
+      openNativePeriodDatePicker(periodFromInput, e);
+    });
     periodFromInput.addEventListener("change", function () {
+      syncPeriodDateLabels();
       setPeriodRangeError("");
+    });
+    periodFromInput.addEventListener("input", function () {
+      syncPeriodDateLabels();
     });
   }
   if (periodToInput) {
+    periodToInput.addEventListener("click", function (e) {
+      openNativePeriodDatePicker(periodToInput, e);
+    });
     periodToInput.addEventListener("change", function () {
+      syncPeriodDateLabels();
       setPeriodRangeError("");
+    });
+    periodToInput.addEventListener("input", function () {
+      syncPeriodDateLabels();
     });
   }
   document.addEventListener("keydown", function (e) {
@@ -3839,9 +4027,9 @@
 
   function selectGridCell(lat, lon) {
     if (!isGridView() || lat == null || lon == null) return;
+    clearEmbedFocus();
     selectedGridLat = lat;
     selectedGridLon = lon;
-    notifyResize(true);
     loadGridCellChart(lat, lon);
   }
 
@@ -3878,8 +4066,8 @@
 
   function selectMunicipality(ob_mid, name) {
     if (!ob_mid) return;
+    clearEmbedFocus();
     selectedObMid = ob_mid;
-    notifyResize(true);
     loadObcinaChart(ob_mid, name);
     syncObcinaLayerStyles();
   }
