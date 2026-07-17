@@ -62,12 +62,12 @@
       color: var(--text);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 10px;
-      padding: 0.35rem 1.1rem 0.35rem 0.65rem;
+      padding: 0.35rem 1.55rem 0.35rem 0.65rem;
       font: inherit;
       font-size: 0.95rem;
-      width: 6.6rem;
-      min-width: 6.6rem;
-      max-width: 6.6rem;
+      width: 8.1rem;
+      min-width: 8.1rem;
+      max-width: 8.1rem;
       height: 34px;
       min-height: 34px;
       box-sizing: border-box;
@@ -617,7 +617,7 @@
     }
     #chart-hint.hidden { display: none; }
 
-    /* Zaklep Podpornik: Po meri + Mreža (isti vizualni jezik kot LockedContent) */
+    /* Zaklep Podpornik (iframe): lastni slog — React CSS iz SPA tukaj ne velja */
     .map-mode-btn--locked {
       opacity: 0.92;
     }
@@ -630,7 +630,8 @@
     .map-mode-btn--locked .map-lock-glyph {
       display: inline;
     }
-    #map-feature-lock {
+    #map-feature-lock,
+    .strelko-map-lock-root {
       position: absolute;
       inset: 0;
       z-index: 1000;
@@ -643,39 +644,80 @@
       pointer-events: auto;
       padding: 1.25rem 1rem;
     }
-    #map-feature-lock.is-active { display: flex; }
-    #map-feature-lock .locked-content__inner {
-      max-width: 42rem;
-      text-align: center;
+    #map-feature-lock.is-active,
+    .strelko-map-lock-root.is-active {
+      display: flex;
     }
-    #map-feature-lock .locked-content__icon {
+    #map-feature-lock .locked-content,
+    .strelko-map-lock-root .locked-content,
+    .strelko-map-lock-root .archive-map-locked {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-sizing: border-box;
+    }
+    #map-feature-lock .locked-content__inner,
+    .strelko-map-lock-root .locked-content__inner {
+      max-width: 42rem;
+      width: 100%;
+      margin: 0 auto;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    #map-feature-lock .locked-content__icon,
+    .strelko-map-lock-root .locked-content__icon {
       display: block;
       font-size: 1.35rem;
-      margin-bottom: 0.35rem;
+      line-height: 1;
+      margin: 0 0 0.35rem;
     }
-    #map-feature-lock .locked-content__title {
+    #map-feature-lock .locked-content__title,
+    .strelko-map-lock-root .locked-content__title {
       margin: 0 0 0.65rem;
+      padding: 0;
       font-size: 1.05rem;
       line-height: 1.35;
-      color: #f2f2f2;
       font-weight: 600;
+      color: #f2f2f2;
+      text-align: center;
     }
-    #map-feature-lock .locked-content__text {
+    #map-feature-lock .locked-content__text,
+    .strelko-map-lock-root .locked-content__text {
       margin: 0 0 1rem;
+      padding: 0;
       font-size: 0.9rem;
       line-height: 1.55;
       color: #999999;
+      text-align: center;
     }
-    #map-feature-lock .locked-content__actions {
+    #map-feature-lock .locked-content__actions,
+    .strelko-map-lock-root .locked-content__actions {
       display: flex;
       flex-direction: column;
       flex-wrap: nowrap;
       align-items: stretch;
+      justify-content: center;
       gap: 0.6rem;
       width: min(100%, 320px);
-      margin-inline: auto;
+      margin: 0 auto;
     }
-    #map-feature-lock .btn {
+    /* Skrij morebitne sekundarne gumbe iz React LockedContent (npr. ghost) */
+    #map-feature-lock .locked-content__actions .btn-ghost,
+    .strelko-map-lock-root .locked-content__actions .btn-ghost {
+      display: none !important;
+    }
+    #map-feature-lock a.btn,
+    #map-feature-lock .btn,
+    .strelko-map-lock-root a.btn,
+    .strelko-map-lock-root .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -690,10 +732,25 @@
       font-family: inherit;
       width: 100%;
       box-sizing: border-box;
+      -webkit-appearance: none;
+      appearance: none;
     }
-    #map-feature-lock .btn-primary {
+    #map-feature-lock a.btn-primary,
+    #map-feature-lock .btn-primary,
+    .strelko-map-lock-root a.btn-primary,
+    .strelko-map-lock-root .btn-primary {
       background: linear-gradient(135deg, #fbb006, #d99a05);
       color: #1a1508;
+      text-decoration: none;
+    }
+    #map-feature-lock a.btn-primary:visited,
+    #map-feature-lock a.btn-primary:hover,
+    #map-feature-lock a.btn-primary:focus,
+    .strelko-map-lock-root a.btn-primary:visited,
+    .strelko-map-lock-root a.btn-primary:hover,
+    .strelko-map-lock-root a.btn-primary:focus {
+      color: #1a1508;
+      text-decoration: none;
     }
   </style>
 </head>
@@ -714,7 +771,7 @@
     </span>
     <div class="map-mode-tabs" id="mapViewTabs" role="group" aria-label="Prikaz">
       <button type="button" class="map-mode-btn map-mode-btn--active" data-view="obcine">Občine</button>
-      <button type="button" class="map-mode-btn" data-view="grid" id="mapViewGridBtn"><span class="map-lock-glyph" aria-hidden="true">🔒</span>Mreža 1 × 1 km</button>
+      <button type="button" class="map-mode-btn" data-view="grid" id="mapViewGridBtn">Mreža 1 × 1 km</button>
     </div>
     <div class="map-mode-tabs" id="mapModeTabs" role="group" aria-label="Način prikaza">
       <button type="button" class="map-mode-btn map-mode-btn--active" data-mode="stevilo">Število</button>
@@ -796,12 +853,14 @@
    * - gated iframe (brez Podpornika) dobi default_range_days iz Strelko ArchiveMapEmbedGated
    * - supporter iframe tega parametra nima
    * - eksplicitni supporter=0/1 preglasita (in postMessage strele-map-set-access)
+   * - brez Podpornika: odklenjeno samo Danes (1) in 7 dni; 14/30/90/Po meri = zaklep
+   * - Mreža ni zaklenjena sama po sebi (odvisna samo od obdobja)
    */
   let hasSupporterAccess = !params.has("default_range_days");
   if (params.get("supporter") === "1") hasSupporterAccess = true;
   if (params.get("supporter") === "0") hasSupporterAccess = false;
 
-  /* days=30 ali brez parametra = privzeto (danes če so strele, sicer 30 dni) */
+  /* days=30 ali brez parametra = privzeto (danes če so strele, sicer default_range_days) */
   let periodLockedByUrl = false;
   if (params.has("day")) {
     if (hasSupporterAccess) {
@@ -812,18 +871,26 @@
     /* brez Podpornika: day= v URL ne odklene Po meri */
   } else if (params.has("days")) {
     const d = parseInt(params.get("days"), 10) || 30;
-    if (d !== 30) {
+    if (hasSupporterAccess) {
+      if (d !== 30) {
+        days = d;
+        periodLockedByUrl = true;
+      }
+    } else if (d === 1 || d === 7) {
       days = d;
       periodLockedByUrl = true;
     }
+    /* days=30 / zaklenjena obdobja brez Podpornika: resolveDefaultPeriod */
   }
   let mapMode    = "stevilo"; // "stevilo" | "gostota" | "dni"
   let mapView    = "obcine";  // "obcine" | "grid"
-  if (params.get("view") === "grid" && hasSupporterAccess) {
+  if (params.get("view") === "grid") {
     mapView = "grid";
   }
   let lastObcineMode = mapMode;
   let lastAllowedSelectValue = "1";
+  /* UI izbira zaklenjenega obdobja (select kaže 14/30/90/custom, podatki ostanejo na zadnjem dovoljenem). */
+  let periodLockUiValue = null;
   const REFRESH_SEC = Math.max(60, parseInt(params.get("refresh_sec") || "600", 10) || 600);
   const SHOW_CHROME = params.get("chrome") !== "0";
   const DEFAULT_RANGE_DAYS = Math.max(1, parseInt(params.get("default_range_days") || "30", 10) || 30);
@@ -2431,28 +2498,67 @@
   const dayPick       = document.getElementById("mapDayPick");
   const periodLabelEl = document.getElementById("periodLabel");
   const statusEl      = document.getElementById("status");
-  const periodCustomOption = document.getElementById("periodCustomOption");
   const mapViewGridBtn = document.getElementById("mapViewGridBtn");
   const mapFeatureLock = document.getElementById("map-feature-lock");
 
   dayPick.max = todayIso();
 
-  function isSupporterFeatureLocked() {
-    return !hasSupporterAccess;
+  function isFreePeriodSelectValue(value) {
+    return value === "1" || value === "7";
+  }
+
+  function isPeriodSelectValueLocked(value) {
+    if (hasSupporterAccess) return false;
+    if (value == null || value === "") return false;
+    return !isFreePeriodSelectValue(String(value));
+  }
+
+  function isUnderlyingPeriodLocked() {
+    if (hasSupporterAccess) return false;
+    if (customRange || periodMode === "day") return true;
+    return !isFreePeriodSelectValue(String(days));
+  }
+
+  function showPeriodLockUi(selectValue) {
+    periodLockUiValue = selectValue;
+    if (sel) sel.value = selectValue;
+    if (dayPickWrap) dayPickWrap.classList.add("hidden");
+    if (typeof closePeriodRangePicker === "function") closePeriodRangePicker();
+    showFeatureLockOverlay();
+    setMapViewTabActive(mapView);
+  }
+
+  function clearPeriodLockUi() {
+    periodLockUiValue = null;
   }
 
   function syncSupporterLockMarks() {
-    const locked = isSupporterFeatureLocked();
-    if (periodCustomOption) {
-      periodCustomOption.textContent = locked ? "🔒 Po meri" : "Po meri";
+    const PERIOD_LABELS = {
+      "1": "Danes",
+      "7": "7 dni",
+      "14": "14 dni",
+      "30": "30 dni",
+      "90": "90 dni",
+      custom: "Po meri",
+    };
+    if (sel) {
+      Array.from(sel.options).forEach((opt) => {
+        const base = PERIOD_LABELS[opt.value] || String(opt.textContent || "").replace(/^🔒\s*/, "");
+        opt.textContent = isPeriodSelectValueLocked(opt.value) ? `🔒 ${base}` : base;
+      });
     }
+    /* Mreža ni zaklenjena sama po sebi — samo obdobje. */
     if (mapViewGridBtn) {
-      mapViewGridBtn.classList.toggle("map-mode-btn--locked", locked);
-      mapViewGridBtn.setAttribute("aria-disabled", locked ? "true" : "false");
-      mapViewGridBtn.title = locked
-        ? "Mreža 1 × 1 km je na voljo s paketom Podpornik"
-        : "";
+      mapViewGridBtn.classList.remove("map-mode-btn--locked");
+      mapViewGridBtn.removeAttribute("aria-disabled");
+      mapViewGridBtn.title = "";
     }
+  }
+
+  function setMapViewTabActive(view) {
+    document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach((b) => {
+      b.classList.toggle("map-mode-btn--active", b.dataset.view === view);
+    });
   }
 
   function showFeatureLockOverlay() {
@@ -2465,49 +2571,39 @@
     if (!mapFeatureLock) return;
     mapFeatureLock.classList.remove("is-active");
     mapFeatureLock.setAttribute("aria-hidden", "true");
+    setMapViewTabActive(mapView);
   }
 
-  function resetToAllowedDefaultView() {
+  function resetToAllowedPeriod() {
     clearCustomRange();
     periodMode = "range";
     mapDay = null;
     days = 1;
-    mapView = "obcine";
-    mapMode = "stevilo";
-    lastObcineMode = "stevilo";
     lastAllowedSelectValue = "1";
+    clearPeriodLockUi();
     if (sel) sel.value = "1";
     if (dayPickWrap) dayPickWrap.classList.add("hidden");
     if (typeof closePeriodRangePicker === "function") closePeriodRangePicker();
-    document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach((b) => {
-      b.classList.toggle("map-mode-btn--active", b.dataset.view === "obcine");
-    });
-    document.querySelectorAll("#mapModeTabs .map-mode-btn").forEach((b) => {
-      b.classList.toggle("map-mode-btn--active", b.dataset.mode === "stevilo");
-    });
-    if (typeof restoreObcineMinZoom === "function") {
-      try { restoreObcineMinZoom(); } catch (_) {}
-    }
     hideFeatureLockOverlay();
     syncSupporterLockMarks();
     if (typeof syncMapModeForPeriod === "function") syncMapModeForPeriod();
     if (typeof updatePeriodLabel === "function") updatePeriodLabel();
   }
 
-  /** Če ni Podpornika in je izbrano Po meri / mreža → Danes + Občine. */
+  /** Če ni Podpornika in je aktivno zaklenjeno obdobje → Danes (Mreža/Občine ostanejo). */
   function enforceSupporterAccessOrReset(opts) {
     const reloadAfter = !opts || opts.reload !== false;
     if (hasSupporterAccess) {
+      clearPeriodLockUi();
       hideFeatureLockOverlay();
       syncSupporterLockMarks();
       return false;
     }
-    const needsReset = !!customRange || periodMode === "day" || mapView === "grid";
-    if (!needsReset) {
+    if (!isUnderlyingPeriodLocked() && !periodLockUiValue) {
       syncSupporterLockMarks();
       return false;
     }
-    resetToAllowedDefaultView();
+    resetToAllowedPeriod();
     if (reloadAfter) {
       obcinaData = {};
       reload().then(afterPeriodReload);
@@ -2518,10 +2614,14 @@
   syncSupporterLockMarks();
 
   function syncSelectFromPeriod() {
+    if (periodLockUiValue && isPeriodSelectValueLocked(periodLockUiValue)) {
+      sel.value = periodLockUiValue;
+      dayPickWrap.classList.add("hidden");
+      return;
+    }
     if (customRange) {
-      if (isSupporterFeatureLocked()) {
-        /* Ne pusti custom v selectu brez Podpornika */
-        sel.value = "1";
+      if (isUnderlyingPeriodLocked()) {
+        sel.value = lastAllowedSelectValue || "1";
         dayPickWrap.classList.add("hidden");
         return;
       }
@@ -2530,12 +2630,11 @@
       return;
     }
     if (periodMode === "day" && mapDay) {
-      if (isSupporterFeatureLocked()) {
-        sel.value = "1";
+      if (isUnderlyingPeriodLocked()) {
+        sel.value = lastAllowedSelectValue || "1";
         dayPickWrap.classList.add("hidden");
         return;
       }
-      /* En dan iz URL/API: v meniju Po meri (brez locene moznosti Datum). */
       sel.value = "custom";
       dayPick.value = mapDay;
       dayPickWrap.classList.add("hidden");
@@ -3670,6 +3769,11 @@
   }
 
   async function reload() {
+    if (!hasSupporterAccess && isUnderlyingPeriodLocked()) {
+      setStatus(null);
+      showFeatureLockOverlay();
+      return;
+    }
     setStatus("Nalagam …");
     try {
       syncMapModeForPeriod();
@@ -3741,13 +3845,13 @@
   }
 
   function applyPeriodSelection() {
-    if (sel.value === "custom") {
-      if (isSupporterFeatureLocked()) {
-        sel.value = lastAllowedSelectValue;
-        syncSelectFromPeriod();
-        showFeatureLockOverlay();
-        return;
-      }
+    const value = sel.value;
+    if (isPeriodSelectValueLocked(value)) {
+      showPeriodLockUi(value);
+      return;
+    }
+    clearPeriodLockUi();
+    if (value === "custom") {
       openPeriodRangePicker();
       return;
     }
@@ -3756,8 +3860,8 @@
     periodMode = "range";
     dayPickWrap.classList.add("hidden");
     mapDay = null;
-    days = parseInt(sel.value, 10) || 30;
-    lastAllowedSelectValue = sel.value;
+    days = parseInt(value, 10) || 30;
+    lastAllowedSelectValue = value;
     closePeriodRangePicker();
     obcinaData = {};
     reload().then(afterPeriodReload);
@@ -3831,8 +3935,8 @@
   }
 
   function openPeriodRangePicker() {
-    if (isSupporterFeatureLocked()) {
-      showFeatureLockOverlay();
+    if (!hasSupporterAccess) {
+      showPeriodLockUi("custom");
       return;
     }
     if (!periodRangePicker || !periodFromInput || !periodToInput) return;
@@ -3872,8 +3976,8 @@
   }
 
   function applyCustomPeriodRange() {
-    if (isSupporterFeatureLocked()) {
-      showFeatureLockOverlay();
+    if (!hasSupporterAccess) {
+      showPeriodLockUi("custom");
       return;
     }
     const fromIso = periodFromInput.value;
@@ -3972,10 +4076,13 @@
     const btn = e.target.closest("[data-view]");
     if (!btn) return;
     const next = btn.dataset.view;
-    if (!next || next === mapView) return;
+    if (!next) return;
 
-    if (next === "grid" && isSupporterFeatureLocked()) {
-      showFeatureLockOverlay();
+    if (next === mapView) {
+      if (periodLockUiValue) {
+        showFeatureLockOverlay();
+        setMapViewTabActive(mapView);
+      }
       return;
     }
 
@@ -3985,14 +4092,20 @@
     } else {
       mapMode = lastObcineMode || "stevilo";
       restoreObcineMinZoom();
-      hideFeatureLockOverlay();
     }
 
     mapView = next;
-    document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach(b =>
-      b.classList.toggle("map-mode-btn--active", b.dataset.view === mapView)
-    );
+    setMapViewTabActive(mapView);
     syncMapModeForPeriod();
+
+    /* Zaklenjeno obdobje (UI): ohrani obdobje + overlay, ne nalagaj. */
+    if (periodLockUiValue || isUnderlyingPeriodLocked()) {
+      if (periodLockUiValue) sel.value = periodLockUiValue;
+      showFeatureLockOverlay();
+      return;
+    }
+
+    hideFeatureLockOverlay();
     obcinaData = {};
     reload().then(afterPeriodReload);
   });
@@ -4006,17 +4119,24 @@
       if (prev && !hasSupporterAccess) {
         enforceSupporterAccessOrReset({ reload: true });
       } else if (hasSupporterAccess) {
+        clearPeriodLockUi();
         hideFeatureLockOverlay();
       }
       return;
     }
     if (e.data?.type === "strele-map-set-days") {
-      if (isSupporterFeatureLocked() && e.data.custom) {
-        showFeatureLockOverlay();
+      if (e.data.custom && !hasSupporterAccess) {
+        showPeriodLockUi("custom");
         return;
       }
       const d = parseInt(e.data.days, 10);
-      if (d && (d !== days || periodMode !== "range" || customRange)) {
+      if (!d) return;
+      if (!hasSupporterAccess && !isFreePeriodSelectValue(String(d))) {
+        showPeriodLockUi(String(d));
+        return;
+      }
+      if (d !== days || periodMode !== "range" || customRange) {
+        clearPeriodLockUi();
         clearCustomRange();
         periodMode = "range";
         mapDay = null;
@@ -4031,12 +4151,13 @@
       }
     }
     if (e.data?.type === "strele-map-set-day") {
-      if (isSupporterFeatureLocked()) {
-        showFeatureLockOverlay();
+      if (!hasSupporterAccess) {
+        showPeriodLockUi("custom");
         return;
       }
       const iso = e.data.day;
       if (iso && parseIsoDate(iso) && (iso !== mapDay || customRange)) {
+        clearPeriodLockUi();
         clearCustomRange();
         periodMode = "day";
         mapDay = iso;
@@ -4051,25 +4172,27 @@
     }
     if (e.data?.type === "strele-map-set-view") {
       const next = e.data.view;
-      if (next === "grid" && isSupporterFeatureLocked()) {
-        showFeatureLockOverlay();
-        return;
-      }
       if (next === "obcine" || next === "grid") {
-        if (next === mapView) return;
+        if (next === mapView) {
+          if (periodLockUiValue) showFeatureLockOverlay();
+          return;
+        }
         if (next === "grid") {
           mapMode = "gostota";
           applyGridMinZoom();
         } else {
           mapMode = lastObcineMode || "stevilo";
           restoreObcineMinZoom();
-          hideFeatureLockOverlay();
         }
         mapView = next;
-        document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach((b) =>
-          b.classList.toggle("map-mode-btn--active", b.dataset.view === mapView)
-        );
+        setMapViewTabActive(mapView);
         syncMapModeForPeriod();
+        if (periodLockUiValue || isUnderlyingPeriodLocked()) {
+          if (periodLockUiValue) sel.value = periodLockUiValue;
+          showFeatureLockOverlay();
+          return;
+        }
+        hideFeatureLockOverlay();
         obcinaData = {};
         reload().then(afterPeriodReload);
       }
@@ -4403,23 +4526,30 @@
 
   syncMapModeForPeriod();
   (async function boot() {
-    if (isSupporterFeatureLocked()) {
-      /* URL/stanje ne sme odkleniti Po meri ali mreže */
-      if (customRange || periodMode === "day" || mapView === "grid") {
-        resetToAllowedDefaultView();
-        periodLockedByUrl = true; /* ne prepiši z resolveDefaultPeriod na 7 dni */
+    if (!hasSupporterAccess) {
+      if (customRange || periodMode === "day") {
+        resetToAllowedPeriod();
+        periodLockedByUrl = true;
       }
     } else if (mapView === "grid") {
       mapMode = "gostota";
       try { applyGridMinZoom(); } catch (_) {}
     }
     if (!periodLockedByUrl) await resolveDefaultPeriod();
-    if (isSupporterFeatureLocked() && (customRange || periodMode === "day" || mapView === "grid")) {
-      resetToAllowedDefaultView();
+    if (!hasSupporterAccess && isUnderlyingPeriodLocked()) {
+      days = isFreePeriodSelectValue(String(DEFAULT_RANGE_DAYS)) ? DEFAULT_RANGE_DAYS : 1;
+      periodMode = "range";
+      mapDay = null;
+      clearCustomRange();
+      clearPeriodLockUi();
+    }
+    if (mapView === "grid") {
+      mapMode = "gostota";
+      try { applyGridMinZoom(); } catch (_) {}
     }
     syncSelectFromPeriod();
     lastAllowedSelectValue =
-      sel.value && sel.value !== "custom" ? sel.value : "1";
+      sel.value && isFreePeriodSelectValue(sel.value) ? sel.value : "1";
     syncMapModeForPeriod();
     syncSupporterLockMarks();
     document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach((b) =>
