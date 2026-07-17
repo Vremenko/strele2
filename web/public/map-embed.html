@@ -616,6 +616,85 @@
       color: var(--muted);
     }
     #chart-hint.hidden { display: none; }
+
+    /* Zaklep Podpornik: Po meri + Mreža (isti vizualni jezik kot LockedContent) */
+    .map-mode-btn--locked {
+      opacity: 0.92;
+    }
+    .map-lock-glyph {
+      display: none;
+      margin-right: 0.28rem;
+      font-size: 0.85em;
+      line-height: 1;
+    }
+    .map-mode-btn--locked .map-lock-glyph {
+      display: inline;
+    }
+    #map-feature-lock {
+      position: absolute;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a1a;
+      box-sizing: border-box;
+      overflow: auto;
+      pointer-events: auto;
+      padding: 1.25rem 1rem;
+    }
+    #map-feature-lock.is-active { display: flex; }
+    #map-feature-lock .locked-content__inner {
+      max-width: 42rem;
+      text-align: center;
+    }
+    #map-feature-lock .locked-content__icon {
+      display: block;
+      font-size: 1.35rem;
+      margin-bottom: 0.35rem;
+    }
+    #map-feature-lock .locked-content__title {
+      margin: 0 0 0.65rem;
+      font-size: 1.05rem;
+      line-height: 1.35;
+      color: #f2f2f2;
+      font-weight: 600;
+    }
+    #map-feature-lock .locked-content__text {
+      margin: 0 0 1rem;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: #999999;
+    }
+    #map-feature-lock .locked-content__actions {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      gap: 0.6rem;
+      width: min(100%, 320px);
+      margin-inline: auto;
+    }
+    #map-feature-lock .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.65rem 1.25rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      font-family: inherit;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #map-feature-lock .btn-primary {
+      background: linear-gradient(135deg, #fbb006, #d99a05);
+      color: #1a1508;
+    }
   </style>
 </head>
 <body>
@@ -628,14 +707,14 @@
       <option value="14">14 dni</option>
       <option value="30">30 dni</option>
       <option value="90">90 dni</option>
-      <option value="custom">Po meri</option>
+      <option value="custom" id="periodCustomOption">Po meri</option>
     </select>
     <span id="mapDayPickWrap" class="hidden">
       <input type="date" id="mapDayPick" aria-label="Datum prikaza" />
     </span>
     <div class="map-mode-tabs" id="mapViewTabs" role="group" aria-label="Prikaz">
       <button type="button" class="map-mode-btn map-mode-btn--active" data-view="obcine">Občine</button>
-      <button type="button" class="map-mode-btn" data-view="grid">Mreža 1 × 1 km</button>
+      <button type="button" class="map-mode-btn" data-view="grid" id="mapViewGridBtn"><span class="map-lock-glyph" aria-hidden="true">🔒</span>Mreža 1 × 1 km</button>
     </div>
     <div class="map-mode-tabs" id="mapModeTabs" role="group" aria-label="Način prikaza">
       <button type="button" class="map-mode-btn map-mode-btn--active" data-mode="stevilo">Število</button>
@@ -674,6 +753,16 @@
   <div id="map-stage">
     <div id="map"></div>
     <div id="status">Nalagam …</div>
+    <div id="map-feature-lock" aria-hidden="true">
+      <div class="locked-content__inner">
+        <span class="locked-content__icon" aria-hidden="true">🔒</span>
+        <h3 class="locked-content__title">Ta vsebina je na voljo s paketom Podpornik</h3>
+        <p class="locked-content__text">Z aktivacijo paketa Podpornik pridobite dostop do dodatnih prikazov, hkrati pa podprete ekipo Meteoinfo pri razvoju novih aplikacij in meteoroloških produktov ter nadaljnjem izboljševanju Strelka.</p>
+        <div class="locked-content__actions">
+          <a class="btn btn-primary" id="mapFeatureLockCta" href="/cenik" target="_top" rel="noopener">Aktiviraj paket Podpornik</a>
+        </div>
+      </div>
+    </div>
   </div>
   <div id="chart-section">
     <div id="chart-header">
@@ -702,12 +791,25 @@
   let mapDay     = null;    /* ISO datum, ko je periodMode === "day" */
   let customRange = null;   /* { from, to } za ročno izbrano obdobje */
   const CUSTOM_RANGE_MIN_ISO = "2026-03-11"; /* najzgodnejši dovoljeni Od */
+  /*
+   * Dostop Podpornik:
+   * - gated iframe (brez Podpornika) dobi default_range_days iz Strelko ArchiveMapEmbedGated
+   * - supporter iframe tega parametra nima
+   * - eksplicitni supporter=0/1 preglasita (in postMessage strele-map-set-access)
+   */
+  let hasSupporterAccess = !params.has("default_range_days");
+  if (params.get("supporter") === "1") hasSupporterAccess = true;
+  if (params.get("supporter") === "0") hasSupporterAccess = false;
+
   /* days=30 ali brez parametra = privzeto (danes če so strele, sicer 30 dni) */
   let periodLockedByUrl = false;
   if (params.has("day")) {
-    periodMode = "day";
-    mapDay = params.get("day");
-    periodLockedByUrl = true;
+    if (hasSupporterAccess) {
+      periodMode = "day";
+      mapDay = params.get("day");
+      periodLockedByUrl = true;
+    }
+    /* brez Podpornika: day= v URL ne odklene Po meri */
   } else if (params.has("days")) {
     const d = parseInt(params.get("days"), 10) || 30;
     if (d !== 30) {
@@ -717,7 +819,11 @@
   }
   let mapMode    = "stevilo"; // "stevilo" | "gostota" | "dni"
   let mapView    = "obcine";  // "obcine" | "grid"
+  if (params.get("view") === "grid" && hasSupporterAccess) {
+    mapView = "grid";
+  }
   let lastObcineMode = mapMode;
+  let lastAllowedSelectValue = "1";
   const REFRESH_SEC = Math.max(60, parseInt(params.get("refresh_sec") || "600", 10) || 600);
   const SHOW_CHROME = params.get("chrome") !== "0";
   const DEFAULT_RANGE_DAYS = Math.max(1, parseInt(params.get("default_range_days") || "30", 10) || 30);
@@ -2325,16 +2431,110 @@
   const dayPick       = document.getElementById("mapDayPick");
   const periodLabelEl = document.getElementById("periodLabel");
   const statusEl      = document.getElementById("status");
+  const periodCustomOption = document.getElementById("periodCustomOption");
+  const mapViewGridBtn = document.getElementById("mapViewGridBtn");
+  const mapFeatureLock = document.getElementById("map-feature-lock");
 
   dayPick.max = todayIso();
 
+  function isSupporterFeatureLocked() {
+    return !hasSupporterAccess;
+  }
+
+  function syncSupporterLockMarks() {
+    const locked = isSupporterFeatureLocked();
+    if (periodCustomOption) {
+      periodCustomOption.textContent = locked ? "🔒 Po meri" : "Po meri";
+    }
+    if (mapViewGridBtn) {
+      mapViewGridBtn.classList.toggle("map-mode-btn--locked", locked);
+      mapViewGridBtn.setAttribute("aria-disabled", locked ? "true" : "false");
+      mapViewGridBtn.title = locked
+        ? "Mreža 1 × 1 km je na voljo s paketom Podpornik"
+        : "";
+    }
+  }
+
+  function showFeatureLockOverlay() {
+    if (!mapFeatureLock) return;
+    mapFeatureLock.classList.add("is-active");
+    mapFeatureLock.setAttribute("aria-hidden", "false");
+  }
+
+  function hideFeatureLockOverlay() {
+    if (!mapFeatureLock) return;
+    mapFeatureLock.classList.remove("is-active");
+    mapFeatureLock.setAttribute("aria-hidden", "true");
+  }
+
+  function resetToAllowedDefaultView() {
+    clearCustomRange();
+    periodMode = "range";
+    mapDay = null;
+    days = 1;
+    mapView = "obcine";
+    mapMode = "stevilo";
+    lastObcineMode = "stevilo";
+    lastAllowedSelectValue = "1";
+    if (sel) sel.value = "1";
+    if (dayPickWrap) dayPickWrap.classList.add("hidden");
+    if (typeof closePeriodRangePicker === "function") closePeriodRangePicker();
+    document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach((b) => {
+      b.classList.toggle("map-mode-btn--active", b.dataset.view === "obcine");
+    });
+    document.querySelectorAll("#mapModeTabs .map-mode-btn").forEach((b) => {
+      b.classList.toggle("map-mode-btn--active", b.dataset.mode === "stevilo");
+    });
+    if (typeof restoreObcineMinZoom === "function") {
+      try { restoreObcineMinZoom(); } catch (_) {}
+    }
+    hideFeatureLockOverlay();
+    syncSupporterLockMarks();
+    if (typeof syncMapModeForPeriod === "function") syncMapModeForPeriod();
+    if (typeof updatePeriodLabel === "function") updatePeriodLabel();
+  }
+
+  /** Če ni Podpornika in je izbrano Po meri / mreža → Danes + Občine. */
+  function enforceSupporterAccessOrReset(opts) {
+    const reloadAfter = !opts || opts.reload !== false;
+    if (hasSupporterAccess) {
+      hideFeatureLockOverlay();
+      syncSupporterLockMarks();
+      return false;
+    }
+    const needsReset = !!customRange || periodMode === "day" || mapView === "grid";
+    if (!needsReset) {
+      syncSupporterLockMarks();
+      return false;
+    }
+    resetToAllowedDefaultView();
+    if (reloadAfter) {
+      obcinaData = {};
+      reload().then(afterPeriodReload);
+    }
+    return true;
+  }
+
+  syncSupporterLockMarks();
+
   function syncSelectFromPeriod() {
     if (customRange) {
+      if (isSupporterFeatureLocked()) {
+        /* Ne pusti custom v selectu brez Podpornika */
+        sel.value = "1";
+        dayPickWrap.classList.add("hidden");
+        return;
+      }
       sel.value = "custom";
       dayPickWrap.classList.add("hidden");
       return;
     }
     if (periodMode === "day" && mapDay) {
+      if (isSupporterFeatureLocked()) {
+        sel.value = "1";
+        dayPickWrap.classList.add("hidden");
+        return;
+      }
       /* En dan iz URL/API: v meniju Po meri (brez locene moznosti Datum). */
       sel.value = "custom";
       dayPick.value = mapDay;
@@ -3542,14 +3742,22 @@
 
   function applyPeriodSelection() {
     if (sel.value === "custom") {
+      if (isSupporterFeatureLocked()) {
+        sel.value = lastAllowedSelectValue;
+        syncSelectFromPeriod();
+        showFeatureLockOverlay();
+        return;
+      }
       openPeriodRangePicker();
       return;
     }
+    hideFeatureLockOverlay();
     clearCustomRange();
     periodMode = "range";
     dayPickWrap.classList.add("hidden");
     mapDay = null;
     days = parseInt(sel.value, 10) || 30;
+    lastAllowedSelectValue = sel.value;
     closePeriodRangePicker();
     obcinaData = {};
     reload().then(afterPeriodReload);
@@ -3623,6 +3831,10 @@
   }
 
   function openPeriodRangePicker() {
+    if (isSupporterFeatureLocked()) {
+      showFeatureLockOverlay();
+      return;
+    }
     if (!periodRangePicker || !periodFromInput || !periodToInput) return;
     const today = todayIso();
     const current = mapDateRange();
@@ -3660,6 +3872,10 @@
   }
 
   function applyCustomPeriodRange() {
+    if (isSupporterFeatureLocked()) {
+      showFeatureLockOverlay();
+      return;
+    }
     const fromIso = periodFromInput.value;
     const toIso = periodToInput.value;
     const err = validatePeriodRange(fromIso, toIso);
@@ -3668,9 +3884,11 @@
       return;
     }
     setCustomRange(fromIso, toIso);
+    lastAllowedSelectValue = "custom";
     dayPickWrap.classList.add("hidden");
     syncSelectFromPeriod();
     closePeriodRangePicker();
+    hideFeatureLockOverlay();
     obcinaData = {};
     reload().then(afterPeriodReload);
   }
@@ -3756,12 +3974,18 @@
     const next = btn.dataset.view;
     if (!next || next === mapView) return;
 
+    if (next === "grid" && isSupporterFeatureLocked()) {
+      showFeatureLockOverlay();
+      return;
+    }
+
     if (next === "grid") {
       mapMode = "gostota";
       applyGridMinZoom();
     } else {
       mapMode = lastObcineMode || "stevilo";
       restoreObcineMinZoom();
+      hideFeatureLockOverlay();
     }
 
     mapView = next;
@@ -3774,7 +3998,23 @@
   });
 
   window.addEventListener("message", function (e) {
+    if (e.data?.type === "strele-map-set-access") {
+      const next = e.data.supporter === true || e.data.supporter === 1 || e.data.supporter === "1";
+      const prev = hasSupporterAccess;
+      hasSupporterAccess = !!next;
+      syncSupporterLockMarks();
+      if (prev && !hasSupporterAccess) {
+        enforceSupporterAccessOrReset({ reload: true });
+      } else if (hasSupporterAccess) {
+        hideFeatureLockOverlay();
+      }
+      return;
+    }
     if (e.data?.type === "strele-map-set-days") {
+      if (isSupporterFeatureLocked() && e.data.custom) {
+        showFeatureLockOverlay();
+        return;
+      }
       const d = parseInt(e.data.days, 10);
       if (d && (d !== days || periodMode !== "range" || customRange)) {
         clearCustomRange();
@@ -3782,24 +4022,56 @@
         mapDay = null;
         days = d;
         sel.value = d === 1 ? "1" : String(days);
+        lastAllowedSelectValue = sel.value;
         dayPickWrap.classList.add("hidden");
         closePeriodRangePicker();
+        hideFeatureLockOverlay();
         obcinaData = {};
         reload();
       }
     }
     if (e.data?.type === "strele-map-set-day") {
+      if (isSupporterFeatureLocked()) {
+        showFeatureLockOverlay();
+        return;
+      }
       const iso = e.data.day;
       if (iso && parseIsoDate(iso) && (iso !== mapDay || customRange)) {
         clearCustomRange();
         periodMode = "day";
         mapDay = iso;
         sel.value = "custom";
+        lastAllowedSelectValue = "custom";
         dayPick.value = mapDay;
         dayPickWrap.classList.add("hidden");
         closePeriodRangePicker();
         obcinaData = {};
         reload();
+      }
+    }
+    if (e.data?.type === "strele-map-set-view") {
+      const next = e.data.view;
+      if (next === "grid" && isSupporterFeatureLocked()) {
+        showFeatureLockOverlay();
+        return;
+      }
+      if (next === "obcine" || next === "grid") {
+        if (next === mapView) return;
+        if (next === "grid") {
+          mapMode = "gostota";
+          applyGridMinZoom();
+        } else {
+          mapMode = lastObcineMode || "stevilo";
+          restoreObcineMinZoom();
+          hideFeatureLockOverlay();
+        }
+        mapView = next;
+        document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach((b) =>
+          b.classList.toggle("map-mode-btn--active", b.dataset.view === mapView)
+        );
+        syncMapModeForPeriod();
+        obcinaData = {};
+        reload().then(afterPeriodReload);
       }
     }
   });
@@ -4131,9 +4403,31 @@
 
   syncMapModeForPeriod();
   (async function boot() {
+    if (isSupporterFeatureLocked()) {
+      /* URL/stanje ne sme odkleniti Po meri ali mreže */
+      if (customRange || periodMode === "day" || mapView === "grid") {
+        resetToAllowedDefaultView();
+        periodLockedByUrl = true; /* ne prepiši z resolveDefaultPeriod na 7 dni */
+      }
+    } else if (mapView === "grid") {
+      mapMode = "gostota";
+      try { applyGridMinZoom(); } catch (_) {}
+    }
     if (!periodLockedByUrl) await resolveDefaultPeriod();
+    if (isSupporterFeatureLocked() && (customRange || periodMode === "day" || mapView === "grid")) {
+      resetToAllowedDefaultView();
+    }
     syncSelectFromPeriod();
+    lastAllowedSelectValue =
+      sel.value && sel.value !== "custom" ? sel.value : "1";
     syncMapModeForPeriod();
+    syncSupporterLockMarks();
+    document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach((b) =>
+      b.classList.toggle("map-mode-btn--active", b.dataset.view === mapView)
+    );
+    document.querySelectorAll("#mapModeTabs .map-mode-btn").forEach((b) =>
+      b.classList.toggle("map-mode-btn--active", b.dataset.mode === mapMode)
+    );
     await reload();
     if (!mobView) preselectBestObcina();
   })();
