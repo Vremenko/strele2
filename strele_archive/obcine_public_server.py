@@ -1362,16 +1362,32 @@ def serve_data_file(filename: str) -> FileResponse:
     """Servira statične podatkovne datoteke (GeoJSON ipd.) brez avtentikacije."""
     safe = filename.strip("/")
     # Allow only known data files for safety
-    allowed = {"OB-lite.geojson", "OB.geojson", "SR.geojson", "SI.geojson", "meje_drzav.geojson", "meje_drzav_brez_si.geojson"}
+    allowed = {
+        "OB-lite.geojson",
+        "OB.geojson",
+        "SR.geojson",
+        "SI.geojson",
+        "meje_drzav.geojson",
+        "meje_drzav_brez_si.geojson",
+        "strelko-dark.json",
+    }
     if safe not in allowed:
         raise HTTPException(status_code=404, detail="Datoteka ni dostopna")
-    path = _DATA_DIR / safe
+    if safe == "strelko-dark.json":
+        # MapLibre slog živi v web/public/styles/; nginx že proxy-ja /arhiv/public/data/
+        path = _WEB_PUBLIC_DIR / "styles" / safe
+        media_type = "application/json"
+        cache = "public, max-age=300"
+    else:
+        path = _DATA_DIR / safe
+        media_type = "application/geo+json"
+        cache = "public, max-age=86400"
     if not path.exists():
         raise HTTPException(status_code=404, detail="Datoteka ne obstaja")
     return FileResponse(
         str(path),
-        media_type="application/geo+json",
-        headers={"Cache-Control": "public, max-age=86400"},
+        media_type=media_type,
+        headers={"Cache-Control": cache},
     )
 
 
@@ -1384,6 +1400,24 @@ def serve_map_embed() -> FileResponse:
         str(path),
         media_type="text/html",
         headers={"Cache-Control": "no-store, must-revalidate"},
+    )
+
+
+
+@app.get("/public/styles/{filename:path}")
+def serve_public_style(filename: str) -> FileResponse:
+    """MapLibre slogi za map-embed (brez MapTiler ključa)."""
+    safe = filename.strip("/")
+    allowed = {"strelko-dark.json"}
+    if safe not in allowed:
+        raise HTTPException(status_code=404, detail="Slog ni dostopen")
+    path = _WEB_PUBLIC_DIR / "styles" / safe
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Slog ne obstaja")
+    return FileResponse(
+        str(path),
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
     )
 
 

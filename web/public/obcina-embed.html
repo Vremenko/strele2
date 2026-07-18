@@ -217,6 +217,14 @@
     }
     .widget--full {
       --widget-visual-height: 220px;
+      --widget-visual-tabs-height: 0px;
+    }
+    .widget-visual-section--chart-only {
+      padding-bottom: 1rem;
+    }
+    .widget-visual-section--chart-only .widget-visual-viewport {
+      height: calc(var(--widget-visual-height) + var(--widget-visual-tabs-height));
+      max-height: min(calc(480px + var(--widget-visual-tabs-height)), 50vh);
     }
     .widget-visual-viewport {
       position: relative;
@@ -397,6 +405,10 @@
   const MAP_ATTRIBUTION =
     '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">MapTiler</a> ' +
     '&copy; <a href="https://www.openstreetmap.org/copyright/" target="_blank" rel="noopener">OpenStreetMap</a>';
+  /** Hardcoded string that @maptiler/leaflet-maptilersdk injects on layer add. */
+  const MAPTILER_SDK_ATTRIBUTION =
+    '<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> ' +
+    '<a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>';
 
   let map = null;
   let baseLayer = null;
@@ -419,12 +431,13 @@
   let currentView = null;
   let chartResizeObserver = null;
 
-  function defaultVisualPanel(strikesLast24h) {
-    return strikesLast24h > 0 ? "map" : "chart";
+  function defaultVisualPanel(_strikesLast24h) {
+    /* Zemljevid v widgetu je odstranjen — ostane samo graf. */
+    return "chart";
   }
 
   function activeVisualPanel(view) {
-    return userVisualPanel || defaultVisualPanel(view.strikesLast24h);
+    return userVisualPanel || defaultVisualPanel(view && view.strikesLast24h);
   }
 
   function formatChartDayLabel(dateStr) {
@@ -630,7 +643,7 @@
     const mapPanel = document.getElementById("visual-panel-map");
     const chartPanel = document.getElementById("visual-panel-chart");
     const tabs = document.querySelectorAll("[data-visual-tab]");
-    if (!mapPanel || !chartPanel) return;
+    if (!chartPanel) return;
 
     tabs.forEach(function (tab) {
       const active = tab.dataset.visualTab === panel;
@@ -638,13 +651,13 @@
       tab.setAttribute("aria-selected", active ? "true" : "false");
     });
 
-    updateVisualCaption(panel, view);
+    updateVisualCaption(panel === "map" && !mapPanel ? "chart" : panel, view);
     syncVisualHeights();
 
-    mapPanel.hidden = panel !== "map";
+    if (mapPanel) mapPanel.hidden = panel !== "map";
     chartPanel.hidden = panel !== "chart";
 
-    if (panel === "map") {
+    if (panel === "map" && mapPanel) {
       destroyDailyChart();
       whenPanelReady("map", function () {
         initObcinaMapPanel(view);
@@ -652,6 +665,7 @@
       });
     } else {
       teardownMap();
+      chartPanel.hidden = false;
       whenPanelReady("chart", function () {
         renderDailyChart(view ? view.daily : []);
         if (dailyChart) dailyChart.resize();
@@ -684,13 +698,8 @@
   function mountVisualPanel(view) {
     currentView = view;
     bindVisualTabs();
-    const panel = activeVisualPanel(view);
-    ensureLayoutBounds(view.obMid).then(function (bounds) {
-      if (bounds && bounds.isValid()) applyMapFrame(bounds);
-      else syncVisualHeights();
-      observeMapResize();
-      setVisualPanel(panel, view);
-    });
+    syncVisualHeights();
+    setVisualPanel("chart", view);
   }
 
   function isUltraNarrowViewport(containerW) {
@@ -1091,27 +1100,11 @@
 
   function renderWidget(view) {
     const showVisual = view.showMap;
-    const panel = activeVisualPanel(view);
     const visualBlock = showVisual ? `
-      <section class="widget-visual-section" aria-label="Prikaz udarov strel">
-        <div class="widget-visual-tabs" role="tablist" aria-label="Preklop prikaza">
-          <button type="button" class="widget-visual-tab${panel === "map" ? " widget-visual-tab--active" : ""}"
-                  role="tab" data-visual-tab="map" aria-selected="${panel === "map" ? "true" : "false"}">
-            Zemljevid
-          </button>
-          <button type="button" class="widget-visual-tab${panel === "chart" ? " widget-visual-tab--active" : ""}"
-                  role="tab" data-visual-tab="chart" aria-selected="${panel === "chart" ? "true" : "false"}">
-            Graf
-          </button>
-        </div>
-        <p class="widget-visual-caption" id="widget-visual-caption">${panel === "map" ? "Strele v zadnjih 24 urah" : "Strele v zadnjih " + view.periodDays + " dneh"}</p>
+      <section class="widget-visual-section widget-visual-section--chart-only" aria-label="Prikaz udarov strel">
+        <p class="widget-visual-caption" id="widget-visual-caption">Strele v zadnjih ${view.periodDays} dneh</p>
         <div class="widget-visual-viewport">
-          <div id="visual-panel-map" class="widget-visual-panel widget-visual-panel--map"${panel !== "map" ? " hidden" : ""}>
-            <div class="widget-map-wrap">
-              <div id="map" role="img" aria-label="Zemljevid strel v zadnjih 24 urah"></div>
-            </div>
-          </div>
-          <div id="visual-panel-chart" class="widget-visual-panel widget-visual-panel--chart"${panel !== "chart" ? " hidden" : ""}>
+          <div id="visual-panel-chart" class="widget-visual-panel widget-visual-panel--chart">
             <div class="widget-chart-wrap">
               <canvas id="daily-chart" role="img" aria-label="Graf strel v zadnjih ${view.periodDays} dneh"></canvas>
             </div>
@@ -1166,6 +1159,17 @@
     return !!(MAPTILER_KEY && L.maptiler && typeof L.maptiler.maptilerLayer === "function");
   }
 
+  function syncWidgetMapAttribution(targetMap) {
+    const ctrl = targetMap && targetMap.attributionControl;
+    if (!ctrl) return;
+    ctrl.setPrefix("");
+    for (let i = 0; i < 6; i += 1) {
+      ctrl.removeAttribution(MAPTILER_SDK_ATTRIBUTION);
+      ctrl.removeAttribution(MAP_ATTRIBUTION);
+    }
+    ctrl.addAttribution(MAP_ATTRIBUTION);
+  }
+
   function createBaseLayer() {
     return L.tileLayer(
       `https://api.maptiler.com/maps/${STYLE_BASE}/{z}/{x}/{y}.png?key=${encodeURIComponent(MAPTILER_KEY)}`,
@@ -1184,7 +1188,7 @@
       return L.maptiler.maptilerLayer({
         apiKey: MAPTILER_KEY,
         style: maptilerStyleUrl(STYLE_KRAJI),
-        attribution: MAP_ATTRIBUTION,
+        attribution: "",
         attributionControl: false,
         pane: "maptilerOverlayPane",
         ...MAPTILER_NO_CONTROLS,
@@ -1223,7 +1227,12 @@
       baseLayer.addTo(map);
 
       labelsLayer = createKrajiLayer();
-      if (labelsLayer) labelsLayer.addTo(map);
+      if (labelsLayer) {
+        labelsLayer.on("add", () => syncWidgetMapAttribution(map));
+        labelsLayer.on("ready", () => syncWidgetMapAttribution(map));
+        labelsLayer.addTo(map);
+      }
+      syncWidgetMapAttribution(map);
     }
 
     if (boundaryLayer) map.removeLayer(boundaryLayer);

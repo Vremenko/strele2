@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" crossorigin="" />
   <style>
     :root {
       --bg:      #1a1a1a;
@@ -379,8 +380,32 @@
       background: rgba(26,26,26,0.82) !important;
       color: var(--muted) !important;
       font-size: 10px !important;
+      max-width: min(92vw, 340px);
+      white-space: normal !important;
+      line-height: 1.35;
+      text-align: right;
+      padding: 2px 6px !important;
+      pointer-events: auto;
+      z-index: 450;
     }
-    .leaflet-control-attribution a { color: var(--accent2) !important; }
+    .leaflet-control-attribution a {
+      color: var(--accent2) !important;
+      text-decoration: underline;
+      pointer-events: auto;
+    }
+    /* MapLibre GL canvas pod Leaflet overlayi (občine / mreža) */
+    #map .maplibregl-map {
+      position: absolute;
+      inset: 0;
+    }
+    #map .maplibregl-canvas {
+      outline: none;
+    }
+    /* Atribucija gre skozi Leaflet control — skrij morebitni MapLibre ctrl */
+    #map .maplibregl-ctrl-attrib,
+    #map .maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib {
+      display: none !important;
+    }
     /* legend */
     #legend {
       background: var(--panel);
@@ -543,6 +568,11 @@
         min-width: 0;
         max-width: min(130px, 36vw);
         font-size: 0.65rem;
+      }
+      .leaflet-control-attribution {
+        max-width: min(58vw, 220px);
+        font-size: 9px !important;
+        margin: 0 4px 4px 0 !important;
       }
       #legend-title { font-size: 0.68rem; margin-bottom: 0.2rem; }
       .legend-row { margin: 0.1rem 0; gap: 0.3rem; font-size: 0.6rem; }
@@ -814,7 +844,7 @@
       <div class="locked-content__inner">
         <span class="locked-content__icon" aria-hidden="true">🔒</span>
         <h3 class="locked-content__title">Ta vsebina je na voljo s paketom Podpornik</h3>
-        <p class="locked-content__text">Z aktivacijo paketa Podpornik pridobite dostop do dodatnih prikazov, hkrati pa podprete ekipo Meteoinfo pri razvoju novih aplikacij in meteoroloških produktov ter nadaljnjem izboljševanju Strelka.</p>
+        <p class="locked-content__text">Z aktivacijo paketa Podpornik pridobite dostop do dodatnih prikazov, hkrati pa podprete ekipo Meteoinfo pri razvoju novih aplikacij in meteoroloških produktov.</p>
         <div class="locked-content__actions">
           <a class="btn btn-primary" id="mapFeatureLockCta" href="/cenik" target="_top" rel="noopener">Aktiviraj paket Podpornik</a>
         </div>
@@ -834,6 +864,8 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js" crossorigin=""></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/proj4@2.11.0/dist/proj4.js" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" crossorigin=""></script>
 <script>
@@ -2289,26 +2321,385 @@
     el.innerHTML = `<div id="legend-title">${titleText}</div><div class="legend-rows">${rowsHtml}</div>`;
   }
 
-  /* ——— MapTiler (isti kot Strelko) ——— */
-  const MAPTILER_KEY   = "49h4zzj96Wh7pGHWjiId";
+  /* ——— Osnovna podlaga (OpenFreeMap + lokalni Strelko Dark prek MapLibre GL) ——— */
+  const mobView = isMobileView();
+  const USE_OPENFREEMAP_BASE = true;
+  /** Cache-bust: ob vsaki spremembi sloga povečaj verzijo (sicer brskalnik lahko drži star JSON). */
+  const STRELKO_DARK_STYLE_VERSION = "20260718m";
+  /**
+   * Datoteka živi v web/public/styles/strelko-dark.json.
+   * Prek nginx-a je na produkciji dosegljiva pod /arhiv/public/data/ (explicit proxy na 8083).
+   * Pot /arhiv/public/styles/ gre namreč na catch-all 8081 in vrača 404.
+   */
+  const STRELKO_DARK_STYLE = new URL(
+    "data/strelko-dark.json?v=" + STRELKO_DARK_STYLE_VERSION,
+    window.location.href
+  ).href;
+  const OPENFREEMAP_DARK_STYLE = "https://tiles.openfreemap.org/styles/dark";
+  const OPENFREEMAP_STYLE = STRELKO_DARK_STYLE;
+  /** Ena atribucija za Leaflet control (prefix: false) — brez podvajanja iz slojev. */
+  const STRELKO_BASEMAP_ATTRIBUTION =
+    '<a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap</a>' +
+    " · " +
+    '&copy; <a href="https://openmaptiles.org/" target="_blank" rel="noopener noreferrer">OpenMapTiles</a>' +
+    " · " +
+    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
+  const MAPTILER_BASEMAP_ATTRIBUTION =
+    '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener noreferrer">MapTiler</a>' +
+    " · " +
+    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
+
+  /*
+   * Začasni MapTiler fallback — OHRANI, a privzeto NE nalagaj.
+   * Preklop: USE_OPENFREEMAP_BASE = false
+   */
+  const MAPTILER_KEY = "49h4zzj96Wh7pGHWjiId";
   const STYLE_BASE_DARK = "019c91be-c9e9-7eac-9e88-83d4e8cf7691";
-  const MAP_ATTRIBUTION =
-    '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> ' +
-    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
 
   function maptilerTileUrl(styleId) {
     return `https://api.maptiler.com/maps/${styleId}/{z}/{x}/{y}.png?key=${encodeURIComponent(MAPTILER_KEY)}`;
   }
 
+  function createMapTilerBaseLayer() {
+    return L.tileLayer(maptilerTileUrl(STYLE_BASE_DARK), mobView ? {
+      attribution: "",
+      maxZoom: 18,
+      keepBuffer: 2,
+    } : {
+      attribution: "",
+      maxZoom: 20,
+      tileSize: 512,
+      zoomOffset: -1,
+    });
+  }
+
+  function createOpenFreeMapBaseLayer() {
+    if (typeof L.maplibreGL !== "function") {
+      console.error("[map-embed] L.maplibreGL ni na voljo — preveri MapLibre skripte.");
+      return createMapTilerBaseLayer();
+    }
+    console.info("[map-embed] MapLibre style URL:", OPENFREEMAP_STYLE);
+    return L.maplibreGL({
+      style: OPENFREEMAP_STYLE,
+      attribution: "",
+      interactive: false,
+      attributionControl: false,
+    });
+  }
+
+  /** Filter: samo admin_level=2 na kopnem (brez maritime / disputed / claimed_by). */
+  const STRELKO_COUNTRY_LAND_FILTER = [
+    "all",
+    ["==", ["get", "admin_level"], 2],
+    ["any", ["!", ["has", "maritime"]], ["==", ["get", "maritime"], 0]],
+    ["any", ["!", ["has", "disputed"]], ["==", ["get", "disputed"], 0]],
+    ["!", ["has", "claimed_by"]],
+  ];
+
+  function filterMentionsAdminLevel(filterExpr, level) {
+    const s = JSON.stringify(filterExpr || []);
+    return new RegExp('"admin_level"\\s*,\\s*' + level + "\\b").test(s);
+  }
+
+  function applyStrelkoBoundaryTweaks(glMap, style) {
+    const layers = style.layers || [];
+    layers.forEach(function (L) {
+      if (!L || L.type !== "line") return;
+      const id = L.id || "";
+      const sourceLayer = L["source-layer"] || "";
+      const hay = (id + " " + sourceLayer).toLowerCase();
+      if (sourceLayer !== "boundary" && !/boundary|border|admin/.test(hay)) return;
+
+      const filter = L.filter;
+      console.info("[map-embed] boundary sloj:", {
+        id: id,
+        sourceLayer: sourceLayer,
+        filter: filter,
+      });
+
+      const filterJson = JSON.stringify(filter || []);
+      const adminMatch = filterJson.match(/"admin_level"\s*,\s*(\d+)/);
+      const adminLevel = adminMatch ? Number(adminMatch[1]) : null;
+      const looksInternal =
+        /state|province|region|county|municip|obcin|admin_[3456]/i.test(id) ||
+        (adminLevel !== null && adminLevel !== 2) ||
+        filterMentionsAdminLevel(filter, 3) ||
+        filterMentionsAdminLevel(filter, 4) ||
+        filterMentionsAdminLevel(filter, 5) ||
+        filterMentionsAdminLevel(filter, 6);
+
+      try {
+        if (looksInternal) {
+          glMap.setLayoutProperty(id, "visibility", "none");
+          console.info("[map-embed] skrit notranji boundary:", id, "admin_level=", adminLevel);
+          return;
+        }
+
+        /* Državne / boundary sloje: samo kopno, brez maritime in sporov. */
+        if (sourceLayer === "boundary" || /country|boundary|admin/i.test(id)) {
+          glMap.setFilter(id, STRELKO_COUNTRY_LAND_FILTER);
+          glMap.setLayoutProperty(id, "visibility", "visible");
+          glMap.setPaintProperty(id, "line-color", "#8a9096");
+          glMap.setPaintProperty(id, "line-opacity", 0.7);
+          try {
+            glMap.setPaintProperty(id, "line-dasharray", null);
+          } catch (_dashErr) { /* ignore */ }
+          console.info("[map-embed] državna meja (samo kopno):", id);
+        }
+      } catch (boundaryErr) {
+        console.warn("[map-embed] boundary tweak ni uspel:", id, boundaryErr);
+      }
+    });
+  }
+
+  function ensureSubtleHillshade(glMap, style) {
+    const sources = style.sources || {};
+    if (!sources.ne2_shaded && !sources.terrain && !sources.hillshade) {
+      console.info("[map-embed] ni prostega hillshade/terrain vira — relief izpuščen.");
+      return;
+    }
+    const hillIds = (style.layers || [])
+      .filter(function (L) {
+        return L && (L.type === "raster" || L.type === "hillshade") &&
+          /hill|shade|ne2|terrain|relief|dem/i.test(L.id + " " + (L.source || ""));
+      })
+      .map(function (L) { return L.id; });
+
+    if (hillIds.length) {
+      hillIds.forEach(function (hid) {
+        try {
+          if (glMap.getLayer(hid)) {
+            const t = (style.layers.find(function (L) { return L.id === hid; }) || {}).type;
+            if (t === "raster") {
+              glMap.setPaintProperty(hid, "raster-opacity", 0.15);
+              try {
+                glMap.setPaintProperty(hid, "raster-saturation", -0.6);
+                glMap.setPaintProperty(hid, "raster-contrast", -0.3);
+                glMap.setPaintProperty(hid, "raster-brightness-min", 0.15);
+                glMap.setPaintProperty(hid, "raster-brightness-max", 0.72);
+                glMap.setPaintProperty(hid, "raster-resampling", "linear");
+              } catch (_softErr) { /* ignore */ }
+            } else if (t === "hillshade") {
+              glMap.setPaintProperty(hid, "hillshade-exaggeration", 0.12);
+            }
+          }
+        } catch (_e) { /* ignore */ }
+      });
+      console.info("[map-embed] blag relief (obstoječi sloj):", hillIds);
+      return;
+    }
+
+    if (sources.ne2_shaded && !glMap.getLayer("ne2_hillshade")) {
+      const beforeId = (style.layers || []).map(function (L) { return L.id; })
+        .find(function (lid) {
+          return lid === "water" || /water/i.test(lid);
+        });
+      try {
+        glMap.addLayer(
+          {
+            id: "ne2_hillshade",
+            type: "raster",
+            source: "ne2_shaded",
+            maxzoom: 8,
+            paint: {
+              "raster-opacity": 0.15,
+              "raster-fade-duration": 0,
+              "raster-saturation": -0.55,
+              "raster-contrast": -0.28,
+              "raster-brightness-min": 0.15,
+              "raster-brightness-max": 0.72,
+              "raster-resampling": "linear",
+            },
+          },
+          beforeId || undefined
+        );
+        console.info("[map-embed] dodan blag NE2 relief (prost OpenFreeMap vir).");
+      } catch (hillErr) {
+        console.warn("[map-embed] hillshade ni uspel:", hillErr);
+      }
+    }
+  }
+
+  /**
+   * Po nalaganju sloga preglej dejanske sloje in prilagodi prikaz.
+   * Ne ugiba samo po fiksnem seznamu — gleda id + source-layer (+ filtre boundary).
+   */
+  function applyStrelkoBasemapTweaks(glMap) {
+    if (!glMap || typeof glMap.getStyle !== "function") return;
+    let style;
+    try {
+      style = glMap.getStyle();
+    } catch (err) {
+      console.warn("[map-embed] getStyle ni uspel:", err);
+      return;
+    }
+    if (!style || !Array.isArray(style.layers)) return;
+
+    const inventory = style.layers.map(function (L) {
+      return {
+        id: L.id,
+        type: L.type,
+        sourceLayer: L["source-layer"] || null,
+        filter: L.filter || null,
+      };
+    });
+    console.info(
+      "[map-embed] naložen slog:",
+      style.name || "(brez imena)",
+      "| slojev:",
+      inventory.length,
+      inventory
+    );
+
+    ensureSubtleHillshade(glMap, style);
+    applyStrelkoBoundaryTweaks(glMap, style);
+
+    const TRAFFIC_RE =
+      /road|transport|street|highway|rail|bridge|tunnel|aeroway|transit|pier|motorway|path|taxiway|runway|building/i;
+    const WATER_POLY_RE = /\bwater\b|ocean|lake|reservoir|bay/i;
+    const WATER_LINE_RE = /waterway|river|stream|canal|drain/i;
+    const LANDCOVER_RE = /landcover|landuse|land|park|wood|ice|glacier|residential/i;
+
+    inventory.forEach(function (info) {
+      const id = info.id;
+      const type = info.type;
+      const hay = (id + " " + (info.sourceLayer || "")).toLowerCase();
+
+      try {
+        if (type === "symbol") {
+          glMap.setLayoutProperty(id, "visibility", "none");
+          return;
+        }
+
+        if (TRAFFIC_RE.test(hay)) {
+          glMap.setLayoutProperty(id, "visibility", "none");
+          return;
+        }
+
+        /* Boundary ureja applyStrelkoBoundaryTweaks. */
+        if (info.sourceLayer === "boundary" || /boundary|border|admin/.test(hay)) {
+          return;
+        }
+
+        if (type === "background") {
+          glMap.setPaintProperty(id, "background-color", "#1c1f21");
+          return;
+        }
+
+        if (type === "raster" && /hill|shade|ne2|relief|terrain|dem/i.test(hay)) {
+          glMap.setPaintProperty(id, "raster-opacity", 0.15);
+          try {
+            glMap.setPaintProperty(id, "raster-saturation", -0.6);
+            glMap.setPaintProperty(id, "raster-contrast", -0.3);
+            glMap.setPaintProperty(id, "raster-brightness-min", 0.15);
+            glMap.setPaintProperty(id, "raster-brightness-max", 0.72);
+            glMap.setPaintProperty(id, "raster-resampling", "linear");
+          } catch (_softErr) { /* ignore */ }
+          return;
+        }
+
+        if (type === "fill" && WATER_POLY_RE.test(hay) && !WATER_LINE_RE.test(hay)) {
+          glMap.setPaintProperty(id, "fill-color", "#101d32");
+          try {
+            glMap.setPaintProperty(id, "fill-opacity", 1);
+          } catch (_e) { /* ignore */ }
+          return;
+        }
+
+        if (type === "line" && WATER_LINE_RE.test(hay)) {
+          glMap.setPaintProperty(id, "line-color", "#1a3558");
+          glMap.setPaintProperty(id, "line-opacity", 0.8);
+          return;
+        }
+
+        if (type === "fill" && LANDCOVER_RE.test(hay) && !WATER_POLY_RE.test(hay)) {
+          glMap.setPaintProperty(id, "fill-color", "#1c1f21");
+        }
+      } catch (layerErr) {
+        console.warn("[map-embed] prilagoditev sloja ni uspela:", id, layerErr);
+      }
+    });
+  }
+
+  function attachOpenFreeMapStyleFallback(glMap) {
+    if (!glMap || typeof glMap.setStyle !== "function") return;
+    let styleFallbackDone = false;
+    let localStyleOk = false;
+    let lastAppliedStyleName = null;
+
+    function onStyleReady() {
+      if (glMap.isStyleLoaded && !glMap.isStyleLoaded()) return;
+      const style = glMap.getStyle && glMap.getStyle();
+      if (!style || !Array.isArray(style.layers)) return;
+      const name = style.name ? String(style.name) : "";
+      const fingerprint = name + "|" + style.layers.length + "|" + (style.layers[0] && style.layers[0].id);
+      if (fingerprint === lastAppliedStyleName) return;
+      lastAppliedStyleName = fingerprint;
+
+      const isLocal =
+        /strelko/i.test(name) ||
+        (style.layers.length > 0 &&
+          style.layers.length <= 20 &&
+          !style.layers.some(function (L) {
+            return /highway|place_city|road_/i.test(L.id || "");
+          }));
+      if (isLocal) localStyleOk = true;
+      console.info(
+        "[map-embed] style ready —",
+        localStyleOk ? "lokalni Strelko Dark" : "oddani/fallback slog",
+        "| name:",
+        name || "(brez)",
+        "| začetni URL:",
+        OPENFREEMAP_STYLE
+      );
+      applyStrelkoBasemapTweaks(glMap);
+    }
+
+    glMap.on("styledata", onStyleReady);
+    glMap.once("load", onStyleReady);
+
+    glMap.on("error", function (e) {
+      const err = e && e.error ? e.error : e;
+      const url = String((err && (err.url || err.sourceURL)) || "");
+      const status = err && typeof err.status === "number" ? err.status : null;
+      const msg = String((err && err.message) || err || "");
+      /* Fallback SAMO ob napaki nalaganja lokalnega sloga — ne ob napakah ploščic. */
+      const isLocalStyleRequest =
+        url.indexOf("strelko-dark") !== -1 ||
+        (url.indexOf("/data/") !== -1 && url.indexOf("strelko-dark") !== -1);
+      const isLoadFail =
+        status === 404 ||
+        status === 403 ||
+        status === 500 ||
+        /Failed to (fetch|load)|AJAXError|status 4\d\d/i.test(msg);
+      if (!isLocalStyleRequest || !isLoadFail) {
+        return;
+      }
+      if (styleFallbackDone || localStyleOk) return;
+      styleFallbackDone = true;
+      lastAppliedStyleName = null;
+      console.warn(
+        "[map-embed] Lokalni slog ni naložen (status/url):",
+        status,
+        url,
+        "— fallback OpenFreeMap Dark."
+      );
+      try {
+        glMap.setStyle(OPENFREEMAP_DARK_STYLE);
+      } catch (fallbackErr) {
+        console.warn("[map-embed] Fallback na OpenFreeMap Dark ni uspel:", fallbackErr);
+      }
+    });
+  }
+
   /* ——— Leaflet setup ——— */
-  const mobView = isMobileView();
   const GRID_MIN_ZOOM = 7;
   const map = L.map("map", {
     center: [46.12, 14.82],
     zoom: 8,
     minZoom: 7,
     maxZoom: 11,
-    attributionControl: true,
+    attributionControl: false,
     zoomControl: false,
     dragging: false,
     doubleClickZoom: false,
@@ -2321,6 +2712,32 @@
       zoomDelta: 0.5,
     }),
   });
+
+  const attributionControl = L.control.attribution({
+    prefix: false,
+    position: "bottomright",
+  }).addTo(map);
+  attributionControl.addAttribution(
+    USE_OPENFREEMAP_BASE ? STRELKO_BASEMAP_ATTRIBUTION : MAPTILER_BASEMAP_ATTRIBUTION
+  );
+
+  function ensureAttributionLinkTargets() {
+    const root = map.getContainer().querySelector(".leaflet-control-attribution");
+    if (!root) return;
+    root.querySelectorAll("a").forEach(function (a) {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
+    });
+  }
+  ensureAttributionLinkTargets();
+  (function watchAttributionLinks() {
+    const root = map.getContainer().querySelector(".leaflet-control-attribution");
+    if (!root || typeof MutationObserver !== "function") return;
+    const obs = new MutationObserver(function () {
+      ensureAttributionLinkTargets();
+    });
+    obs.observe(root, { childList: true, subtree: true, characterData: true });
+  })();
 
   const OBCINE_MIN_ZOOM = map.getMinZoom();
 
@@ -2357,17 +2774,17 @@
     gridMapPanesReady = true;
   }
 
-  const baseTileLayer = L.tileLayer(maptilerTileUrl(STYLE_BASE_DARK), mobView ? {
-    attribution: MAP_ATTRIBUTION,
-    maxZoom: 18,
-    keepBuffer: 2,
-  } : {
-    attribution: MAP_ATTRIBUTION,
-    maxZoom: 20,
-    tileSize: 512,
-    zoomOffset: -1,
-  });
+  const baseTileLayer = USE_OPENFREEMAP_BASE
+    ? createOpenFreeMapBaseLayer()
+    : createMapTilerBaseLayer();
   baseTileLayer.addTo(map);
+
+  if (USE_OPENFREEMAP_BASE && typeof baseTileLayer.getMaplibreMap === "function") {
+    const glMap = baseTileLayer.getMaplibreMap();
+    if (glMap) {
+      attachOpenFreeMapStyleFallback(glMap);
+    }
+  }
 
   if (mobView) {
     map.on("dragstart", () => lockMobileUserViewport());

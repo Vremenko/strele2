@@ -256,6 +256,128 @@
       text-align: right;
     }
     .credit a { color: var(--muted); }
+
+    /* Zaklep Podpornik — Po urah + locked-content-surface v embed iframe */
+    #strelko-hourly-lock-root,
+    .locked-content-surface {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      box-sizing: border-box;
+      background: #1a1a1a;
+    }
+    #strelko-hourly-lock-root {
+      height: 100%;
+      min-height: 0;
+      flex: 1 1 auto;
+      align-self: stretch;
+      padding: 1.25rem 1rem;
+    }
+    #strelko-hourly-lock-root .locked-content,
+    #strelko-hourly-lock-root .archive-hourly-locked,
+    .locked-content-surface .locked-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 1.25rem 1rem;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-sizing: border-box;
+    }
+    #strelko-hourly-lock-root .locked-content__inner,
+    .locked-content-surface .locked-content__inner {
+      max-width: 42rem;
+      width: 100%;
+      margin: 0 auto;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    #strelko-hourly-lock-root .locked-content__icon,
+    .locked-content-surface .locked-content__icon {
+      display: block;
+      font-size: 1.35rem;
+      line-height: 1;
+      margin: 0 0 0.35rem;
+    }
+    #strelko-hourly-lock-root .locked-content__title,
+    .locked-content-surface .locked-content__title {
+      margin: 0 0 0.65rem;
+      padding: 0;
+      font-size: 1.05rem;
+      line-height: 1.35;
+      font-weight: 600;
+      color: #f2f2f2;
+      text-align: center;
+    }
+    #strelko-hourly-lock-root .locked-content__text,
+    .locked-content-surface .locked-content__text {
+      margin: 0 0 1rem;
+      padding: 0;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: #999999;
+      text-align: center;
+    }
+    #strelko-hourly-lock-root .locked-content__actions,
+    .locked-content-surface .locked-content__actions {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      justify-content: center;
+      gap: 0.6rem;
+      width: min(100%, 320px);
+      margin: 0 auto;
+    }
+    #strelko-hourly-lock-root .locked-content__actions .btn-ghost,
+    .locked-content-surface .locked-content__actions .btn-ghost {
+      display: none !important;
+    }
+    #strelko-hourly-lock-root a.btn,
+    #strelko-hourly-lock-root .btn,
+    .locked-content-surface a.btn,
+    .locked-content-surface .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.65rem 1.25rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      font-family: inherit;
+      width: 100%;
+      box-sizing: border-box;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    #strelko-hourly-lock-root a.btn-primary,
+    #strelko-hourly-lock-root .btn-primary,
+    .locked-content-surface a.btn-primary,
+    .locked-content-surface .btn-primary {
+      background: linear-gradient(135deg, #fbb006, #d99a05);
+      color: #1a1508;
+      text-decoration: none;
+    }
+    #strelko-hourly-lock-root a.btn-primary:visited,
+    #strelko-hourly-lock-root a.btn-primary:hover,
+    #strelko-hourly-lock-root a.btn-primary:focus,
+    .locked-content-surface a.btn-primary:visited,
+    .locked-content-surface a.btn-primary:hover,
+    .locked-content-surface a.btn-primary:focus {
+      color: #1a1508;
+      text-decoration: none;
+    }
+
     .chart-lock-block {
       position: relative;
       border-radius: 10px;
@@ -1487,17 +1609,21 @@
     }
 
     function lockedPanelHtml(id, title, seed, periodId = "") {
+      const m = isMobile();
+      const lockHeight = m ? 300 : 360;
       return `
-        <section class="panel chart-lock-panel" data-panel="${id}">
+        <section class="panel archive-locked-chart-panel" data-panel="${id}">
           ${panelHeadHtml(title, "", periodId)}
-          <div class="chart-lock-block" id="${id}Lock">
-            <div class="chart-lock-fake" aria-hidden="true">${fakeBarsHtml(seed)}</div>
-            <div class="chart-lock-cta">
-              <span class="chart-lock-icon" aria-hidden="true">🔒</span>
-              <h3>${title}</h3>
-              <p>Rang občin in gostota strel sta del pooblaščenega arhiva. Prijavite se za dostop.</p>
-              <button type="button" class="chart-lock-btn" data-embed-auth="login">Prijava</button>
-              <a class="chart-lock-link" href="/arhiv/" target="_top" rel="noopener">Celoten arhiv →</a>
+          <div class="chart-wrap tall archive-locked-chart-panel__chart locked-content-surface" style="height:${lockHeight}px;min-height:${lockHeight}px">
+            <div class="locked-content locked-content--inset">
+              <div class="locked-content__inner">
+                <span class="locked-content__icon" aria-hidden="true">🔒</span>
+                <h3 class="locked-content__title">Ta vsebina je na voljo s paketom Podpornik</h3>
+                <p class="locked-content__text">Z aktivacijo paketa Podpornik pridobite dostop do dodatnih prikazov, hkrati pa podprete ekipo Meteoinfo pri razvoju novih aplikacij in meteoroloških produktov ter nadaljnjem izboljševanju Strelka.</p>
+                <div class="locked-content__actions">
+                  <a class="btn btn-primary" href="/cenik" target="_top" rel="noopener">Aktiviraj paket Podpornik</a>
+                </div>
+              </div>
             </div>
           </div>
         </section>`;

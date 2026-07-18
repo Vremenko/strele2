@@ -426,6 +426,10 @@
   const MAP_ATTRIBUTION =
     '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">MapTiler</a> ' +
     '&copy; <a href="https://www.openstreetmap.org/copyright/" target="_blank" rel="noopener">OpenStreetMap</a>';
+  /** Hardcoded string that @maptiler/leaflet-maptilersdk injects on layer add. */
+  const MAPTILER_SDK_ATTRIBUTION =
+    '<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> ' +
+    '<a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>';
 
   let map = null;
   let baseLayer = null;
@@ -452,12 +456,13 @@
   let chartResizeObserver = null;
 
   function activeVisualPanel(view) {
-    if (!view || view.strikesLast24h <= 0) return "chart";
-    return userVisualPanel || "map";
+    if (!view) return "chart";
+    return userVisualPanel || "chart";
   }
 
   function isChartOnlyVisual(view) {
-    return !!(view && view.showMap && view.strikesLast24h <= 0);
+    /* Zemljevid v widgetu je odstranjen — ostane samo graf. */
+    return !!(view && view.showMap);
   }
 
   function formatChartDayLabel(dateStr) {
@@ -1340,6 +1345,17 @@
     return !!(MAPTILER_KEY && L.maptiler && typeof L.maptiler.maptilerLayer === "function");
   }
 
+  function syncWidgetMapAttribution(targetMap) {
+    const ctrl = targetMap && targetMap.attributionControl;
+    if (!ctrl) return;
+    ctrl.setPrefix("");
+    for (let i = 0; i < 6; i += 1) {
+      ctrl.removeAttribution(MAPTILER_SDK_ATTRIBUTION);
+      ctrl.removeAttribution(MAP_ATTRIBUTION);
+    }
+    ctrl.addAttribution(MAP_ATTRIBUTION);
+  }
+
   function createBaseLayer() {
     return L.tileLayer(
       `https://api.maptiler.com/maps/${STYLE_BASE}/{z}/{x}/{y}.png?key=${encodeURIComponent(MAPTILER_KEY)}`,
@@ -1358,7 +1374,7 @@
       return L.maptiler.maptilerLayer({
         apiKey: MAPTILER_KEY,
         style: maptilerStyleUrl(STYLE_KRAJI),
-        attribution: MAP_ATTRIBUTION,
+        attribution: "",
         attributionControl: false,
         pane: "maptilerOverlayPane",
         ...MAPTILER_NO_CONTROLS,
@@ -1402,7 +1418,12 @@
       baseLayer.addTo(map);
 
       labelsLayer = createKrajiLayer();
-      if (labelsLayer) labelsLayer.addTo(map);
+      if (labelsLayer) {
+        labelsLayer.on("add", () => syncWidgetMapAttribution(map));
+        labelsLayer.on("ready", () => syncWidgetMapAttribution(map));
+        labelsLayer.addTo(map);
+      }
+      syncWidgetMapAttribution(map);
     }
 
     if (boundaryLayer) map.removeLayer(boundaryLayer);
