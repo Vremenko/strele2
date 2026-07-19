@@ -3389,7 +3389,13 @@
       periodMode = "range";
       mapDay = null;
       clearCustomRange();
-    } catch (_) { /* ob napaki ostane 30 dni */ }
+    } catch (_) {
+      /* ob napaki: rezervno obdobje (7 pri gated, 30 pri supporter) */
+      days = DEFAULT_RANGE_DAYS;
+      periodMode = "range";
+      mapDay = null;
+      clearCustomRange();
+    }
   }
 
   function updatePeriodLabel() {
