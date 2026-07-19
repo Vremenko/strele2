@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8"/>
+<meta name="robots" content="noindex,nofollow"/>
+<title>Strelko embed preizkus (začasno)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+body{margin:0;padding:16px;background:#e8eef2;color:#222;font-family:system-ui,sans-serif}
+h1{font-size:1.1rem}
+.box{margin:1.5rem 0;max-width:1100px}
+iframe{max-width:100%}
+.note{opacity:.75;font-size:.9rem}
+</style>
+</head>
+<body>
+<h1>Začasni preizkus Strelko embedov (prozorna podlaga)</h1>
+<p class="note">Skrita testna stran — po preverjanju zbriši. Ozadje te strani mora biti vidno okoli kartic.</p>
+<div class="box">
+<iframe
+  id="mi-charts"
+  src="https://strelko.meteoinfo.si/embed/statistika-grafi?period=7d"
+  title="Statistika strel — grafi (Strelko)"
+  width="100%"
+  loading="lazy"
+  frameborder="0"
+  allowtransparency="true"
+  style="width:100%;border:0;background:transparent;display:block;min-height:480px;overflow:hidden"
+></iframe>
+<script>(function(){
+  var ORIGIN="https://strelko.meteoinfo.si";
+  var TYPE="strele-public-embed-resize";
+  var frame=document.getElementById("mi-charts");
+  if(!frame)return;
+  window.addEventListener("message",function(ev){
+    if(ev.origin!==ORIGIN)return;
+    if(!ev.data||ev.data.type!==TYPE)return;
+    if(ev.source!==frame.contentWindow)return;
+    var h=Math.max(480,Math.min(2000,+ev.data.height||0));
+    if(h>0)frame.style.height=h+"px";
+  });
+})();</script>
+</div>
+<div class="box">
+<iframe
+  id="mi-map"
+  src="https://strelko.meteoinfo.si/embed/obcine-zemljevid?period=7d"
+  title="Zemljevid strel po občinah (Strelko)"
+  width="100%"
+  loading="lazy"
+  frameborder="0"
+  allowtransparency="true"
+  style="width:100%;border:0;background:transparent;display:block;min-height:560px;overflow:hidden"
+></iframe>
+<script>(function(){
+  var ORIGIN="https://strelko.meteoinfo.si";
+  var TYPE="strele-public-embed-resize";
+  var frame=document.getElementById("mi-map");
+  if(!frame)return;
+  window.addEventListener("message",function(ev){
+    if(ev.origin!==ORIGIN)return;
+    if(!ev.data||ev.data.type!==TYPE)return;
+    if(ev.source!==frame.contentWindow)return;
+    var h=Math.max(560,Math.min(1800,+ev.data.height||0));
+    if(h>0)frame.style.height=h+"px";
+  });
+})();</script>
+</div>
+</body>
+</html>

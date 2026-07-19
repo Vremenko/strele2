@@ -32,6 +32,58 @@
       font-family: var(--font);
       font-size: 14px;
     }
+    html.embed-public-map,
+    html.embed-public-map body,
+    body.embed-public-map,
+    body.embed-public-map #root {
+      background: transparent !important;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body.embed-public-map {
+      padding: 0;
+    }
+    body.embed-public-map #root {
+      min-height: 0;
+      width: 100%;
+      max-width: none;
+    }
+    body.embed-public-map #map-stage,
+    body.embed-public-map #map,
+    body.embed-public-map .leaflet-container,
+    body.embed-public-map .maplibregl-map,
+    body.embed-public-map .maplibregl-canvas {
+      width: 100%;
+      max-width: none;
+      box-sizing: border-box;
+    }
+    body.embed-public-map .leaflet-container {
+      touch-action: pan-y pinch-zoom;
+      pointer-events: auto;
+    }
+    body.embed-public-map #periodLabelBtn,
+    body.embed-public-map .period-label-static {
+      cursor: default;
+      pointer-events: none;
+      border-color: transparent !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: var(--muted);
+      font: inherit;
+      font-size: 1.05rem;
+      padding: 0.15rem 0.35rem;
+      text-align: right;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    body.embed-public-map #mapViewTabs {
+      display: none !important;
+    }
     #root {
       display: flex;
       flex-direction: column;
@@ -910,6 +962,15 @@
   if (params.get("supporter") === "1") hasSupporterAccess = true;
   if (params.get("supporter") === "0") hasSupporterAccess = false;
 
+  const SHOW_CHROME = params.get("chrome") !== "0";
+  const HIDE_GRID_TAB = params.get("grid") === "0" || params.get("hide_grid") === "1";
+  /* Javni embed: mreža in Podpornik odklep prek URL/postMessage sta izključena. */
+  if (HIDE_GRID_TAB) {
+    hasSupporterAccess = false;
+    document.documentElement.classList.add("embed-public-map");
+    document.body.classList.add("embed-public-map");
+  }
+
   /* days=30 ali brez parametra = privzeto (danes če so strele, sicer default_range_days) */
   let periodLockedByUrl = false;
   if (params.has("day")) {
@@ -934,8 +995,8 @@
   }
   let mapMode    = "stevilo"; // "stevilo" | "gostota" | "dni"
   let mapView    = "obcine";  // "obcine" | "grid"
-  /* view=grid v URL brez Podpornika ne odklene mreže */
-  if (params.get("view") === "grid" && hasSupporterAccess) {
+  /* view=grid v URL brez Podpornika / ob grid=0 ne odklene mreže */
+  if (params.get("view") === "grid" && hasSupporterAccess && !HIDE_GRID_TAB) {
     mapView = "grid";
   }
   let lastObcineMode = mapMode;
@@ -943,7 +1004,6 @@
   /* UI izbira zaklenjenega obdobja (select kaže 14/30/90/custom, podatki ostanejo na zadnjem dovoljenem). */
   let periodLockUiValue = null;
   const REFRESH_SEC = Math.max(60, parseInt(params.get("refresh_sec") || "600", 10) || 600);
-  const SHOW_CHROME = params.get("chrome") !== "0";
   const DEFAULT_RANGE_DAYS = Math.max(1, parseInt(params.get("default_range_days") || "30", 10) || 30);
 
   /* ——— Formatters ——— */
@@ -970,10 +1030,24 @@
     return window.matchMedia("(max-width:899px)").matches;
   }
 
+  /** Namizne geste (Ctrl+kolešček): po tipu kazalnika, ne po širini iframea.
+   *  WP stolpec je pogosto < 900 px — sicer bi se napačno vklopile mobilne geste. */
+  function hasFinePointer() {
+    return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  }
+
+  function shouldBindDesktopMapGestures() {
+    return hasFinePointer() || !isMobileView();
+  }
+
+  function shouldBindMobileMapGestures() {
+    return !hasFinePointer() && isMobileView();
+  }
+
   function bindMobileMapGestures(mapInstance, hostEl) {
     if (!mapInstance || !hostEl) return;
     if (mapInstance.__streleMobileGestures) return;
-    if (!isMobileView()) return;
+    if (!shouldBindMobileMapGestures()) return;
     mapInstance.__streleMobileGestures = true;
 
     const hintMsg = "Premaknite zemljevid z dvema prstoma.";
@@ -1113,7 +1187,7 @@
   function bindMapZoomGestures(mapInstance, hostEl) {
     if (!mapInstance || !hostEl) return;
     if (mapInstance.__streleDesktopGestures) return;
-    if (isMobileView()) {
+    if (!shouldBindDesktopMapGestures()) {
       bindMobileMapGestures(mapInstance, hostEl);
       return;
     }
@@ -1293,11 +1367,33 @@
   /** On narrow screens fit whole Slovenia; desktop keeps fixed center/zoom. */
   const SLO_MOB_BOUNDS = L.latLngBounds([45.42, 13.38], [46.88, 16.61]);
   const MOB_VIEWPORT_PADDING = { paddingTopLeft: [10, 10], paddingBottomRight: [10, 40] };
+  /** Javni embed: ~1 stopnja bližje, manjši notranji odmik (statistika ostane nespremenjena). */
+  const PUBLIC_DESKTOP_ZOOM = 9;
+  const STATISTIKA_DESKTOP_ZOOM = 8;
+  const PUBLIC_MOB_VIEWPORT_PADDING = { paddingTopLeft: [4, 4], paddingBottomRight: [4, 28] };
+  const PUBLIC_MOB_FIT_MAX_ZOOM = 11;
+  const STATISTIKA_MOB_FIT_MAX_ZOOM = 10;
   let sloBoundsCache = null;
   let mobUserViewportLocked = false;
   let mobViewportFitSeq = 0;
   let mobViewportRetryTimer = null;
   let mobViewportProgrammatic = 0;
+
+  function isPublicMapEmbed() {
+    return !!HIDE_GRID_TAB;
+  }
+
+  function mobileViewportPadding() {
+    return isPublicMapEmbed() ? PUBLIC_MOB_VIEWPORT_PADDING : MOB_VIEWPORT_PADDING;
+  }
+
+  function mobileFitMaxZoom() {
+    return isPublicMapEmbed() ? PUBLIC_MOB_FIT_MAX_ZOOM : STATISTIKA_MOB_FIT_MAX_ZOOM;
+  }
+
+  function desktopInitialZoom() {
+    return isPublicMapEmbed() ? PUBLIC_DESKTOP_ZOOM : STATISTIKA_DESKTOP_ZOOM;
+  }
 
   function cancelMobileMapViewportRetries() {
     mobViewportFitSeq += 1;
@@ -1352,8 +1448,8 @@
       const bounds = getSloveniaBounds();
       if (!bounds || !bounds.isValid()) return false;
       map.fitBounds(bounds, {
-        ...MOB_VIEWPORT_PADDING,
-        maxZoom: 10,
+        ...mobileViewportPadding(),
+        maxZoom: mobileFitMaxZoom(),
         animate: false,
       });
       return true;
@@ -1382,7 +1478,7 @@
 
   function applyMapViewport() {
     if (!isMobileView()) {
-      map.setView([46.12, 14.82], 8, { animate: false });
+      map.setView([46.12, 14.82], desktopInitialZoom(), { animate: false });
       return;
     }
     scheduleMobileMapViewport();
@@ -2357,7 +2453,7 @@
   const mobView = isMobileView();
   const USE_OPENFREEMAP_BASE = true;
   /** Cache-bust: ob vsaki spremembi sloga povečaj verzijo (sicer brskalnik lahko drži star JSON). */
-  const STRELKO_DARK_STYLE_VERSION = "20260718m";
+  const STRELKO_DARK_STYLE_VERSION = "20260719a";
   /**
    * Datoteka živi v web/public/styles/strelko-dark.json.
    * Prek nginx-a je na produkciji dosegljiva pod /arhiv/public/data/ (explicit proxy na 8083).
@@ -2811,6 +2907,14 @@
     : createMapTilerBaseLayer();
   baseTileLayer.addTo(map);
 
+  function resizeMaplibreBasemap() {
+    try {
+      if (typeof baseTileLayer.getMaplibreMap !== "function") return;
+      const glMap = baseTileLayer.getMaplibreMap();
+      if (glMap && typeof glMap.resize === "function") glMap.resize();
+    } catch (_) {}
+  }
+
   if (USE_OPENFREEMAP_BASE && typeof baseTileLayer.getMaplibreMap === "function") {
     const glMap = baseTileLayer.getMaplibreMap();
     if (glMap) {
@@ -2827,7 +2931,7 @@
   function ensureDesktopMapGestures() {
     const hostEl = document.getElementById("map-stage");
     if (!map || !hostEl) return;
-    if (isMobileView()) {
+    if (shouldBindMobileMapGestures()) {
       if (!mobileGesturesBound) {
         bindMobileMapGestures(map, hostEl);
         mobileGesturesBound = true;
@@ -2835,18 +2939,34 @@
       return;
     }
     if (desktopGesturesBound) return;
-    if (window.innerWidth < 900) return;
     bindMapZoomGestures(map, hostEl);
     desktopGesturesBound = true;
   }
   function scheduleDesktopMapGestures() {
     ensureDesktopMapGestures();
-    if (isMobileView()) return;
+    if (shouldBindMobileMapGestures()) return;
     if (!desktopGesturesBound) {
       requestAnimationFrame(scheduleDesktopMapGestures);
     }
   }
   scheduleDesktopMapGestures();
+  try {
+    const fineMq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const onPointerMq = () => {
+      desktopGesturesBound = false;
+      mobileGesturesBound = false;
+      if (map) {
+        map.__streleDesktopGestures = false;
+        map.__streleMobileGestures = false;
+      }
+      ensureDesktopMapGestures();
+    };
+    if (typeof fineMq.addEventListener === "function") {
+      fineMq.addEventListener("change", onPointerMq);
+    } else if (typeof fineMq.addListener === "function") {
+      fineMq.addListener(onPointerMq);
+    }
+  } catch (_) {}
 
   /* ——— Legend control ——— */
   const legendControl = L.control({ position: "bottomright" });
@@ -2862,8 +2982,9 @@
 
   function scheduleMapResize() {
     requestAnimationFrame(() => {
+      map.invalidateSize(true);
+      resizeMaplibreBasemap();
       if (!isMobileView()) {
-        map.invalidateSize(true);
         applyMapViewport();
       } else {
         scheduleMobileMapViewport();
@@ -2913,6 +3034,13 @@
       scheduleDesktopMapGestures();
     }
   });
+  if (typeof ResizeObserver !== "undefined") {
+    const roRoot = document.getElementById("root") || document.body;
+    const ro = new ResizeObserver(() => scheduleMapResize());
+    if (roRoot) ro.observe(roRoot);
+    const mapStage = document.getElementById("map-stage");
+    if (mapStage) ro.observe(mapStage);
+  }
   scheduleMapResize();
   notifyResizeOnce();
 
@@ -2946,6 +3074,7 @@
   const dayPickWrap   = document.getElementById("mapDayPickWrap");
   const dayPick       = document.getElementById("mapDayPick");
   const periodLabelEl = document.getElementById("periodLabel");
+  let periodLabelNode = periodLabelEl;
   const statusEl      = document.getElementById("status");
   const mapViewGridBtn = document.getElementById("mapViewGridBtn");
   const mapFeatureLock = document.getElementById("map-feature-lock");
@@ -3264,16 +3393,19 @@
   }
 
   function updatePeriodLabel() {
+    const el = periodLabelNode || document.getElementById("periodLabel");
+    if (!el) return;
+    periodLabelNode = el;
     if (periodMode === "day" && mapDay) {
-      periodLabelEl.textContent = fmtFull(mapDay);
+      el.textContent = fmtFull(mapDay);
       return;
     }
     if (!customRange && days === 1) {
-      periodLabelEl.textContent = fmtFull(todayIso());
+      el.textContent = fmtFull(todayIso());
       return;
     }
     const { from, to } = mapDateRange();
-    periodLabelEl.textContent = formatSlDateRange(from, to);
+    el.textContent = formatSlDateRange(from, to);
   }
 
   function setStatus(msg, isError = false) {
@@ -4696,7 +4828,8 @@
     if (!next) return;
 
     /* Brez Podpornika: mreža → samo zaklenjeni panel (mapView=grid), brez API. */
-    if (next === "grid" && !hasSupporterAccess) {
+    if (next === "grid" && (HIDE_GRID_TAB || !hasSupporterAccess)) {
+      if (HIDE_GRID_TAB) return;
       showGridLockUi();
       return;
     }
@@ -4750,6 +4883,13 @@
 
   window.addEventListener("message", function (e) {
     if (e.data?.type === "strele-map-set-access") {
+      /* Javni embed (grid=0): ne sprejemaj odklepa Podpornik / mreže prek postMessage. */
+      if (HIDE_GRID_TAB) {
+        hasSupporterAccess = false;
+        mapView = "obcine";
+        syncSupporterLockMarks();
+        return;
+      }
       const next = e.data.supporter === true || e.data.supporter === 1 || e.data.supporter === "1";
       const prev = hasSupporterAccess;
       hasSupporterAccess = !!next;
@@ -5184,6 +5324,55 @@
 
   if (!SHOW_CHROME) {
     document.getElementById("toolbar")?.classList.add("hidden");
+  }
+
+  if (HIDE_GRID_TAB) {
+    mapView = "obcine";
+    const gridBtn = document.getElementById("mapViewGridBtn");
+    if (gridBtn) {
+      gridBtn.hidden = true;
+      gridBtn.setAttribute("aria-hidden", "true");
+      gridBtn.style.display = "none";
+      gridBtn.remove();
+    }
+    /* Javni embed: gumb Občine / zavihki prikaza niso potrebni (samo občine). */
+    const viewTabs = document.getElementById("mapViewTabs");
+    if (viewTabs) viewTabs.remove();
+    /* Javni embed: plačljiva obdobja popolnoma ven iz DOM (ne CSS-hide). */
+    if (sel) {
+      Array.from(sel.options).forEach((opt) => {
+        if (!isFreePeriodSelectValue(opt.value)) opt.remove();
+      });
+    }
+    const customOpt = document.getElementById("periodCustomOption");
+    if (customOpt) customOpt.remove();
+    if (dayPickWrap) {
+      dayPickWrap.classList.add("hidden");
+      dayPickWrap.remove();
+    }
+    /* Datum ostane viden; Po meri picker in klik na oznako odstranimo. */
+    const periodRangePicker = document.getElementById("periodRangePicker");
+    if (periodRangePicker) periodRangePicker.remove();
+    const periodBtn = document.getElementById("periodLabelBtn");
+    if (periodBtn) {
+      const oldLabel = document.getElementById("periodLabel");
+      const text = oldLabel ? oldLabel.textContent : "";
+      const staticLabel = document.createElement("span");
+      staticLabel.id = "periodLabel";
+      staticLabel.className = "period-label-static";
+      staticLabel.textContent = text;
+      periodBtn.replaceWith(staticLabel);
+      periodLabelNode = staticLabel;
+    }
+    if (!isFreePeriodSelectValue(String(days))) {
+      days = 7;
+      periodMode = "range";
+      mapDay = null;
+      clearCustomRange();
+    }
+    if (sel && !isFreePeriodSelectValue(sel.value)) sel.value = "7";
+    hasSupporterAccess = false;
+    updatePeriodLabel();
   }
 
   /* ——— Init ——— */

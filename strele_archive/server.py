@@ -200,12 +200,20 @@ def _prepare_html(html: str, *, inject_private: bool = False) -> str:
     return html
 
 
-def _serve_html(path: Path, *, inject_private: bool = False) -> Response:
+def _serve_html(
+    path: Path,
+    *,
+    inject_private: bool = False,
+    frame_ancestors: str | None = None,
+) -> Response:
     html = _prepare_html(path.read_text(encoding="utf-8"), inject_private=inject_private)
+    headers = {"Cache-Control": "no-cache"}
+    if frame_ancestors:
+        headers["Content-Security-Policy"] = f"frame-ancestors {frame_ancestors}"
     return Response(
         content=html,
         media_type="text/html; charset=utf-8",
-        headers={"Cache-Control": "no-cache"},
+        headers=headers,
     )
 
 
@@ -390,7 +398,15 @@ def public_page() -> Response:
 @app.get("/public/embed")
 @app.get("/embed")
 def embed_page() -> Response:
-    return _serve_html(WEB_DIR / "public" / "embed.html")
+    # Vgrajen v Strelko (/statistika, /embed/…) — ne poljubne domene.
+    frame_ancestors = os.getenv(
+        "STRELKO_CHART_FRAME_ANCESTORS",
+        "https://strelko.meteoinfo.si https://meteoinfo.si https://www.meteoinfo.si",
+    ).strip()
+    return _serve_html(
+        WEB_DIR / "public" / "embed.html",
+        frame_ancestors=frame_ancestors,
+    )
 
 
 @app.get("/public/data/{filename}")

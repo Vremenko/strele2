@@ -47,6 +47,52 @@
       padding: 0;
       background: transparent;
     }
+    html.embed-public,
+    html.embed-public body,
+    body.embed.embed-public,
+    body.embed.embed-public #root {
+      background: transparent !important;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      box-sizing: border-box;
+      overscroll-behavior: none;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      overflow-y: visible !important;
+    }
+    body.embed.embed-public {
+      padding: 0 !important;
+    }
+    body.embed.embed-public .charts-layout {
+      width: 100%;
+      max-width: none;
+      gap: 20px;
+      box-sizing: border-box;
+      height: auto;
+      max-height: none;
+      overflow: visible;
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+    body.embed.embed-public .panel {
+      width: 100%;
+      max-width: none;
+      box-sizing: border-box;
+      margin-bottom: 0;
+    }
+    body.embed.embed-public .panel:last-child {
+      padding-bottom: 0;
+    }
+    body.embed.embed-public .error:not(.visible) {
+      display: none;
+      margin: 0;
+      padding: 0;
+      height: 0;
+      overflow: hidden;
+    }
     body.embed:not(.embed-framed):not(.embed-compact) {
       padding: 0.5rem;
     }
@@ -54,9 +100,88 @@
       touch-action: pan-y;
     }
     /* Parent page overlays native select — hide duplicate control in iframe */
-    body.embed.embed-framed .panel-head-actions #daysSelect {
+    body.embed.embed-framed:not(.embed-public) .panel-head-actions #daysSelect {
       opacity: 0;
       pointer-events: none;
+    }
+    /* Javni embed: skriti native select; prikaz custom gumbi (delujejo prek postMessage). */
+    body.embed.embed-public.embed-framed .public-period__native {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    body.embed.embed-public .public-period {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: stretch;
+      min-width: 7.25rem;
+      z-index: 30;
+    }
+    body.embed.embed-public .public-period__btn {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      min-height: 34px;
+      box-sizing: border-box;
+      font: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-align: left;
+      padding: 0.35rem 1.6rem 0.35rem 0.65rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background-color: #2a2a2a;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f2f2f2' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.55rem center;
+      color: #f2f2f2;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body.embed.embed-public .public-period__btn:hover,
+    body.embed.embed-public .public-period__btn[aria-expanded="true"] {
+      border-color: rgba(5, 165, 206, 0.45);
+    }
+    body.embed.embed-public .public-period__menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      left: 0;
+      min-width: 100%;
+      margin: 0;
+      padding: 0.25rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: #242424;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    body.embed.embed-public .public-period__menu.hidden {
+      display: none !important;
+    }
+    body.embed.embed-public .public-period__menu button {
+      appearance: none;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #f2f2f2;
+      font: inherit;
+      font-size: 0.92rem;
+      text-align: left;
+      padding: 0.45rem 0.6rem;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body.embed.embed-public .public-period__menu button:hover,
+    body.embed.embed-public .public-period__menu button[aria-selected="true"] {
+      background: rgba(5, 165, 206, 0.22);
     }
     @media (min-width: 640px) {
       body.embed.embed-framed:not(.embed-compact) .panel {
@@ -552,10 +677,34 @@
       locked: params.get("locked") === "1",
       hourly: params.get("hourly") === "1",
       compact: params.get("compact") === "1",
+      /* Javni meteoinfo embed: samo odklenjeni paneli, brez zaklepov Podpornik. */
+      public: params.get("public") === "1",
     };
+    /* Javni embed: občine/zaklepi ostanejo izključeni; Po urah je dovoljen. */
+    if (EMBED.public) {
+      EMBED.obcine = false;
+      EMBED.locked = false;
+      /* Če URL eksplicitno zahteva hourly=1 (javni embed), spošti. */
+      if (params.get("hourly") === "1") {
+        EMBED.hourly = true;
+      }
+      /* Javni meni nima »Danes« — 1 dan → 7 dni. */
+      if (String(EMBED.days) === "1" || Number(EMBED.days) === 1) {
+        EMBED.days = "7";
+      }
+      if (EMBED.chart === "hourly") {
+        /* hourly sam → daily + hourly ni smiseln v javnem; obravnavaj kot all. */
+        EMBED.chart = "all";
+        EMBED.hourly = true;
+      }
+    }
     if (window.parent !== window) {
       document.documentElement.classList.add("embed-framed-root");
       document.body.classList.add("embed-framed");
+    }
+    if (EMBED.public) {
+      document.documentElement.classList.add("embed-public");
+      document.body.classList.add("embed-public");
     }
     if (!EMBED.source && /meteoinfo\.si/i.test(EMBED.api)) {
       EMBED.source = "meteoinfo";
@@ -612,8 +761,18 @@
       if (w >= 400) return 1;
       return Math.max(0.72, w / 480);
     }
+    /** Javni embed: ~20 % nižji grafi (brez transform: scale). */
+    function publicChartHeightFactor() {
+      return EMBED.public ? 0.8 : 1;
+    }
+    function applyPublicChartHeight(px) {
+      const scaled = Math.round(px * publicChartHeightFactor());
+      if (!EMBED.public) return scaled;
+      const minH = isMobile() ? 176 : 200;
+      return Math.max(minH, scaled);
+    }
     function scaledHeight(px) {
-      return Math.round(px * chartHeightScale());
+      return applyPublicChartHeight(Math.round(px * chartHeightScale()));
     }
     function scaledSize(px, min = 1) {
       return Math.max(min, Math.round(px * chartHeightScale()));
@@ -669,6 +828,7 @@
     const charts = {};
     let rangeDays = Number(EMBED.days) || 30;
     let customRange = null; /* { from, to } za Po meri */
+    let periodLoadSeq = 0; /* zavrni starejše odgovore po menjavi obdobja */
     const CUSTOM_RANGE_MIN_ISO = "2026-03-30";
     let detailMode = "range";
     let selectedDay = "";
@@ -1151,11 +1311,6 @@
       return Math.ceil(topPad + panel.offsetTop + panel.offsetHeight);
     }
 
-    function initParentPageScrollForward() {
-      // Parent iframe uses pointer-events:none — native page scroll, no synthetic forward.
-      if (window.parent === window) return;
-    }
-
     function parentViewportToEmbed(clientX, clientY) {
       const frame = window.frameElement;
       if (!frame) return { x: clientX, y: clientY };
@@ -1236,6 +1391,58 @@
       const local = parentViewportToEmbed(clientX, clientY);
       const hit = document.elementFromPoint(local.x, local.y);
 
+      if (EMBED.public) {
+        const periodOpt = hit && hit.closest ? hit.closest("#publicPeriodMenu [data-days]") : null;
+        if (periodOpt) {
+          const days = Number(periodOpt.dataset.days);
+          setPublicPeriodMenuOpen(false);
+          if (Number.isFinite(days) && days > 0) applyPeriodDays(days);
+          return;
+        }
+        const periodHit =
+          (hit && hit.closest && hit.closest("#publicPeriodWrap, #publicPeriodBtn")) ||
+          (() => {
+            const wrap = document.getElementById("publicPeriodWrap");
+            if (!wrap) return null;
+            const r = wrap.getBoundingClientRect();
+            if (
+              local.x >= r.left - 2 &&
+              local.x <= r.right + 2 &&
+              local.y >= r.top - 2 &&
+              local.y <= r.bottom + 2
+            ) {
+              return wrap;
+            }
+            return null;
+          })();
+        if (periodHit) {
+          /* Če je meni odprt in klik znotraj menija po Y, izberi možnost. */
+          const menu = document.getElementById("publicPeriodMenu");
+          if (menu && !menu.classList.contains("hidden")) {
+            const opts = [...menu.querySelectorAll("[data-days]")];
+            for (const opt of opts) {
+              const r = opt.getBoundingClientRect();
+              if (
+                local.x >= r.left - 2 &&
+                local.x <= r.right + 2 &&
+                local.y >= r.top - 2 &&
+                local.y <= r.bottom + 2
+              ) {
+                const days = Number(opt.dataset.days);
+                setPublicPeriodMenuOpen(false);
+                if (Number.isFinite(days) && days > 0) applyPeriodDays(days);
+                return;
+              }
+            }
+          }
+          togglePublicPeriodMenu();
+          return;
+        }
+        if (isPublicPeriodMenuOpen()) {
+          setPublicPeriodMenuOpen(false);
+        }
+      }
+
       if (isPeriodRangePickerOpen()) {
         const picker = document.getElementById("periodRangePicker");
         if (picker && hit && picker.contains(hit)) {
@@ -1291,11 +1498,128 @@
       clearAllChartTooltips();
     }
 
+    function relativeToLocal(relativeX, relativeY) {
+      const w = window.innerWidth || document.documentElement.clientWidth || 1;
+      const h = window.innerHeight || document.documentElement.clientHeight || 1;
+      return {
+        x: Number(relativeX) * w,
+        y: Number(relativeY) * h,
+      };
+    }
+
+    const processedPointerIds = new Set();
+    function rememberPointerId(id) {
+      if (!id || typeof id !== "string") return false;
+      if (processedPointerIds.has(id)) return false;
+      processedPointerIds.add(id);
+      if (processedPointerIds.size > 120) {
+        const first = processedPointerIds.values().next().value;
+        processedPointerIds.delete(first);
+      }
+      return true;
+    }
+
+    function isAllowedPointerOrigin(origin) {
+      if (!origin) return false;
+      if (origin === location.origin) return true;
+      if (origin === "https://strelko.meteoinfo.si") return true;
+      if (origin === "https://meteoinfo.si" || origin === "https://www.meteoinfo.si") {
+        return !!EMBED.public;
+      }
+      return false;
+    }
+
+    function parentPostTargetOrigins() {
+      const origins = new Set([location.origin, "https://strelko.meteoinfo.si"]);
+      if (EMBED.public) {
+        origins.add("https://meteoinfo.si");
+        origins.add("https://www.meteoinfo.si");
+      }
+      return [...origins];
+    }
+
+    function notifyChartChromeLayout() {
+      if (window.parent === window) return;
+      const wrap = document.querySelector('[data-panel="daily"] .chart-wrap')
+        || document.querySelector(".chart-wrap");
+      let top = 72;
+      if (wrap) {
+        top = Math.max(0, Math.round(wrap.getBoundingClientRect().top));
+      } else {
+        const head = document.querySelector('[data-panel="daily"] .panel-head');
+        if (head) top = Math.max(0, Math.round(head.getBoundingClientRect().bottom));
+      }
+      const height = Math.max(
+        window.innerHeight || 0,
+        document.documentElement.clientHeight || 0,
+        1,
+      );
+      const ratio = Math.max(0, Math.min(1, top / height));
+      const payload = {
+        type: "strele-chart-layout",
+        chartTopPx: top,
+        chartTopRatio: ratio,
+        height,
+      };
+      for (const origin of parentPostTargetOrigins()) {
+        try {
+          window.parent.postMessage(payload, origin);
+        } catch (_) { /* ignore */ }
+      }
+    }
+
+    function handleRelativeChartPointer(action, relativeX, relativeY, interactionId) {
+      const local = relativeToLocal(relativeX, relativeY);
+      const frame = window.frameElement;
+      let parentX = local.x;
+      let parentY = local.y;
+      if (frame) {
+        const fr = frame.getBoundingClientRect();
+        parentX = fr.left + local.x;
+        parentY = fr.top + local.y;
+      }
+      if (action === "click") {
+        if (!rememberPointerId(interactionId)) return;
+        handleExternalChartTap(parentX, parentY);
+        return;
+      }
+      if (action === "move") {
+        handleExternalChartHover(parentX, parentY);
+        return;
+      }
+      if (action === "leave") {
+        clearAllChartTooltips();
+      }
+    }
+
     function initExternalInteraction() {
       if (window.parent === window) return;
       window.addEventListener("message", (evt) => {
+        if (!isAllowedPointerOrigin(evt.origin)) return;
+        /* Isti starš ali (isti origin) starševsko okno — nekateri brskalniki drugače nastavijo source. */
+        if (evt.source !== window.parent && evt.source !== window.top) {
+          if (evt.origin !== location.origin) return;
+        }
         const data = evt.data;
         if (!data || typeof data !== "object") return;
+
+        if (data.type === "strele-chart-pointer") {
+          const action = data.action;
+          const id = typeof data.interactionId === "string" ? data.interactionId : "";
+          if (!id || id.length > 80) return;
+          if (action === "leave") {
+            handleRelativeChartPointer("leave", 0, 0, id);
+            return;
+          }
+          const rx = Number(data.relativeX);
+          const ry = Number(data.relativeY);
+          if (!Number.isFinite(rx) || !Number.isFinite(ry) || rx < 0 || rx > 1 || ry < 0 || ry > 1) return;
+          if (action !== "click" && action !== "move") return;
+          handleRelativeChartPointer(action, rx, ry, id);
+          return;
+        }
+
+        /* Stara Statistika: clientX/clientY (isti origin). */
         if (data.type === "strele-embed-chart-tap") {
           handleExternalChartTap(Number(data.clientX), Number(data.clientY));
           return;
@@ -1323,6 +1647,7 @@
           return;
         }
         if (data.type === "strele-embed-open-period-picker") {
+          if (EMBED.public) return;
           const sel = document.getElementById("daysSelect");
           if (sel) sel.value = "custom";
           openPeriodRangePicker(document.getElementById("dailyPeriodLabel"));
@@ -1331,18 +1656,7 @@
         if (data.type === "strele-embed-set-days") {
           const days = Number(data.days);
           if (!Number.isFinite(days) || days <= 0) return;
-          clearCustomRange();
-          rangeDays = days;
-          const sel = document.getElementById("daysSelect");
-          if (sel) sel.value = String(days);
-          updateScopeLabels(days);
-          void loadDaily().then(() => {
-            if (isDetailRange()) {
-              syncFilterUi();
-              void reloadDetailCharts();
-            }
-          });
-          notifyDaysSelectRect();
+          applyPeriodDays(days);
           return;
         }
         if (data.type === "strele-embed-request-days-rect") {
@@ -1357,18 +1671,44 @@
       if (!sel) return;
       const r = sel.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) return;
-      window.parent.postMessage(
-        {
-          type: "strele-embed-days-rect",
-          top: r.top,
-          left: r.left,
-          width: r.width,
-          height: r.height,
-          days: sel.value === "custom" ? rangeDays : (Number(sel.value) || rangeDays),
-          custom: sel.value === "custom" || !!customRange,
-        },
-        "*",
-      );
+      const payload = {
+        type: "strele-embed-days-rect",
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+        days: sel.value === "custom" ? rangeDays : (Number(sel.value) || rangeDays),
+        custom: sel.value === "custom" || !!customRange,
+      };
+      for (const origin of parentPostTargetOrigins()) {
+        try {
+          window.parent.postMessage(payload, origin);
+        } catch (_) { /* ignore */ }
+      }
+    }
+
+    function publicReportedHeight() {
+      const root = document.getElementById("root");
+      const panels = root
+        ? [...root.querySelectorAll(".panel, [data-panel]")]
+        : [...document.querySelectorAll(".panel, [data-panel]")];
+      let bottom = 0;
+      for (const el of panels) {
+        const r = el.getBoundingClientRect();
+        if (r.height < 1) continue;
+        bottom = Math.max(bottom, r.bottom);
+      }
+      if (bottom < 1 && root) {
+        bottom = root.getBoundingClientRect().bottom;
+      }
+      if (bottom < 1) {
+        return Math.max(
+          document.documentElement.scrollHeight || 0,
+          document.body.scrollHeight || 0,
+        );
+      }
+      /* Majhen rob; brez odvečnega praznega prostora pod grafoma. */
+      return Math.ceil(bottom + 8);
     }
 
     function notifyResize() {
@@ -1376,6 +1716,8 @@
       let height;
       if (EMBED.compact) {
         height = compactReportedHeight();
+      } else if (EMBED.public) {
+        height = publicReportedHeight();
       } else if (document.documentElement.classList.contains("embed-framed-root")) {
         height = EMBED.chart === "all"
           ? document.body.scrollHeight
@@ -1385,12 +1727,15 @@
       }
       if (Math.abs(height - lastReportedHeight) >= 2) {
         lastReportedHeight = height;
-        window.parent.postMessage(
-          { type: "strele-embed-resize", height },
-          "*",
-        );
+        const payload = { type: "strele-embed-resize", height };
+        for (const origin of parentPostTargetOrigins()) {
+          try {
+            window.parent.postMessage(payload, origin);
+          } catch (_) { /* ignore */ }
+        }
       }
       notifyDaysSelectRect();
+      if (EMBED.public) notifyChartChromeLayout();
     }
 
     function showError(id, msg) {
@@ -1527,7 +1872,7 @@
         ? `<h2 class="panel-head-title">${title}</h2>`
         : "";
       let periodHtml = "";
-      if (periodId === "dailyPeriodLabel" && EMBED.controls) {
+      if (periodId === "dailyPeriodLabel" && EMBED.controls && !EMBED.public) {
         periodHtml = `
             <div class="period-label-wrap">
               <p class="panel-period period-label-trigger" id="dailyPeriodLabel" data-period-trigger role="button" tabindex="0" title="Izberi obdobje"></p>
@@ -1555,7 +1900,7 @@
                 </div>
               </div>
             </div>`;
-      } else if (periodId === "hourlyPeriodLabel" && EMBED.controls) {
+      } else if (periodId === "hourlyPeriodLabel" && EMBED.controls && !EMBED.public) {
         periodHtml = `
             <p class="panel-period period-label-trigger" id="hourlyPeriodLabel" data-period-trigger role="button" tabindex="0" title="Izberi obdobje"></p>`;
       } else if (periodId) {
@@ -1578,7 +1923,21 @@
 
     function dailyPanelHintHtml() {
       if (EMBED.chart !== "all") return "";
+      const linkedBelow = countLinkedChartsBelowDaily();
+      if (linkedBelow <= 1) {
+        return `<p class="panel-chart-hint">Kliknite na stolpec, da se spodnji graf posodobi za izbrani dan.</p>`;
+      }
       return `<p class="panel-chart-hint">Kliknite na stolpec, da se spodnji grafi posodobijo za izbrani dan.</p>`;
+    }
+
+    /** Število spodnjih grafov, ki se posodobijo ob izbiri dneva (ne šteje zaklenjenih lupin). */
+    function countLinkedChartsBelowDaily() {
+      if (EMBED.chart !== "all") return 0;
+      let n = 0;
+      if (EMBED.hourly) n += 1;
+      n += 1; /* regions je v chart=all vedno */
+      if (EMBED.obcine && !EMBED.locked) n += 2;
+      return n;
     }
 
     function panelHtml(id, title, tall, headActions = "", periodId = "", afterChartHtml = "") {
@@ -1654,6 +2013,26 @@
 
     function dailyHeadControls() {
       if (!EMBED.controls) return "";
+      if (EMBED.public) {
+        return `
+        <div class="public-period toolbar-field toolbar-field--compact toolbar-field--head" id="publicPeriodWrap">
+          <button type="button" class="public-period__btn" id="publicPeriodBtn" aria-label="Obdobje" aria-haspopup="listbox" aria-expanded="false">
+            <span id="publicPeriodBtnLabel">7 dni</span>
+          </button>
+          <div class="public-period__menu hidden" id="publicPeriodMenu" role="listbox">
+            <button type="button" role="option" data-days="7">7 dni</button>
+            <button type="button" role="option" data-days="14">14 dni</button>
+            <button type="button" role="option" data-days="30">30 dni</button>
+            <button type="button" role="option" data-days="90">90 dni</button>
+          </div>
+          <select id="daysSelect" class="public-period__native" aria-hidden="true" tabindex="-1">
+            <option value="7">7 dni</option>
+            <option value="14">14 dni</option>
+            <option value="30">30 dni</option>
+            <option value="90">90 dni</option>
+          </select>
+        </div>`;
+      }
       return `
         <label class="toolbar-field toolbar-field--compact toolbar-field--head">
           <select id="daysSelect" aria-label="Obdobje">
@@ -1667,12 +2046,50 @@
         </label>`;
     }
 
+    function periodDaysLabel(days) {
+      const n = Number(days);
+      if (n === 1) return "Danes";
+      if (n === 7) return "7 dni";
+      if (n === 14) return "14 dni";
+      if (n === 30) return "30 dni";
+      if (n === 90) return "90 dni";
+      return `${n} dni`;
+    }
+
+    function syncPublicPeriodUi(days) {
+      if (!EMBED.public) return;
+      const n = Number(days) || rangeDays;
+      const label = document.getElementById("publicPeriodBtnLabel");
+      if (label) label.textContent = periodDaysLabel(n);
+      document.querySelectorAll("#publicPeriodMenu [data-days]").forEach((btn) => {
+        btn.setAttribute("aria-selected", String(Number(btn.dataset.days) === n));
+      });
+    }
+
+    function setPublicPeriodMenuOpen(open) {
+      const menu = document.getElementById("publicPeriodMenu");
+      const btn = document.getElementById("publicPeriodBtn");
+      if (!menu || !btn) return;
+      menu.classList.toggle("hidden", !open);
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) notifyResize();
+    }
+
+    function isPublicPeriodMenuOpen() {
+      const menu = document.getElementById("publicPeriodMenu");
+      return !!(menu && !menu.classList.contains("hidden"));
+    }
+
+    function togglePublicPeriodMenu() {
+      setPublicPeriodMenuOpen(!isPublicPeriodMenuOpen());
+    }
+
     function compactPanelHeadHtml(title, headActions = "", periodId = "") {
       const actionsHtml = headActions
         ? `<div class="panel-head-actions">${headActions}</div>`
         : "";
       let periodHtml = "";
-      if (periodId === "dailyPeriodLabel" && EMBED.controls) {
+      if (periodId === "dailyPeriodLabel" && EMBED.controls && !EMBED.public) {
         periodHtml = `
             <div class="period-label-wrap">
               <p class="panel-period period-label-trigger" id="dailyPeriodLabel" data-period-trigger role="button" tabindex="0" title="Izberi obdobje"></p>
@@ -1700,7 +2117,7 @@
                 </div>
               </div>
             </div>`;
-      } else if (periodId === "hourlyPeriodLabel" && EMBED.controls) {
+      } else if (periodId === "hourlyPeriodLabel" && EMBED.controls && !EMBED.public) {
         periodHtml = `
             <p class="panel-period period-label-trigger" id="hourlyPeriodLabel" data-period-trigger role="button" tabindex="0" title="Izberi obdobje"></p>`;
       } else if (periodId) {
@@ -1759,7 +2176,7 @@
         if (mode === "hourly" || mode === "all") {
           if (EMBED.hourly) {
             html += panelHtml("hourly", "Po urah", false, "", "hourlyPeriodLabel");
-          } else {
+          } else if (!EMBED.public) {
             html += hourlyLockShellHtml();
           }
         }
@@ -1786,6 +2203,7 @@
       if (EMBED.controls) {
         const sel = document.getElementById("daysSelect");
         if (sel) sel.value = String(rangeDays);
+        syncPublicPeriodUi(rangeDays);
       }
     }
 
@@ -1793,7 +2211,8 @@
       const wrap = document.getElementById("regionsWrap");
       if (!wrap || EMBED.height > 0) return;
       const { perBar, base, minH } = mobileBarMetrics(28, 22, 100, 80, 360, 280);
-      wrap.style.height = `${Math.max(minH, base + count * perBar)}px`;
+      const raw = Math.max(minH, base + count * perBar);
+      wrap.style.height = `${applyPublicChartHeight(raw)}px`;
     }
 
     function setObcinaHeight(count) {
@@ -1801,7 +2220,8 @@
       if (!wrap || EMBED.height > 0) return;
       const { perBar, base, minH } = mobileBarMetrics(24, 20, 100, 60, 280, 300);
       const bars = Math.max(count, 5);
-      wrap.style.height = `${Math.max(minH, base + bars * perBar)}px`;
+      const raw = Math.max(minH, base + bars * perBar);
+      wrap.style.height = `${applyPublicChartHeight(raw)}px`;
     }
 
     function setObcinaGostotaHeight(count) {
@@ -1809,7 +2229,8 @@
       if (!wrap || EMBED.height > 0) return;
       const { perBar, base, minH } = mobileBarMetrics(24, 20, 100, 60, 280, 300);
       const bars = Math.max(count, 5);
-      wrap.style.height = `${Math.max(minH, base + bars * perBar)}px`;
+      const raw = Math.max(minH, base + bars * perBar);
+      wrap.style.height = `${applyPublicChartHeight(raw)}px`;
     }
 
     async function loadObcineCharts() {
@@ -2096,6 +2517,7 @@
     }
 
     async function loadDaily() {
+      const seq = periodLoadSeq;
       hideError("dailyError");
       try {
         const days = getRangeDays();
@@ -2131,6 +2553,7 @@
         } else {
           data = await fetchJson(`/api/si-daily?${chartPeriodQuery()}`);
         }
+        if (seq !== periodLoadSeq) return;
         dailyChartDates = data.map((d) => d.datum);
         dailyCountsByDay = new Map(data.map((d) => [d.datum, d.stevilo]));
         if (detailMode === "day" && selectedDay && dailyCountsByDay.has(selectedDay)) {
@@ -2156,6 +2579,7 @@
           { label: "Vrh", value: peakDay.stevilo ? `${formatDatumSl(peakDay.datum)} (${fmt.format(peakDay.stevilo)})` : "—" },
         ]);
       } catch (e) {
+        if (seq !== periodLoadSeq) return;
         showError("dailyError", useMeteoinfo
           ? (shouldUseMeteoinfoProxy()
             ? "Podatkov ni mogoče naložiti (preveri meteoinfo-data.php)."
@@ -2163,6 +2587,7 @@
           : "Ni mogoče naložiti dnevnih podatkov.");
         console.error(e);
       }
+      if (seq !== periodLoadSeq) return;
       notifyResize();
     }
 
@@ -2575,6 +3000,28 @@
       }
     }
 
+    function applyPeriodDays(days) {
+      const next = Number(days);
+      if (!Number.isFinite(next) || next <= 0) return;
+      const seq = ++periodLoadSeq;
+      clearCustomRange();
+      clearSelectedDay();
+      rangeDays = next;
+      const sel = document.getElementById("daysSelect");
+      if (sel) sel.value = String(next);
+      syncPublicPeriodUi(next);
+      updateScopeLabels(next);
+      void loadDaily().then(() => {
+        if (seq !== periodLoadSeq) return;
+        if (isDetailRange()) {
+          syncFilterUi();
+          void reloadDetailCharts();
+        }
+        notifyResize();
+      });
+      notifyDaysSelectRect();
+    }
+
     function bindControls() {
       if (!EMBED.controls) return;
       document.getElementById("daysSelect")?.addEventListener("change", () => {
@@ -2584,22 +3031,28 @@
           openPeriodRangePicker(document.getElementById("dailyPeriodLabel"));
           return;
         }
-        clearCustomRange();
-        rangeDays = Number(sel.value) || rangeDays;
-        updateScopeLabels(getRangeDays());
-        void loadDaily().then(() => {
-          if (isDetailRange()) {
-            syncFilterUi();
-            void reloadDetailCharts();
-          }
-        });
-        notifyDaysSelectRect();
+        applyPeriodDays(Number(sel.value) || rangeDays);
       });
-      bindPeriodRangePicker();
+      if (EMBED.public) {
+        document.getElementById("publicPeriodBtn")?.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          togglePublicPeriodMenu();
+        });
+        document.querySelectorAll("#publicPeriodMenu [data-days]").forEach((btn) => {
+          btn.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            const days = Number(btn.dataset.days);
+            setPublicPeriodMenuOpen(false);
+            if (Number.isFinite(days) && days > 0) applyPeriodDays(days);
+          });
+        });
+        syncPublicPeriodUi(rangeDays);
+      } else {
+        bindPeriodRangePicker();
+      }
     }
 
     async function init() {
-      initParentPageScrollForward();
       initExternalInteraction();
       buildLayout();
       initCharts();

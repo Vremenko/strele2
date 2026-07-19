@@ -1419,6 +1419,11 @@ def serve_data_file(filename: str) -> FileResponse:
         path = _WEB_PUBLIC_DIR / "styles" / safe
         media_type = "application/json"
         cache = "public, max-age=300"
+        if path.exists() and path.stat().st_size == 0:
+            raise HTTPException(
+                status_code=503,
+                detail="strelko-dark.json je prazen — obnovi slog (ne docker cp na bind-mount)",
+            )
     else:
         path = _DATA_DIR / safe
         media_type = "application/geo+json"
@@ -1437,10 +1442,18 @@ def serve_map_embed() -> FileResponse:
     path = _WEB_PUBLIC_DIR / "map-embed.html"
     if not path.exists():
         raise HTTPException(status_code=404, detail="map-embed.html ne obstaja")
+    # Vgrajen v Strelko SPA (/embed/…) in po potrebi na meteoinfo.si — ne poljubne domene.
+    frame_ancestors = os.getenv(
+        "STRELKO_MAP_FRAME_ANCESTORS",
+        "https://strelko.meteoinfo.si https://meteoinfo.si https://www.meteoinfo.si",
+    ).strip()
     return FileResponse(
         str(path),
         media_type="text/html",
-        headers={"Cache-Control": "no-store, must-revalidate"},
+        headers={
+            "Cache-Control": "no-store, must-revalidate",
+            "Content-Security-Policy": f"frame-ancestors {frame_ancestors}",
+        },
     )
 
 
@@ -1455,6 +1468,11 @@ def serve_public_style(filename: str) -> FileResponse:
     path = _WEB_PUBLIC_DIR / "styles" / safe
     if not path.exists():
         raise HTTPException(status_code=404, detail="Slog ne obstaja")
+    if path.stat().st_size == 0:
+        raise HTTPException(
+            status_code=503,
+            detail="strelko-dark.json je prazen — obnovi slog (ne docker cp na bind-mount)",
+        )
     return FileResponse(
         str(path),
         media_type="application/json",
