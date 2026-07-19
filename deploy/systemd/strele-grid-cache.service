@@ -1,5 +1,5 @@
 [Unit]
-Description=Strelko 1km grid cache (hourly)
+Description=Strelko 1km grid cache (every 5 minutes)
 After=network-online.target
 
 [Service]

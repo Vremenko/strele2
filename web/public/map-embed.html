@@ -5250,7 +5250,7 @@
     } catch (_) {}
   })();
 
-  /* ——— Auto-refresh (poll vsakih 2 min, osveži ob spremembi ali vsakih 10 min) ——— */
+  /* ——— Auto-refresh (poll vsakih 2 min; mreža/Danes največ 2 min, sicer refresh_sec) ——— */
   let _mapLastTodayCount = null;
   let _mapLastReload = Date.now();
   setInterval(async () => {
@@ -5258,13 +5258,16 @@
       const todayIso = new Date().toISOString().slice(0, 10);
       const d = await fetch(apiUrl(`/api/obcine-map?days=1`)).then((r) => r.ok ? r.json() : null).catch(() => null);
       const todayTotal = d ? d.reduce((s, r) => s + (r.stevilo || 0), 0) : -1;
-      const stale = Date.now() - _mapLastReload >= REFRESH_SEC * 1000;
+      const liveGrid = isGridView() && isViewingLiveDay() && hasSupporterAccess;
+      const refreshLimitSec = liveGrid ? Math.min(REFRESH_SEC, 120) : REFRESH_SEC;
+      const stale = Date.now() - _mapLastReload >= refreshLimitSec * 1000;
       const changed = isViewingLiveDay()
         && _mapLastTodayCount !== null
         && todayTotal !== -1
         && todayTotal !== _mapLastTodayCount;
       if (changed || stale) {
         obcinaData = {};
+        if (isGridView()) gridData = null; /* prisili svež zahtevek mreže */
         await reload();
         _mapLastReload = Date.now();
       }

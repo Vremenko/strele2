@@ -157,6 +157,109 @@ def rebuild_cache_files(
         tmp.replace(dst)
 
 
+def rebuild_today_cache_file(
+    conn: psycopg.Connection,
+    *,
+    cache_dir: Path,
+    today_local: date,
+) -> None:
+    """Atomično osveži samo grid-map-today.json (hitrejše od polnega rebuilda)."""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    today_payload = build_today_cached_feature_collection(conn, today_local=today_local)
+    today_tmp = cache_dir / ".grid-map-today.json.tmp"
+    today_dst = cache_dir / today_cache_basename()
+    today_tmp.write_text(json.dumps(today_payload, ensure_ascii=False) + "\n", encoding="utf-8")
+    today_tmp.replace(today_dst)
+
+
+# Privzeto usklajeno s frontend pollom (~2 min) in ingestom (~5 min).
+DEFAULT_TODAY_MAX_AGE_SEC = 120
+
+
+def today_cache_age_sec(cache_dir: Path | None = None) -> float | None:
+    p = (cache_dir or _cache_dir()) / today_cache_basename()
+    if not p.exists():
+        return None
+    return max(0.0, datetime.now(tz=timezone.utc).timestamp() - p.stat().st_mtime)
+
+
+def refresh_today_grid_cache_if_stale(
+    *,
+    database_url: str,
+    cache_dir: Path | None = None,
+    max_age_sec: int | None = None,
+    force: bool = False,
+) -> dict:
+    """
+    On-demand osvežitev današnje mreže, če je datotečni cache prestár.
+
+    Vrne diagnostiko: {refreshed, reason, age_sec, cache_hit}.
+    Ob zasedenem advisory locku pusti obstoječi cache (brez napake).
+    """
+    cache_dir = cache_dir or _cache_dir()
+    max_age = (
+        DEFAULT_TODAY_MAX_AGE_SEC
+        if max_age_sec is None
+        else max(30, int(max_age_sec))
+    )
+    age = today_cache_age_sec(cache_dir)
+    if not force and age is not None and age <= max_age:
+        return {
+            "refreshed": False,
+            "reason": "fresh",
+            "age_sec": round(age, 1),
+            "cache_hit": True,
+        }
+
+    today_local = _now_local_day()
+    with psycopg.connect(database_url) as conn:
+        conn.autocommit = False
+        if not _try_advisory_lock(conn):
+            return {
+                "refreshed": False,
+                "reason": "lock_busy",
+                "age_sec": None if age is None else round(age, 1),
+                "cache_hit": age is not None,
+            }
+        try:
+            # Ponovno preveri starost pod lockom (drug request je morda že osvežil).
+            age2 = today_cache_age_sec(cache_dir)
+            if not force and age2 is not None and age2 <= max_age:
+                return {
+                    "refreshed": False,
+                    "reason": "fresh_after_lock",
+                    "age_sec": round(age2, 1),
+                    "cache_hit": True,
+                }
+
+            max_ts = _max_strike_ts_utc(conn)
+            max_ts_iso = _iso_utc(max_ts) if max_ts else None
+            with conn.transaction():
+                rebuild_grid_daily_aggregates(
+                    conn, day_from=today_local, day_to=today_local
+                )
+            rebuild_today_cache_file(
+                conn, cache_dir=cache_dir, today_local=today_local
+            )
+            _write_meta_atomic(
+                cache_dir,
+                JobMeta(max_ts_iso, today_local.isoformat()),
+            )
+            conn.commit()
+            age_after = today_cache_age_sec(cache_dir)
+            return {
+                "refreshed": True,
+                "reason": "stale" if age is not None else "missing",
+                "age_sec": None if age_after is None else round(age_after, 1),
+                "cache_hit": False,
+            }
+        finally:
+            try:
+                _advisory_unlock(conn)
+            except Exception:
+                pass
+
+
 def run_job(
     *,
     database_url: str,

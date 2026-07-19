@@ -1,9 +1,10 @@
 [Unit]
-Description=Run Strelko 1km grid cache hourly
+Description=Run Strelko 1km grid cache every 5 minutes
 # Zahteva delujoč Docker kontejner strele2-obcine-public-1 (service zaganja job prek docker exec).
 
 [Timer]
-OnCalendar=hourly
+# Vsakih 5 min — usklajeno z ingestom (~5 min) in on-demand API osvežitvijo (~2 min).
+OnCalendar=*:0/5
 Persistent=true
 
 [Install]

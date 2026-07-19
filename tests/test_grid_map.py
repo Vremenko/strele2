@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -288,21 +289,86 @@ class GridMapEndpointTest(unittest.TestCase):
             srv._GRID_CACHE_DIR = cache_dir  # type: ignore[attr-defined]
 
             with _allow_grid_podpornik(srv):
-              with patch.object(srv, "fetch_grid_map_from_daily", side_effect=AssertionError("daily read called")):
-                req = Request({"type": "http", "headers": []})
-                res = srv.api_grid_map(
-                    req,
-                    from_=None,
-                    to_=None,
-                    day=None,
-                    days=None,
-                    today=True,
-                    min_lon=None,
-                    min_lat=None,
-                    max_lon=None,
-                    max_lat=None,
-                )
+              with patch.object(
+                  srv,
+                  "refresh_today_grid_cache_if_stale",
+                  return_value={"refreshed": False, "reason": "fresh", "age_sec": 10, "cache_hit": True},
+              ):
+                with patch.object(srv, "fetch_grid_map_from_daily", side_effect=AssertionError("daily read called")):
+                  with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
+                    req = Request({"type": "http", "headers": []})
+                    res = srv.api_grid_map(
+                        req,
+                        from_=None,
+                        to_=None,
+                        day=None,
+                        days=None,
+                        today=True,
+                        min_lon=None,
+                        min_lat=None,
+                        max_lon=None,
+                        max_lat=None,
+                    )
             self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.headers.get("X-Grid-Cache"), "hit")
+            self.assertIn("max-age=60", res.headers.get("Cache-Control", ""))
+
+    def test_api_grid_map_today_refreshes_stale_cache(self):
+        import tempfile
+        from starlette.requests import Request
+
+        srv = self._import_server()
+        with tempfile.TemporaryDirectory() as td:
+            cache_dir = Path(td)
+            payload = {
+                "type": "FeatureCollection",
+                "features": [{"type": "Feature", "properties": {"strike_count": 1}, "geometry": None}],
+                "cached": True,
+                "cache_version": _CACHE_VERSION,
+                "from": "2026-07-19",
+                "to": "2026-07-19",
+                "generated_at": "2026-07-19T08:00:00Z",
+            }
+            (cache_dir / today_cache_basename()).write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            srv._GRID_CACHE_DIR = cache_dir  # type: ignore[attr-defined]
+            refresh = MagicMock(
+                return_value={"refreshed": True, "reason": "stale", "age_sec": 0.2, "cache_hit": False}
+            )
+            with _allow_grid_podpornik(srv):
+              with patch.object(srv, "refresh_today_grid_cache_if_stale", refresh):
+                with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
+                    req = Request({"type": "http", "headers": []})
+                    res = srv.api_grid_map(
+                        req,
+                        from_=None,
+                        to_=None,
+                        day=None,
+                        days=None,
+                        today=True,
+                        min_lon=None,
+                        min_lat=None,
+                        max_lon=None,
+                        max_lat=None,
+                    )
+            refresh.assert_called_once()
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.headers.get("X-Grid-Cache"), "miss")
+            self.assertEqual(res.headers.get("X-Grid-Refresh"), "stale")
+
+    def test_map_embed_grid_today_poll_and_seq(self):
+        html = (Path(__file__).resolve().parent.parent / "web" / "public" / "map-embed.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("liveGrid", html)
+        self.assertIn("Math.min(REFRESH_SEC, 120)", html)
+        self.assertIn("gridData = null", html)
+        self.assertIn("gridLoadSeq", html)
+        self.assertIn('if (loadSeq !== gridLoadSeq || mapView !== "grid") return', html)
+        self.assertIn("Mreža zahteva paket Podpornik", html)
+        self.assertIn("cache: \"no-store\"", html)
+        # Preklop na mrežo gre skozi reload() → removeGridLayers() → loadGridData().
+        self.assertIn("await loadGridData()", html)
+        self.assertIn("if (!hasSupporterAccess || mapView !== \"grid\")", html)
 
     def test_api_grid_map_single_day_uses_daily_table(self):
         from starlette.requests import Request
@@ -423,18 +489,24 @@ class GridMapEndpointTest(unittest.TestCase):
             etag = srv._grid_cache_etag(p)
             req = Request({"type": "http", "headers": [(b"if-none-match", etag.encode("latin-1"))]})
             with _allow_grid_podpornik(srv):
-              res = srv.api_grid_map(
-                req,
-                from_=None,
-                to_=None,
-                day=None,
-                days=None,
-                today=True,
-                min_lon=None,
-                min_lat=None,
-                max_lon=None,
-                max_lat=None,
-              )
+              with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
+                with patch.object(
+                    srv,
+                    "refresh_today_grid_cache_if_stale",
+                    return_value={"refreshed": False, "reason": "fresh", "age_sec": 1.0},
+                ):
+                  res = srv.api_grid_map(
+                    req,
+                    from_=None,
+                    to_=None,
+                    day=None,
+                    days=None,
+                    today=True,
+                    min_lon=None,
+                    min_lat=None,
+                    max_lon=None,
+                    max_lat=None,
+                  )
             self.assertEqual(res.status_code, 304)
 
 
@@ -604,6 +676,222 @@ class GridCellDailyEndpointTest(unittest.TestCase):
         self.assertIn("Neveljavno", ctx.exception.detail)
 
 
+
+class GridTodayRefreshTest(unittest.TestCase):
+    def test_today_cache_age_and_skip_when_fresh(self):
+        import tempfile
+        import time
+        from strele_archive.grid_cache_job import (
+            refresh_today_grid_cache_if_stale,
+            today_cache_age_sec,
+            today_cache_basename,
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            cache_dir = Path(td)
+            p = cache_dir / today_cache_basename()
+            p.write_text(
+                json.dumps(
+                    {
+                        "type": "FeatureCollection",
+                        "features": [],
+                        "cached": True,
+                        "cache_version": _CACHE_VERSION,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            age = today_cache_age_sec(cache_dir)
+            self.assertIsNotNone(age)
+            self.assertLess(age, 5)
+            with patch("strele_archive.grid_cache_job.psycopg.connect") as connect:
+                out = refresh_today_grid_cache_if_stale(
+                    database_url="postgresql://example",
+                    cache_dir=cache_dir,
+                    max_age_sec=120,
+                )
+            connect.assert_not_called()
+            self.assertFalse(out["refreshed"])
+            self.assertEqual(out["reason"], "fresh")
+
+    def test_today_refresh_runs_when_missing(self):
+        import tempfile
+        from strele_archive.grid_cache_job import refresh_today_grid_cache_if_stale
+
+        with tempfile.TemporaryDirectory() as td:
+            cache_dir = Path(td)
+            mock_conn = MagicMock()
+            mock_conn.__enter__.return_value = mock_conn
+            mock_conn.cursor.return_value.__enter__.return_value = MagicMock()
+            with patch("strele_archive.grid_cache_job.psycopg.connect", return_value=mock_conn):
+                with patch("strele_archive.grid_cache_job._try_advisory_lock", return_value=True):
+                    with patch("strele_archive.grid_cache_job._advisory_unlock"):
+                        with patch("strele_archive.grid_cache_job._max_strike_ts_utc", return_value=None):
+                            with patch("strele_archive.grid_cache_job.rebuild_grid_daily_aggregates") as reb:
+                                with patch("strele_archive.grid_cache_job.rebuild_today_cache_file") as rebuild_file:
+                                    out = refresh_today_grid_cache_if_stale(
+                                        database_url="postgresql://example",
+                                        cache_dir=cache_dir,
+                                        max_age_sec=120,
+                                    )
+            reb.assert_called_once()
+            rebuild_file.assert_called_once()
+            self.assertTrue(out["refreshed"])
+            self.assertEqual(out["reason"], "missing")
+
+    def test_obcine_and_grid_today_share_local_day_bounds(self):
+        """Občine (days=1) in mreža (today=1) morata ciljati isti lokalni dan Europe/Ljubljana."""
+        from strele_archive.grid_map import local_today as grid_local_today
+        from strele_archive.obcina_widget_daily import local_today as obcina_local_today
+
+        self.assertEqual(grid_local_today(), obcina_local_today())
+
+    def test_concurrent_refresh_single_flight_via_advisory_lock(self):
+        """Dva sočasna stale zahtevka: samo en dobi lock in obnovi, drugi uporabi obstoječi cache."""
+        import tempfile
+        from strele_archive.grid_cache_job import refresh_today_grid_cache_if_stale, today_cache_basename
+
+        with tempfile.TemporaryDirectory() as td:
+            cache_dir = Path(td)
+            old = {
+                "type": "FeatureCollection",
+                "features": [{"type": "Feature", "properties": {"strike_count": 9}, "geometry": None}],
+                "cached": True,
+                "cache_version": _CACHE_VERSION,
+            }
+            (cache_dir / today_cache_basename()).write_text(json.dumps(old) + "\n", encoding="utf-8")
+            # Prestari cache (mtime v preteklosti).
+            os.utime(cache_dir / today_cache_basename(), (1_700_000_000, 1_700_000_000))
+
+            mock_conn = MagicMock()
+            mock_conn.__enter__.return_value = mock_conn
+            mock_conn.cursor.return_value.__enter__.return_value = MagicMock()
+            lock_calls = {"n": 0}
+
+            def try_lock(_conn):
+                lock_calls["n"] += 1
+                return lock_calls["n"] == 1
+
+            with patch("strele_archive.grid_cache_job.psycopg.connect", return_value=mock_conn):
+                with patch("strele_archive.grid_cache_job._try_advisory_lock", side_effect=try_lock):
+                    with patch("strele_archive.grid_cache_job._advisory_unlock"):
+                        with patch("strele_archive.grid_cache_job._max_strike_ts_utc", return_value=None):
+                            with patch(
+                                "strele_archive.grid_cache_job.rebuild_grid_daily_aggregates"
+                            ) as reb:
+                                with patch(
+                                    "strele_archive.grid_cache_job.rebuild_today_cache_file"
+                                ) as rebuild_file:
+                                    first = refresh_today_grid_cache_if_stale(
+                                        database_url="postgresql://example",
+                                        cache_dir=cache_dir,
+                                        max_age_sec=120,
+                                    )
+                                    second = refresh_today_grid_cache_if_stale(
+                                        database_url="postgresql://example",
+                                        cache_dir=cache_dir,
+                                        max_age_sec=120,
+                                    )
+            reb.assert_called_once()
+            rebuild_file.assert_called_once()
+            self.assertTrue(first["refreshed"])
+            self.assertFalse(second["refreshed"])
+            self.assertEqual(second["reason"], "lock_busy")
+            self.assertTrue(second["cache_hit"])
+
+    def test_failed_refresh_preserves_last_valid_cache(self):
+        """Neuspešna obnova pusti zadnji veljavni JSON; API vrne cache + X-Grid-Refresh=refresh_error."""
+        import tempfile
+        from starlette.requests import Request
+
+        try:
+            import strele_archive.obcine_public_server as srv
+        except ModuleNotFoundError:
+            self.skipTest("obcine_public_server optional deps not installed")
+
+        with tempfile.TemporaryDirectory() as td:
+            cache_dir = Path(td)
+            payload = {
+                "type": "FeatureCollection",
+                "features": [{"type": "Feature", "properties": {"strike_count": 4}, "geometry": None}],
+                "cached": True,
+                "cache_version": _CACHE_VERSION,
+                "from": "2026-07-19",
+                "to": "2026-07-19",
+            }
+            path = cache_dir / today_cache_basename()
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            before = path.read_text(encoding="utf-8")
+            srv._GRID_CACHE_DIR = cache_dir  # type: ignore[attr-defined]
+            req = Request({"type": "http", "headers": []})
+            with _allow_grid_podpornik(srv):
+                with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
+                    with patch.object(
+                        srv,
+                        "refresh_today_grid_cache_if_stale",
+                        side_effect=RuntimeError("rebuild failed"),
+                    ):
+                        res = srv.api_grid_map(
+                            req,
+                            from_=None,
+                            to_=None,
+                            day=None,
+                            days=None,
+                            today=True,
+                            min_lon=None,
+                            min_lat=None,
+                            max_lon=None,
+                            max_lat=None,
+                        )
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.headers.get("X-Grid-Refresh"), "refresh_error")
+            self.assertEqual(res.headers.get("X-Grid-Cache"), "hit")
+            self.assertEqual(path.read_text(encoding="utf-8"), before)
+
+    def test_today_cache_write_is_atomic_tmp_then_replace(self):
+        """Ciljna datoteka se zamenja šele po popolnem zapisu tmp — delni JSON ni izpostavljen."""
+        import tempfile
+        from strele_archive.grid_cache_job import rebuild_today_cache_file, today_cache_basename
+
+        with tempfile.TemporaryDirectory() as td:
+            cache_dir = Path(td)
+            dst = cache_dir / today_cache_basename()
+            old = {"type": "FeatureCollection", "features": [], "cached": True, "cache_version": _CACHE_VERSION}
+            dst.write_text(json.dumps(old) + "\n", encoding="utf-8")
+            old_text = dst.read_text(encoding="utf-8")
+
+            seen: list[str] = []
+
+            original_write = Path.write_text
+
+            def boom_write(path_self, data, *args, **kwargs):  # noqa: ANN001
+                if path_self.name.endswith(".tmp"):
+                    seen.append("tmp_write")
+                    assert dst.read_text(encoding="utf-8") == old_text
+                return original_write(path_self, data, *args, **kwargs)
+
+            mock_conn = MagicMock()
+            with patch.object(Path, "write_text", boom_write):
+                with patch(
+                    "strele_archive.grid_cache_job.build_today_cached_feature_collection",
+                    return_value={
+                        "type": "FeatureCollection",
+                        "features": [{"type": "Feature", "properties": {"strike_count": 1}}],
+                        "cached": True,
+                        "cache_version": _CACHE_VERSION,
+                    },
+                ):
+                    rebuild_today_cache_file(
+                        mock_conn, cache_dir=cache_dir, today_local=date(2026, 7, 19)
+                    )
+            self.assertIn("tmp_write", seen)
+            new = json.loads(dst.read_text(encoding="utf-8"))
+            self.assertEqual(new["features"][0]["properties"]["strike_count"], 1)
+            self.assertFalse((cache_dir / ".grid-map-today.json.tmp").exists())
+
+
+
 class GridPodpornikGateTest(unittest.TestCase):
     def _import_server(self):
         try:
@@ -619,23 +907,26 @@ class GridPodpornikGateTest(unittest.TestCase):
 
         srv = self._import_server()
         req = Request({"type": "http", "headers": []})
+        refresh = MagicMock(return_value={"refreshed": True, "reason": "should_not_run"})
         with patch("strele_archive.strelko_auth.strelko_open_access", return_value=False):
             with patch("strele_archive.strelko_auth.extract_bearer_token", return_value=None):
-                with self.assertRaises(HTTPException) as ctx:
-                    srv.api_grid_map(
-                        req,
-                        from_=None,
-                        to_=None,
-                        day=None,
-                        days=7,
-                        today=False,
-                        min_lon=None,
-                        min_lat=None,
-                        max_lon=None,
-                        max_lat=None,
-                    )
+                with patch.object(srv, "refresh_today_grid_cache_if_stale", refresh):
+                    with self.assertRaises(HTTPException) as ctx:
+                        srv.api_grid_map(
+                            req,
+                            from_=None,
+                            to_=None,
+                            day=None,
+                            days=None,
+                            today=True,
+                            min_lon=None,
+                            min_lat=None,
+                            max_lon=None,
+                            max_lat=None,
+                        )
         self.assertEqual(ctx.exception.status_code, 403)
         self.assertEqual(ctx.exception.detail, GRID_PODPORNIK_FORBIDDEN)
+        refresh.assert_not_called()
 
     def test_api_grid_map_active_podpornik_allowed(self):
         import tempfile
@@ -662,20 +953,25 @@ class GridPodpornikGateTest(unittest.TestCase):
                         return_value={"plan_id": "podpornik", "has_subscription": True},
                     ):
                         with patch.object(
-                            srv, "fetch_grid_map_from_daily", side_effect=AssertionError("daily read called")
+                            srv,
+                            "refresh_today_grid_cache_if_stale",
+                            return_value={"refreshed": False, "reason": "fresh", "age_sec": 1.0},
                         ):
-                            res = srv.api_grid_map(
-                                req,
-                                from_=None,
-                                to_=None,
-                                day=None,
-                                days=None,
-                                today=True,
-                                min_lon=None,
-                                min_lat=None,
-                                max_lon=None,
-                                max_lat=None,
-                            )
+                            with patch.object(
+                                srv, "fetch_grid_map_from_daily", side_effect=AssertionError("daily read called")
+                            ):
+                                res = srv.api_grid_map(
+                                    req,
+                                    from_=None,
+                                    to_=None,
+                                    day=None,
+                                    days=None,
+                                    today=True,
+                                    min_lon=None,
+                                    min_lat=None,
+                                    max_lon=None,
+                                    max_lat=None,
+                                )
             self.assertEqual(res.status_code, 200)
 
     def test_is_podpornik_active_credits_mirrors_frontend(self):

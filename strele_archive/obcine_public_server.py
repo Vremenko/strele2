@@ -42,6 +42,7 @@ from strele_archive.grid_map import (
     today_cache_basename,
 )
 from strele_archive.strelko_auth import require_active_podpornik
+from strele_archive.grid_cache_job import refresh_today_grid_cache_if_stale
 
 _GRID_CACHE_DIR = pathlib.Path(__file__).resolve().parents[1] / "cache" / "grid-map"
 _GRID_CACHE_DAYS = {7, 14, 30, 90}
@@ -77,7 +78,13 @@ def _accepts_gzip(request: Request) -> bool:
     return "gzip" in accept
 
 
-def _grid_cache_response(request: Request, p: pathlib.Path) -> Response:
+def _grid_cache_response(
+    request: Request,
+    p: pathlib.Path,
+    *,
+    max_age: int = 300,
+    extra_headers: dict[str, str] | None = None,
+) -> Response:
     if not p.exists():
         raise HTTPException(status_code=503, detail="Grid cache še ni pripravljen.")
     try:
@@ -96,9 +103,11 @@ def _grid_cache_response(request: Request, p: pathlib.Path) -> Response:
             )
         headers = {
             "ETag": etag,
-            "Cache-Control": "public, max-age=300",
+            "Cache-Control": f"public, max-age={max(0, int(max_age))}",
             "X-Grid-Cache": "hit",
         }
+        if extra_headers:
+            headers.update(extra_headers)
         if _accepts_gzip(request):
             import gzip
 
@@ -897,7 +906,7 @@ def api_grid_map(
             raise HTTPException(status_code=422, detail="Neveljaven bbox")
         raise HTTPException(status_code=422, detail="Viewport filter za mrežo ni podprt.")
 
-    # Današnji dan — samo predpripravljen cache.
+    # Današnji dan — predpripravljen cache, on-demand osvežitev če je prestár (~2 min).
     if today or (day is not None and day == today_lj) or (
         from_ is not None
         and to_ is not None
@@ -905,7 +914,35 @@ def api_grid_map(
         and day is None
         and days is None
     ):
-        return _grid_cache_response(request, _grid_today_cache_path())
+        udari_url = _udari_database_url()
+        refresh_info: dict = {"refreshed": False, "reason": "no_udari_url"}
+        if udari_url:
+            try:
+                max_age = int(os.getenv("GRID_TODAY_MAX_AGE_SEC", "120"))
+            except ValueError:
+                max_age = 120
+            try:
+                refresh_info = refresh_today_grid_cache_if_stale(
+                    database_url=udari_url,
+                    cache_dir=_GRID_CACHE_DIR,
+                    max_age_sec=max_age,
+                )
+            except Exception:
+                # Ob napaki osvežitve še vedno serviraj obstoječi cache, če obstaja.
+                refresh_info = {"refreshed": False, "reason": "refresh_error"}
+        extra = {
+            "X-Grid-Cache": "miss" if refresh_info.get("refreshed") else "hit",
+            "X-Grid-Refresh": str(refresh_info.get("reason") or ""),
+        }
+        if refresh_info.get("age_sec") is not None:
+            extra["X-Grid-Cache-Age"] = str(refresh_info["age_sec"])
+        # Kratek TTL — usklajen z on-demand osvežitvijo (ne 5 min kot rolling cache).
+        return _grid_cache_response(
+            request,
+            _grid_today_cache_path(),
+            max_age=60,
+            extra_headers=extra,
+        )
 
     if from_ is None and to_ is None and day is None and days in _GRID_CACHE_DAYS:
         end = today_lj
