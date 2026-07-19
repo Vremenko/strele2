@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+from datetime import date, datetime
 from urllib.parse import unquote
 
 import requests
-from fastapi import Request
+from fastapi import HTTPException, Request
 
 REQUIRE_STRELKO_LOGIN = os.getenv("ARHIV_REQUIRE_STRELKO_LOGIN", "").strip().lower() in (
     "1",
@@ -21,12 +22,37 @@ ALLOWED_EMAILS = {
 STRELKO_API_URL = os.getenv("STRELKO_API_URL", "http://127.0.0.1:3000").rstrip("/")
 COOKIE_NAME = "strelko_token"
 LOGIN_URL = os.getenv("STRELKO_LOGIN_URL", "https://strelko.meteoinfo.si/").strip()
+GRID_PODPORNIK_FORBIDDEN = "Za mrežo 1 × 1 km je potreben aktiven paket Podpornik"
 
 
 def auth_enabled() -> bool:
     if os.getenv("ARHIV_OPEN_ACCESS", "").strip().lower() in ("1", "true", "yes"):
         return False
     return REQUIRE_STRELKO_LOGIN and bool(ALLOWED_EMAILS)
+
+
+def strelko_open_access() -> bool:
+    """Enako kot VITE_STRELKO_OPEN_ACCESS na frontendu — odklene Podpornik funkcije."""
+    return os.getenv("STRELKO_OPEN_ACCESS", "").strip().lower() in ("1", "true", "yes")
+
+
+def is_podpornik_active_credits(credits: dict | None, *, today: date | None = None) -> bool:
+    """Zrcali Strelko isPodpornikActive(credits) — ne uvajaj ločene logike članstva."""
+    if not credits or str(credits.get("plan_id") or "") != "podpornik":
+        return False
+    if credits.get("has_subscription"):
+        return True
+    exp = credits.get("season_pass_expires_at")
+    if not exp:
+        return False
+    try:
+        if isinstance(exp, date) and not isinstance(exp, datetime):
+            exp_day = exp
+        else:
+            exp_day = date.fromisoformat(str(exp)[:10])
+    except ValueError:
+        return False
+    return exp_day >= (today or date.today())
 
 
 _PUBLIC_API_PREFIXES = (
@@ -72,6 +98,38 @@ def extract_bearer_token(request: Request) -> str | None:
     return None
 
 
+def fetch_strelko_credits(token: str) -> dict | None:
+    """Vrne JSON kredite ali None ob napaki / neprijavi."""
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        response = requests.get(
+            f"{STRELKO_API_URL}/api/v1/strelko/credits",
+            headers=headers,
+            timeout=10,
+        )
+    except requests.RequestException:
+        return None
+    if response.status_code >= 400:
+        return None
+    try:
+        data = response.json()
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def require_active_podpornik(request: Request) -> None:
+    """Zavrni mrežo 1 × 1 km, če ni aktivnega Podpornika (ali STRELKO_OPEN_ACCESS)."""
+    if strelko_open_access():
+        return
+    token = extract_bearer_token(request)
+    if not token:
+        raise HTTPException(status_code=403, detail=GRID_PODPORNIK_FORBIDDEN)
+    credits = fetch_strelko_credits(token)
+    if not is_podpornik_active_credits(credits):
+        raise HTTPException(status_code=403, detail=GRID_PODPORNIK_FORBIDDEN)
+
+
 def verify_strelko_token(token: str) -> tuple[str | None, str | None]:
     """Vrne (email, napaka). napaka: unauthenticated | forbidden."""
     headers = {"Authorization": f"Bearer {token}"}
@@ -96,16 +154,9 @@ def verify_strelko_token(token: str) -> tuple[str | None, str | None]:
     if email in ALLOWED_EMAILS:
         return email, None
 
-    try:
-        credits = requests.get(
-            f"{STRELKO_API_URL}/api/v1/strelko/credits",
-            headers=headers,
-            timeout=10,
-        )
-        if credits.ok and credits.json().get("archive_full_access"):
-            return email, None
-    except requests.RequestException:
-        pass
+    credits = fetch_strelko_credits(token)
+    if credits and credits.get("archive_full_access"):
+        return email, None
 
     return None, "forbidden"
 

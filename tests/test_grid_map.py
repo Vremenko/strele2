@@ -218,6 +218,11 @@ class GridCacheJobTest(unittest.TestCase):
             rebuild_mock.assert_not_called()
 
 
+def _allow_grid_podpornik(srv):
+    """Obstoječi endpoint testi predpostavljajo dovoljen dostop Podpornik."""
+    return patch.object(srv, "require_active_podpornik", return_value=None)
+
+
 class GridMapEndpointTest(unittest.TestCase):
     def _import_server(self):
         try:
@@ -232,8 +237,8 @@ class GridMapEndpointTest(unittest.TestCase):
         )
         self.assertIn("gridZeroTooltipHtml", html)
         self.assertIn("/api/grid-cell-daily", html)
-        self.assertIn("0 strel / km²", html)
-        self.assertIn("Celica 1 × 1 km — radij 10 km", html)
+        self.assertIn("0 st. / km²", html)
+        self.assertIn("radij 10 km", html)
         self.assertNotIn("data-radius-km", html)
 
     def test_map_embed_has_no_grid_storm_mode_button(self):
@@ -243,6 +248,19 @@ class GridMapEndpointTest(unittest.TestCase):
         self.assertNotIn('id="mapModeBtnDni"', html)
         gridSection = html.split("loadGridData")[1].split("async function reload")[0]
         self.assertNotIn("storm_days", gridSection)
+
+    def test_map_embed_grid_locked_without_supporter(self):
+        html = (Path(__file__).resolve().parent.parent / "web" / "public" / "map-embed.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("isGridViewLocked", html)
+        self.assertIn("showGridLockUi", html)
+        self.assertIn("Ta prikaz je na voljo s paketom Podpornik", html)
+        self.assertIn("Z mrežo 1 × 1 km lahko podrobneje analizirate prostorsko razporeditev", html)
+        self.assertIn("map-lock-glyph", html)
+        self.assertIn("Mreža zahteva paket Podpornik", html)
+        self.assertIn("strelkoAuthHeaders", html)
+        self.assertIn('next === "grid" && isGridViewLocked()', html)
 
     def test_api_grid_map_today_cache_path(self):
         import tempfile
@@ -262,7 +280,8 @@ class GridMapEndpointTest(unittest.TestCase):
             (cache_dir / today_cache_basename()).write_text(json.dumps(payload) + "\n", encoding="utf-8")
             srv._GRID_CACHE_DIR = cache_dir  # type: ignore[attr-defined]
 
-            with patch.object(srv, "fetch_grid_map_from_daily", side_effect=AssertionError("daily read called")):
+            with _allow_grid_podpornik(srv):
+              with patch.object(srv, "fetch_grid_map_from_daily", side_effect=AssertionError("daily read called")):
                 req = Request({"type": "http", "headers": []})
                 res = srv.api_grid_map(
                     req,
@@ -286,7 +305,8 @@ class GridMapEndpointTest(unittest.TestCase):
         fake = {"type": "FeatureCollection", "features": [], "cached": False}
         mock_conn = MagicMock()
         mock_conn.__enter__.return_value = mock_conn
-        with patch.object(srv, "fetch_grid_map_from_daily", return_value=fake) as daily_mock:
+        with _allow_grid_podpornik(srv):
+          with patch.object(srv, "fetch_grid_map_from_daily", return_value=fake) as daily_mock:
             with patch.object(srv.psycopg, "connect", return_value=mock_conn):
                 with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
                     out = srv.api_grid_map(
@@ -324,7 +344,8 @@ class GridMapEndpointTest(unittest.TestCase):
                 encoding="utf-8",
             )
             srv._GRID_CACHE_DIR = cache_dir  # type: ignore[attr-defined]
-            with patch.object(srv, "fetch_grid_map_from_daily", side_effect=AssertionError("raw called")):
+            with _allow_grid_podpornik(srv):
+              with patch.object(srv, "fetch_grid_map_from_daily", side_effect=AssertionError("raw called")):
                 req = Request({"type": "http", "headers": []})
                 res = srv.api_grid_map(
                     req,
@@ -355,7 +376,8 @@ class GridMapEndpointTest(unittest.TestCase):
             )
             srv._GRID_CACHE_DIR = cache_dir  # type: ignore[attr-defined]
             req = Request({"type": "http", "headers": []})
-            with self.assertRaises(HTTPException) as ctx:
+            with _allow_grid_podpornik(srv):
+              with self.assertRaises(HTTPException) as ctx:
                 srv.api_grid_map(
                     req,
                     from_=None,
@@ -393,7 +415,8 @@ class GridMapEndpointTest(unittest.TestCase):
             srv._GRID_CACHE_DIR = cache_dir  # type: ignore[attr-defined]
             etag = srv._grid_cache_etag(p)
             req = Request({"type": "http", "headers": [(b"if-none-match", etag.encode("latin-1"))]})
-            res = srv.api_grid_map(
+            with _allow_grid_podpornik(srv):
+              res = srv.api_grid_map(
                 req,
                 from_=None,
                 to_=None,
@@ -404,7 +427,7 @@ class GridMapEndpointTest(unittest.TestCase):
                 min_lat=None,
                 max_lon=None,
                 max_lat=None,
-            )
+              )
             self.assertEqual(res.status_code, 304)
 
 
@@ -471,6 +494,10 @@ class GridCellDailyEndpointTest(unittest.TestCase):
             self.skipTest("obcine_public_server optional deps not installed")
         return srv
 
+    def _req(self):
+        from starlette.requests import Request
+        return Request({"type": "http", "headers": []})
+
     def test_api_grid_cell_daily_success(self):
         srv = self._import_server()
         fake = {
@@ -486,10 +513,12 @@ class GridCellDailyEndpointTest(unittest.TestCase):
         }
         mock_conn = MagicMock()
         mock_conn.__enter__.return_value = mock_conn
-        with patch.object(srv, "fetch_grid_cell_daily", return_value=fake) as fetch_mock:
+        with _allow_grid_podpornik(srv):
+          with patch.object(srv, "fetch_grid_cell_daily", return_value=fake) as fetch_mock:
             with patch.object(srv.psycopg, "connect", return_value=mock_conn):
                 with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
                     out = srv.api_grid_cell_daily(
+                        self._req(),
                         lat=46.05,
                         lon=14.5,
                         from_=date(2026, 7, 9),
@@ -504,11 +533,13 @@ class GridCellDailyEndpointTest(unittest.TestCase):
         srv = self._import_server()
         mock_conn = MagicMock()
         mock_conn.__enter__.return_value = mock_conn
-        with patch.object(srv, "fetch_grid_cell_daily", return_value=None):
+        with _allow_grid_podpornik(srv):
+          with patch.object(srv, "fetch_grid_cell_daily", return_value=None):
             with patch.object(srv.psycopg, "connect", return_value=mock_conn):
                 with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
                     with self.assertRaises(HTTPException) as ctx:
                         srv.api_grid_cell_daily(
+                            self._req(),
                             lat=36.0,
                             lon=14.5,
                             from_=date(2026, 7, 9),
@@ -521,10 +552,12 @@ class GridCellDailyEndpointTest(unittest.TestCase):
         srv = self._import_server()
         mock_conn = MagicMock()
         mock_conn.__enter__.return_value = mock_conn
-        with patch.object(srv, "fetch_grid_cell_daily", return_value={"cell": {}, "series": []}) as fetch_mock:
+        with _allow_grid_podpornik(srv):
+          with patch.object(srv, "fetch_grid_cell_daily", return_value={"cell": {}, "series": []}) as fetch_mock:
             with patch.object(srv.psycopg, "connect", return_value=mock_conn):
                 with patch.object(srv, "_udari_database_url", return_value="postgresql://example"):
                     srv.api_grid_cell_daily(
+                        self._req(),
                         lat=46.05,
                         lon=14.5,
                         from_=date(2026, 7, 1),
@@ -536,8 +569,10 @@ class GridCellDailyEndpointTest(unittest.TestCase):
         from fastapi import HTTPException
 
         srv = self._import_server()
-        with self.assertRaises(HTTPException) as ctx:
+        with _allow_grid_podpornik(srv):
+          with self.assertRaises(HTTPException) as ctx:
             srv.api_grid_cell_daily(
+                self._req(),
                 lat=46.05,
                 lon=14.5,
                 from_=date(2026, 7, 1),
@@ -549,8 +584,10 @@ class GridCellDailyEndpointTest(unittest.TestCase):
         from fastapi import HTTPException
 
         srv = self._import_server()
-        with self.assertRaises(HTTPException) as ctx:
+        with _allow_grid_podpornik(srv):
+          with self.assertRaises(HTTPException) as ctx:
             srv.api_grid_cell_daily(
+                self._req(),
                 lat=46.05,
                 lon=14.5,
                 from_=date(2026, 7, 15),
@@ -558,6 +595,103 @@ class GridCellDailyEndpointTest(unittest.TestCase):
             )
         self.assertEqual(ctx.exception.status_code, 422)
         self.assertIn("Neveljavno", ctx.exception.detail)
+
+
+class GridPodpornikGateTest(unittest.TestCase):
+    def _import_server(self):
+        try:
+            import strele_archive.obcine_public_server as srv
+        except ModuleNotFoundError:
+            self.skipTest("obcine_public_server optional deps not installed")
+        return srv
+
+    def test_api_grid_map_without_membership_returns_403(self):
+        from fastapi import HTTPException
+        from starlette.requests import Request
+        from strele_archive.strelko_auth import GRID_PODPORNIK_FORBIDDEN
+
+        srv = self._import_server()
+        req = Request({"type": "http", "headers": []})
+        with patch("strele_archive.strelko_auth.strelko_open_access", return_value=False):
+            with patch("strele_archive.strelko_auth.extract_bearer_token", return_value=None):
+                with self.assertRaises(HTTPException) as ctx:
+                    srv.api_grid_map(
+                        req,
+                        from_=None,
+                        to_=None,
+                        day=None,
+                        days=7,
+                        today=False,
+                        min_lon=None,
+                        min_lat=None,
+                        max_lon=None,
+                        max_lat=None,
+                    )
+        self.assertEqual(ctx.exception.status_code, 403)
+        self.assertEqual(ctx.exception.detail, GRID_PODPORNIK_FORBIDDEN)
+
+    def test_api_grid_map_active_podpornik_allowed(self):
+        import tempfile
+        from starlette.requests import Request
+
+        srv = self._import_server()
+        with tempfile.TemporaryDirectory() as td:
+            cache_dir = Path(td)
+            payload = {
+                "type": "FeatureCollection",
+                "features": [],
+                "cached": True,
+                "cache_version": _CACHE_VERSION,
+                "from": "2026-07-15",
+                "to": "2026-07-15",
+            }
+            (cache_dir / today_cache_basename()).write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            srv._GRID_CACHE_DIR = cache_dir  # type: ignore[attr-defined]
+            req = Request({"type": "http", "headers": [(b"authorization", b"Bearer tok")]})
+            with patch("strele_archive.strelko_auth.strelko_open_access", return_value=False):
+                with patch("strele_archive.strelko_auth.extract_bearer_token", return_value="tok"):
+                    with patch(
+                        "strele_archive.strelko_auth.fetch_strelko_credits",
+                        return_value={"plan_id": "podpornik", "has_subscription": True},
+                    ):
+                        with patch.object(
+                            srv, "fetch_grid_map_from_daily", side_effect=AssertionError("daily read called")
+                        ):
+                            res = srv.api_grid_map(
+                                req,
+                                from_=None,
+                                to_=None,
+                                day=None,
+                                days=None,
+                                today=True,
+                                min_lon=None,
+                                min_lat=None,
+                                max_lon=None,
+                                max_lat=None,
+                            )
+            self.assertEqual(res.status_code, 200)
+
+    def test_is_podpornik_active_credits_mirrors_frontend(self):
+        from strele_archive.strelko_auth import is_podpornik_active_credits
+
+        today = date(2026, 7, 19)
+        self.assertFalse(is_podpornik_active_credits(None, today=today))
+        self.assertFalse(is_podpornik_active_credits({"plan_id": "ob_skodi"}, today=today))
+        self.assertFalse(
+            is_podpornik_active_credits(
+                {"plan_id": "podpornik", "has_subscription": False, "season_pass_expires_at": "2026-07-01"},
+                today=today,
+            )
+        )
+        self.assertTrue(
+            is_podpornik_active_credits({"plan_id": "podpornik", "has_subscription": True}, today=today)
+        )
+        self.assertTrue(
+            is_podpornik_active_credits(
+                {"plan_id": "podpornik", "has_subscription": False, "season_pass_expires_at": "2026-12-31"},
+                today=today,
+            )
+        )
 
 
 if __name__ == "__main__":

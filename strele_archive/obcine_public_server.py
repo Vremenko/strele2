@@ -41,6 +41,7 @@ from strele_archive.grid_map import (
     resolve_grid_cell,
     today_cache_basename,
 )
+from strele_archive.strelko_auth import require_active_podpornik
 
 _GRID_CACHE_DIR = pathlib.Path(__file__).resolve().parents[1] / "cache" / "grid-map"
 _GRID_CACHE_DAYS = {7, 14, 30, 90}
@@ -888,6 +889,7 @@ def api_grid_map(
     max_lat: float | None = Query(None, ge=44.0, le=48.0),
 ) -> dict | Response:
     """Mreža 1 × 1 km — GeoJSON celic (gostota iz dnevne agregatne tabele ali cache)."""
+    require_active_podpornik(request)
     today_lj = local_today()
 
     if None not in (min_lon, min_lat, max_lon, max_lat):
@@ -949,12 +951,14 @@ def api_grid_map(
 
 @app.get("/api/grid-cell-daily")
 def api_grid_cell_daily(
+    request: Request,
     lat: float = Query(..., ge=44.0, le=48.0),
     lon: float = Query(..., ge=12.0, le=17.5),
     from_: date = Query(..., alias="from"),
     to_: date = Query(..., alias="to"),
 ) -> dict:
     """Izbrana celica 1 × 1 km + dnevni potek strel v radiju 10 km."""
+    require_active_podpornik(request)
     if from_ > to_:
         raise HTTPException(status_code=422, detail="Neveljavno obdobje")
     period_days = (to_ - from_).days + 1
