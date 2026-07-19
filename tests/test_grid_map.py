@@ -253,14 +253,21 @@ class GridMapEndpointTest(unittest.TestCase):
         html = (Path(__file__).resolve().parent.parent / "web" / "public" / "map-embed.html").read_text(
             encoding="utf-8"
         )
-        self.assertIn("isGridViewLocked", html)
+        self.assertIn("isGridLocked", html)
+        self.assertIn("isPeriodLocked", html)
         self.assertIn("showGridLockUi", html)
+        self.assertIn("switchToObcineFromLockedGrid", html)
         self.assertIn("Ta prikaz je na voljo s paketom Podpornik", html)
         self.assertIn("Z mrežo 1 × 1 km lahko podrobneje analizirate prostorsko razporeditev", html)
         self.assertIn("map-lock-glyph", html)
         self.assertIn("Mreža zahteva paket Podpornik", html)
         self.assertIn("strelkoAuthHeaders", html)
-        self.assertIn('next === "grid" && isGridViewLocked()', html)
+        self.assertIn('next === "grid" && !hasSupporterAccess', html)
+        self.assertIn('next === "obcine" && isGridLocked()', html)
+        self.assertIn("z-index: 1100", html)
+        self.assertIn("strele-map-view-changed", html)
+        self.assertIn("gridLoadSeq", html)
+        self.assertIn('isPeriodLocked("obcine"', html)
 
     def test_api_grid_map_today_cache_path(self):
         import tempfile
