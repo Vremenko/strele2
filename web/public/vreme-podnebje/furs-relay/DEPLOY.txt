@@ -1,0 +1,75 @@
+FURS relay — vreme-podnebje.si (Neoserv)
+=========================================
+
+Zakaj: FURS produkcija zavrača zahteve iz tujine (npr. Hetzner DE).
+StormAPI podpiše JWT lokalno; ta PHP skripta pošlje zahtevo na FURS
+iz Slovenije (mTLS z .p12 na Neoserv).
+
+
+1) Certifikati na Neoserv
+-------------------------
+  Naloži v /strele/furs-relay/:
+
+    61712949-3.p12          — davčni zavezanec (mTLS)
+    certs/sigov-ca2.xcert.crt
+    certs/si-trust-root.crt
+    certs/blagajne.fu.gov.si_2025.cer   (referenca, v3.2)
+    certs/blagajne-test.fu.gov.si.cer   (referenca, test)
+
+  V config.php:
+
+    'p12_path' => __DIR__ . '/61712949-3.p12',
+    'certs_dir' => __DIR__ . '/certs',
+    'tls_verify' => true,
+
+  Relay preveri FURS strežniški TLS certifikat proti SIGOV-CA2 + SI-TRUST Root (FURS v3.2).
+  .htaccess blokira neposreden HTTP dostop do .p12.
+
+
+2) Konfiguracija
+----------------
+  V mapo /strele/furs-relay/ naloži:
+    index.php
+    .htaccess
+    certs/       ← SIGOV-CA2 + SI-TRUST Root (iz repozitorija)
+    config.php   ← iz config.example.php (NE v git)
+
+  V config.php nastavi:
+    service_key   — dolgo naključno geslo (enako FURS_RELAY_KEY na Hetzner)
+    p12_path      — absolutna pot do .p12
+    p12_password  — geslo .p12
+    allowed_ips   — opcijsko [ '167.235.61.137' ] (Hetzner IP StormAPI)
+
+
+3) StormAPI (.env.furs na Hetzner)
+----------------------------------
+  FURS_RELAY_URL=https://vreme-podnebje.si/strele/furs-relay/
+  FURS_RELAY_KEY=<enako kot service_key>
+  FURS_HTTPS_PROXY=          ← pusti prazno (relay nadomesti proxy)
+
+  P12 na Hetznerju ostane — potreben za lokalni ZOI podpis.
+
+
+4) Preverba
+-----------
+  Na Hetznerju (Docker):
+
+    docker compose up -d api
+    docker compose exec api env PYTHONPATH=/app python scripts/furs_echo_test.py
+    docker compose exec api env PYTHONPATH=/app python scripts/furs_register_premise.py
+    docker compose exec api env PYTHONPATH=/app python scripts/furs_issue_test_invoice.py <user_id>
+
+  Ročni curl (zamenjaj KEY):
+
+    curl -sS -X POST 'https://vreme-podnebje.si/strele/furs-relay/' \
+      -H 'Content-Type: application/json' \
+      -H 'X-Service-Key: KEY' \
+      -d '{"production":true,"path":"v1/cash_registers/echo","json":{"EchoRequest":"ping"}}'
+
+
+5) Varnost
+----------
+  - config.php je blokiran z .htaccess
+  - Whitelist poti v index.php
+  - Opcijsko allowed_ips v config.php
+  - Rotiraj service_key ob sumu na zlorabo

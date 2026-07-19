@@ -18,6 +18,7 @@ Glej tudi: 403-POPRAVEK.txt
   index.php
   meteoinfo-data.php   ← NOVO — pravilni podatki (občine, kot lokalni arhiv)
   meteoinfo-proxy.php
+  furs-relay/          ← FURS posrednik za StormAPI (glej furs-relay/DEPLOY.txt)
   .htaccess
   data/embed-regije.json
 

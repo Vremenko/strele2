@@ -1,0 +1,18 @@
+Options -Indexes +FollowSymLinks
+
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+
+<Files "config.php">
+  Require all denied
+</Files>
+
+<FilesMatch "\.(p12|pfx)$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^config\.example\.php$ - [F,L]
+</IfModule>
