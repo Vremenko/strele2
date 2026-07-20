@@ -1235,18 +1235,24 @@
     /* Namizni zoom: Leaflet scrollWheelZoom (brez lastnega zoom handlerja). */
   }
 
-  /** On narrow screens fit whole Slovenia; desktop keeps fixed center/zoom. */
+  /** On narrow screens fit whole Slovenia; desktop keeps fixed center/zoom (statistika). */
   const SLO_MOB_BOUNDS = L.latLngBounds([45.42, 13.38], [46.88, 16.61]);
   const MOB_VIEWPORT_PADDING = { paddingTopLeft: [10, 10], paddingBottomRight: [10, 40] };
-  /** Javni embed: ~1 stopnja bližje, manjši notranji odmik (statistika ostane nespremenjena). */
-  const PUBLIC_DESKTOP_ZOOM = 9;
+  /** Statistika (ne-javni): fiksni namizni zoom. */
   const STATISTIKA_DESKTOP_ZOOM = 8;
   const PUBLIC_MOB_VIEWPORT_PADDING = { paddingTopLeft: [4, 4], paddingBottomRight: [4, 28] };
   const PUBLIC_MOB_FIT_MAX_ZOOM = 11;
   const STATISTIKA_MOB_FIT_MAX_ZOOM = 10;
+  /** Javni embed: po fitBounds približaj glede na širino vsebnika (#map-stage), ne UA. */
+  const PUBLIC_ZOOM_WIDE_MIN_PX = 900;
+  const PUBLIC_ZOOM_MEDIUM_MIN_PX = 520;
+  const PUBLIC_ZOOM_BOOST_WIDE = 0.5;
+  const PUBLIC_ZOOM_BOOST_MEDIUM = 0.25;
+  let deskViewportProgrammatic = 0;
   let sloBoundsCache = null;
   let mobUserViewportLocked = false;
   let deskUserViewportLocked = false;
+  let publicUserViewportLocked = false;
   let mobViewportFitSeq = 0;
   let mobViewportRetryTimer = null;
   let mobViewportProgrammatic = 0;
@@ -1264,7 +1270,22 @@
   }
 
   function desktopInitialZoom() {
-    return isPublicMapEmbed() ? PUBLIC_DESKTOP_ZOOM : STATISTIKA_DESKTOP_ZOOM;
+    return STATISTIKA_DESKTOP_ZOOM;
+  }
+
+  function mapContainerWidth() {
+    const stage = document.getElementById("map-stage");
+    const el = stage || (typeof map !== "undefined" && map ? map.getContainer() : null);
+    if (!el) return 0;
+    return el.getBoundingClientRect().width;
+  }
+
+  /** Dodatek zooma po fitBounds za javni zemljevid (širok / srednji / ozek). */
+  function publicFitZoomBoost(widthPx) {
+    const w = Number(widthPx) || 0;
+    if (w >= PUBLIC_ZOOM_WIDE_MIN_PX) return PUBLIC_ZOOM_BOOST_WIDE;
+    if (w >= PUBLIC_ZOOM_MEDIUM_MIN_PX) return PUBLIC_ZOOM_BOOST_MEDIUM;
+    return 0;
   }
 
   function cancelMobileMapViewportRetries() {
@@ -1284,7 +1305,21 @@
     }
   }
 
+  function lockPublicUserViewport(ev) {
+    if (!isPublicMapEmbed() || publicUserViewportLocked) return;
+    if (mobViewportProgrammatic > 0 || deskViewportProgrammatic > 0) return;
+    if (ev && ev.type === "zoomstart" && !ev.originalEvent) return;
+    publicUserViewportLocked = true;
+    mobUserViewportLocked = true;
+    deskUserViewportLocked = true;
+    cancelMobileMapViewportRetries();
+  }
+
   function lockMobileUserViewport(ev) {
+    if (isPublicMapEmbed()) {
+      lockPublicUserViewport(ev);
+      return;
+    }
     if (!mobView || mobUserViewportLocked) return;
     if (mobViewportProgrammatic > 0) return;
     if (ev && ev.type === "zoomstart" && !ev.originalEvent) return;
@@ -1313,6 +1348,7 @@
   }
 
   function fitMobileMapToSlovenia() {
+    if (isPublicMapEmbed()) return fitPublicMapToSlovenia();
     if (!isMobileView() || mobUserViewportLocked) return false;
     if (!mapStageSizeReady()) return false;
     return runProgrammaticViewport(() => {
@@ -1328,7 +1364,40 @@
     });
   }
 
+  /**
+   * Javni embed (meteoinfo + /admin2 predogled): fitBounds Slovenije,
+   * nato +0.5 / +0.25 / 0 glede na širino vsebnika. Brez fiksnega setView.
+   */
+  function fitPublicMapToSlovenia() {
+    if (!isPublicMapEmbed() || publicUserViewportLocked) return false;
+    if (!mapStageSizeReady()) return false;
+    return runProgrammaticViewport(() => {
+      map.invalidateSize(true);
+      const bounds = getSloveniaBounds();
+      if (!bounds || !bounds.isValid()) return false;
+      const width = mapContainerWidth();
+      const boost = publicFitZoomBoost(width);
+      /* Začasno drobnejši snap, da +0.25 ostane; uporabniški zoom ostane 0.5. */
+      const prevSnap = map.options.zoomSnap;
+      map.options.zoomSnap = 0.25;
+      map.fitBounds(bounds, {
+        ...mobileViewportPadding(),
+        maxZoom: mobileFitMaxZoom(),
+        animate: false,
+      });
+      if (boost > 0) {
+        map.setZoom(map.getZoom() + boost, { animate: false });
+      }
+      map.options.zoomSnap = prevSnap;
+      return true;
+    });
+  }
+
   function scheduleMobileMapViewport() {
+    if (isPublicMapEmbed()) {
+      schedulePublicMapViewport();
+      return;
+    }
     if (!isMobileView() || mobUserViewportLocked) return;
     mobViewportFitSeq += 1;
     const seq = mobViewportFitSeq;
@@ -1348,15 +1417,41 @@
     attempt(8);
   }
 
-  let deskViewportProgrammatic = 0;
+  function schedulePublicMapViewport() {
+    if (!isPublicMapEmbed() || publicUserViewportLocked) return;
+    mobViewportFitSeq += 1;
+    const seq = mobViewportFitSeq;
+    if (mobViewportRetryTimer) {
+      clearTimeout(mobViewportRetryTimer);
+      mobViewportRetryTimer = null;
+    }
+    const attempt = (retriesLeft) => {
+      if (seq !== mobViewportFitSeq || publicUserViewportLocked) return;
+      requestAnimationFrame(() => {
+        if (seq !== mobViewportFitSeq || publicUserViewportLocked) return;
+        if (fitPublicMapToSlovenia()) return;
+        if (retriesLeft <= 0) return;
+        mobViewportRetryTimer = setTimeout(() => attempt(retriesLeft - 1), 60);
+      });
+    };
+    attempt(8);
+  }
 
   function lockDesktopUserViewport() {
+    if (isPublicMapEmbed()) {
+      lockPublicUserViewport();
+      return;
+    }
     if (isMobileView() || deskUserViewportLocked) return;
     if (deskViewportProgrammatic > 0) return;
     deskUserViewportLocked = true;
   }
 
   function applyMapViewport() {
+    if (isPublicMapEmbed()) {
+      schedulePublicMapViewport();
+      return;
+    }
     if (!isMobileView()) {
       if (deskUserViewportLocked) return;
       deskViewportProgrammatic += 1;
@@ -2721,10 +2816,11 @@
     boxZoom: false,
     keyboard: false,
     touchZoom: true,
-    ...(mobView ? {} : {
-      zoomSnap: 0,
-      zoomDelta: 0.5,
-    }),
+    ...(isPublicMapEmbed()
+      ? { zoomSnap: 0.5, zoomDelta: 0.5 }
+      : mobView
+        ? {}
+        : { zoomSnap: 0, zoomDelta: 0.5 }),
   });
 
   const attributionControl = L.control.attribution({
@@ -2808,7 +2904,16 @@
     }
   }
 
-  if (mobView) {
+  if (isPublicMapEmbed()) {
+    map.on("dragstart", () => lockPublicUserViewport());
+    map.on("zoomstart", (ev) => lockPublicUserViewport(ev));
+    /* Wheel lock tudi, če so aktivne mobilne geste (brez fine pointerja). */
+    map.getContainer().addEventListener(
+      "wheel",
+      function () { lockPublicUserViewport(); },
+      { capture: true, passive: true }
+    );
+  } else if (mobView) {
     map.on("dragstart", () => lockMobileUserViewport());
     map.on("zoomstart", (ev) => lockMobileUserViewport(ev));
   }
@@ -2836,7 +2941,7 @@
     }
   }
   scheduleDesktopMapGestures();
-  if (!mobView) {
+  if (!isPublicMapEmbed() && !mobView) {
     map.on("dragstart", lockDesktopUserViewport);
     map.on("zoomstart", lockDesktopUserViewport);
   }
@@ -2876,7 +2981,10 @@
     requestAnimationFrame(() => {
       map.invalidateSize({ pan: false });
       resizeMaplibreBasemap();
-      if (!isMobileView()) {
+      if (isPublicMapEmbed()) {
+        /* Do ročnega zooma/premika: ponovno fitBounds + boost po širini vsebnika. */
+        if (!publicUserViewportLocked) schedulePublicMapViewport();
+      } else if (!isMobileView()) {
         /* Ne ponastavi zoom/središča po uporabniškem zoomanju — samo invalidateSize. */
         if (!deskUserViewportLocked) applyMapViewport();
       } else {
@@ -3812,7 +3920,11 @@
     _geojsonFullLoaded = true;
     if (needsUpgrade && Object.keys(obcinaData).length) {
       renderLayer(true);
-      if (mobView && !mobUserViewportLocked) scheduleMobileMapViewport();
+      if (isPublicMapEmbed()) {
+        if (!publicUserViewportLocked) schedulePublicMapViewport();
+      } else if (mobView && !mobUserViewportLocked) {
+        scheduleMobileMapViewport();
+      }
     }
   }
 
