@@ -450,29 +450,88 @@
   else if (!IS_PREVIEW && !publicKey) bootError = "Manjka ID widgeta.";
 
   const PREVIEW_UPDATE_TYPE = "strele-obcina-preview-update";
+  const PREVIEW_CACHED_TYPE = "strele-obcina-preview-cached";
   let previewLoadSeq = 0;
   let previewForceLoading = false;
+  const previewDataCache = Object.create(null);
+  let lastPreviewPayload = null;
+  let lastPreviewDataKey = "";
+  let preserveDisplayConfig = false;
 
-  function applyPreviewTokenFromParent(token) {
-    if (!IS_PREVIEW) return;
-    const next = String(token || "").trim();
-    if (!next) return;
-    previewToken = next;
-    bootError = legacyQueryBlocked ? "Nepodprti parametri." : null;
-    municipalityName = "";
-    lat = NaN;
-    lon = NaN;
-    obMidParam = null;
-    isNationalScope = false;
-    previewForceLoading = true;
+  function previewCacheKeyFromPayload(payload) {
+    if (!payload) return "";
+    if (payload.scope === "slovenija") return "slovenija";
+    if (payload.ob_mid != null) return "ob:" + Number(payload.ob_mid);
+    return "";
+  }
+
+  function notifyParentPreviewCached(dataKey) {
+    if (!dataKey || window.parent === window) return;
     try {
-      const url = new URL(location.href);
-      url.searchParams.set("token", previewToken);
-      history.replaceState(null, "", url.pathname + url.search);
+      window.parent.postMessage(
+        { type: PREVIEW_CACHED_TYPE, dataKey: dataKey },
+        location.origin
+      );
     } catch (_) {
       /* ignore */
     }
-    load();
+  }
+
+  function applyDisplayConfig(nextTheme, nextSize) {
+    if (nextTheme === "light" || nextTheme === "dark") applyTheme(nextTheme);
+    if (nextSize === "full" || nextSize === "compact") size = nextSize;
+  }
+
+  function applyPreviewMessageFromParent(msg) {
+    if (!IS_PREVIEW || !msg) return;
+    const nextTheme = msg.theme;
+    const nextSize = msg.size;
+    const token = typeof msg.token === "string" ? String(msg.token).trim() : "";
+    const dataKey = typeof msg.dataKey === "string" ? String(msg.dataKey).trim() : "";
+
+    if (token) {
+      previewToken = token;
+      bootError = legacyQueryBlocked ? "Nepodprti parametri." : null;
+      municipalityName = "";
+      lat = NaN;
+      lon = NaN;
+      obMidParam = null;
+      isNationalScope = false;
+      previewForceLoading = true;
+      applyDisplayConfig(nextTheme, nextSize);
+      try {
+        const url = new URL(location.href);
+        url.searchParams.set("token", previewToken);
+        history.replaceState(null, "", url.pathname + url.search);
+      } catch (_) {
+        /* ignore */
+      }
+      if (dataKey && previewDataCache[dataKey]) {
+        lastPreviewPayload = previewDataCache[dataKey];
+        lastPreviewDataKey = dataKey;
+        loadFromCachedPayload(previewDataCache[dataKey]);
+        notifyParentPreviewCached(dataKey);
+        return;
+      }
+      preserveDisplayConfig = true;
+      load();
+      return;
+    }
+
+    if (dataKey && previewDataCache[dataKey]) {
+      previewForceLoading = true;
+      applyDisplayConfig(nextTheme, nextSize);
+      lastPreviewPayload = previewDataCache[dataKey];
+      lastPreviewDataKey = dataKey;
+      loadFromCachedPayload(previewDataCache[dataKey]);
+      notifyParentPreviewCached(dataKey);
+      return;
+    }
+
+    if (lastPreviewPayload) {
+      applyDisplayConfig(nextTheme, nextSize);
+      loadFromCachedPayload(lastPreviewPayload);
+    }
   }
 
   if (IS_PREVIEW) {
@@ -481,7 +540,7 @@
       if (ev.origin !== location.origin) return;
       const data = ev.data;
       if (!data || data.type !== PREVIEW_UPDATE_TYPE) return;
-      applyPreviewTokenFromParent(data.token);
+      applyPreviewMessageFromParent(data);
     });
   }
 
@@ -1176,8 +1235,22 @@
       const payload = await fetchJson(
         `${WIDGET_API}/obcina-widget/preview?token=${encodeURIComponent(previewToken)}`
       );
-      applyTheme(payload.theme);
-      size = payload.size === "full" ? "full" : "compact";
+      const cacheKey = previewCacheKeyFromPayload(payload);
+      if (cacheKey) {
+        try {
+          previewDataCache[cacheKey] = JSON.parse(JSON.stringify(payload));
+        } catch (_) {
+          previewDataCache[cacheKey] = payload;
+        }
+        lastPreviewPayload = previewDataCache[cacheKey];
+        lastPreviewDataKey = cacheKey;
+        notifyParentPreviewCached(cacheKey);
+      }
+      if (!preserveDisplayConfig) {
+        applyTheme(payload.theme);
+        size = payload.size === "full" ? "full" : "compact";
+      }
+      preserveDisplayConfig = false;
       isNationalScope = payload.scope === "slovenija";
       obMidParam = payload.ob_mid || null;
       return hydrateWidgetData(payload, obMidParam, isNationalScope);
@@ -1613,6 +1686,86 @@
 
   let loadedOnce = false;
 
+  async function renderFromWidgetData(data, loadId) {
+    const national = isNationalScope || data.scope === "slovenija";
+    municipalityName = data.obcina || (national ? "SLOVENIJA" : "Občina");
+
+    const stats = buildViewFromData(data);
+    if (loadId !== previewLoadSeq) return;
+    const showMap = size === "full";
+    if (showMap) {
+      await ensureHeavyLibs();
+      if (loadId !== previewLoadSeq) return;
+      teardownMap();
+      destroyDailyChart();
+    }
+
+    const view = {
+      municipalityName,
+      isNational: national,
+      showMap,
+      strikesLast24h: stats.strikesLast24h,
+      lastStrikeTime: stats.lastStrikeTime,
+      lastStrikeDate: stats.lastStrikeDate,
+      thirdLabel: stats.thirdLabel,
+      thirdValue: stats.thirdValue,
+      thirdIsZero: stats.thirdIsZero,
+      detailUrl: buildDetailUrl(),
+      strikes: stats.strikes,
+      daily: stats.daily,
+      periodDays: stats.periodDays,
+      mapComplete: stats.mapComplete,
+      mapMessage: stats.mapMessage,
+      obMid: national ? null : (data.ob_mid || obMidParam),
+    };
+
+    renderWidget(view);
+    loadedOnce = true;
+    bindWidgetNavigation();
+
+    if (showMap) {
+      const scopeKey = visualScopeKey(view);
+      if (lastVisualScopeKey !== scopeKey || view.strikesLast24h <= 0) {
+        userVisualPanel = null;
+      }
+      lastVisualScopeKey = scopeKey;
+      mountVisualPanel(view);
+      observeWidgetResize();
+      bindWindowResize();
+    } else {
+      userVisualPanel = null;
+      lastVisualScopeKey = null;
+    }
+
+    notifyResize();
+  }
+
+  async function loadFromCachedPayload(payload) {
+    const loadId = ++previewLoadSeq;
+    if (!loadedOnce || previewForceLoading) {
+      renderLoading();
+      previewForceLoading = false;
+    }
+    try {
+      isNationalScope = payload.scope === "slovenija";
+      obMidParam = payload.ob_mid || null;
+      municipalityName = "";
+      lat = NaN;
+      lon = NaN;
+      const data = await hydrateWidgetData(
+        Object.assign({}, payload),
+        obMidParam,
+        isNationalScope
+      );
+      if (loadId !== previewLoadSeq) return;
+      await renderFromWidgetData(data, loadId);
+    } catch (e) {
+      if (loadId !== previewLoadSeq) return;
+      if (!loadedOnce) renderError();
+      notifyResize();
+    }
+  }
+
   async function load() {
     const loadId = ++previewLoadSeq;
     if (!loadedOnce || previewForceLoading) {
@@ -1622,57 +1775,7 @@
     try {
       const data = await loadData();
       if (loadId !== previewLoadSeq) return;
-      const national = isNationalScope || data.scope === "slovenija";
-      municipalityName = data.obcina || (national ? "SLOVENIJA" : "Občina");
-
-      const stats = buildViewFromData(data);
-      if (loadId !== previewLoadSeq) return;
-      const showMap = size === "full";
-      if (showMap) {
-        await ensureHeavyLibs();
-        if (loadId !== previewLoadSeq) return;
-        teardownMap();
-        destroyDailyChart();
-      }
-
-      const view = {
-        municipalityName,
-        isNational: national,
-        showMap,
-        strikesLast24h: stats.strikesLast24h,
-        lastStrikeTime: stats.lastStrikeTime,
-        lastStrikeDate: stats.lastStrikeDate,
-        thirdLabel: stats.thirdLabel,
-        thirdValue: stats.thirdValue,
-        thirdIsZero: stats.thirdIsZero,
-        detailUrl: buildDetailUrl(),
-        strikes: stats.strikes,
-        daily: stats.daily,
-        periodDays: stats.periodDays,
-        mapComplete: stats.mapComplete,
-        mapMessage: stats.mapMessage,
-        obMid: national ? null : (data.ob_mid || obMidParam),
-      };
-
-      renderWidget(view);
-      loadedOnce = true;
-      bindWidgetNavigation();
-
-      if (showMap) {
-        const scopeKey = visualScopeKey(view);
-        if (lastVisualScopeKey !== scopeKey || view.strikesLast24h <= 0) {
-          userVisualPanel = null;
-        }
-        lastVisualScopeKey = scopeKey;
-        mountVisualPanel(view);
-        observeWidgetResize();
-        bindWindowResize();
-      } else {
-        userVisualPanel = null;
-        lastVisualScopeKey = null;
-      }
-
-      notifyResize();
+      await renderFromWidgetData(data, loadId);
     } catch (e) {
       if (loadId !== previewLoadSeq) return;
       if (!loadedOnce) renderError();

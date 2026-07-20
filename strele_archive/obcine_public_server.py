@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-import os
+import copy
 import json
+import os
 import pathlib
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -452,7 +456,12 @@ def _parse_strike_ts(ts_raw) -> datetime | None:
 
 
 def _fetch_last_strike_time_from_udari_db(obs: list) -> str | None:
-    """Natančen čas zadnjega udara iz strele.udari (minute)."""
+    """Natančen čas zadnjega udara iz strele.udari (minute).
+
+    Kandidati: GiST predfilter na geom (idx_udari_geom) + časovno okno,
+    nato ORDER BY ts_utc DESC LIMIT 500 in točka-v-poligonu — enak
+    rezultat kot pri lat/lon BETWEEN, hitrejši načrt poizvedbe.
+    """
     url = _udari_database_url()
     if not url:
         return None
@@ -470,13 +479,12 @@ def _fetch_last_strike_time_from_udari_db(obs: list) -> str | None:
                     """
                     SELECT lat, lon, ts_utc
                     FROM strele.udari
-                    WHERE ts_utc >= %s AND ts_utc <= %s
-                      AND lat BETWEEN %s AND %s
-                      AND lon BETWEEN %s AND %s
+                    WHERE geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+                      AND ts_utc >= %s AND ts_utc <= %s
                     ORDER BY ts_utc DESC
                     LIMIT 500
                     """,
-                    (start, now, miny, maxy, minx, maxx),
+                    (minx, miny, maxx, maxy, start, now),
                 )
                 rows = cur.fetchall()
     except Exception:
@@ -1244,25 +1252,32 @@ def _api_obcina_widget_data(
     daily, _archive_period_total, peak = _fetch_daily_calm(mids, calm_days)
     today_lj = local_today()
     archive_today = daily_value_for_date(daily, today_lj)
-    last_strike_time = _fetch_last_strike_time_multi(obs, muni_codes, daily)
 
     data_source = "archive"
     total_24h = 0
     last_hour = 0
     hourly: list[dict] = []
     today_live: int | None = None
+    last_strike_time: str | None = None
 
-    try:
-        live = _fetch_obcina_live_stats_multi(muni_codes)
-        data_source = "live"
-        total_24h = live.total_24h
-        last_hour = live.last_hour
-        hourly = live.hourly
-        today_live = live.today_from_midnight
-    except StormUnavailable:
-        data_source = "archive_fallback"
-        total_24h = archive_today
-        today_live = archive_today
+    def _load_live() -> StormObcinaLiveStats:
+        return _fetch_obcina_live_stats_multi(muni_codes)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        fut_last = pool.submit(_fetch_last_strike_time_multi, obs, muni_codes, daily)
+        fut_live = pool.submit(_load_live)
+        last_strike_time = fut_last.result()
+        try:
+            live = fut_live.result()
+            data_source = "live"
+            total_24h = live.total_24h
+            last_hour = live.last_hour
+            hourly = live.hourly
+            today_live = live.today_from_midnight
+        except StormUnavailable:
+            data_source = "archive_fallback"
+            total_24h = archive_today
+            today_live = archive_today
 
     daily, period_total, peak = apply_live_daily_sync(
         daily,
@@ -1334,6 +1349,44 @@ def api_obcina_widget_internal(
     )
 
 
+# Kratek TTL predpomnilnik samo za /api/obcina-widget/preview (brez teme/velikosti).
+_PREVIEW_DATA_TTL_SEC = float(os.getenv("OBCINA_WIDGET_PREVIEW_CACHE_TTL_SEC", "45"))
+_preview_data_cache: dict[str, tuple[float, dict]] = {}
+_preview_data_cache_lock = threading.Lock()
+
+
+def _preview_data_cache_key(*, ob_mid: int | None, scope: str | None) -> str:
+    if scope == "slovenija":
+        return "slovenija"
+    return f"ob:{int(ob_mid)}" if ob_mid is not None else "ob:"
+
+
+def _preview_cache_get(key: str) -> dict | None:
+    now = time.monotonic()
+    with _preview_data_cache_lock:
+        row = _preview_data_cache.get(key)
+        if not row:
+            return None
+        expires_at, payload = row
+        if expires_at <= now:
+            _preview_data_cache.pop(key, None)
+            return None
+        return copy.deepcopy(payload)
+
+
+def _preview_cache_set(key: str, payload: dict) -> None:
+    with _preview_data_cache_lock:
+        _preview_data_cache[key] = (
+            time.monotonic() + _PREVIEW_DATA_TTL_SEC,
+            copy.deepcopy(payload),
+        )
+
+
+def _preview_cache_clear_for_tests() -> None:
+    with _preview_data_cache_lock:
+        _preview_data_cache.clear()
+
+
 @app.get("/api/obcina-widget/preview")
 def api_obcina_widget_preview(
     request: Request,
@@ -1343,10 +1396,16 @@ def api_obcina_widget_preview(
         raise HTTPException(status_code=400, detail="Dodatni parametri niso dovoljeni.")
     session_id = request.cookies.get(PREVIEW_SESSION_COOKIE)
     config = validate_preview_token(token, session_id)
-    if config["scope"]:
-        data = _api_si_widget_data(30)
+    cache_key = _preview_data_cache_key(ob_mid=config["ob_mid"], scope=config["scope"])
+    data = _preview_cache_get(cache_key)
+    if data is None:
+        if config["scope"]:
+            data = _api_si_widget_data(30)
+        else:
+            data = _api_obcina_widget_data(ob_mid=config["ob_mid"], calm_days=30)
+        _preview_cache_set(cache_key, data)
     else:
-        data = _api_obcina_widget_data(ob_mid=config["ob_mid"], calm_days=30)
+        data = copy.deepcopy(data)
     return {
         **data,
         "preview": True,
