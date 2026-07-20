@@ -528,8 +528,8 @@
       return;
     }
 
+    applyDisplayConfig(nextTheme, nextSize);
     if (lastPreviewPayload) {
-      applyDisplayConfig(nextTheme, nextSize);
       loadFromCachedPayload(lastPreviewPayload);
     }
   }
