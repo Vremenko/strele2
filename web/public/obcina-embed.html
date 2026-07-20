@@ -385,6 +385,7 @@
 <script src="https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.umd.min.js"></script>
 <script src="https://cdn.maptiler.com/leaflet-maptilersdk/v4.1.0/leaflet-maptilersdk.umd.min.js"></script>
 <script src="/widget/public/estimated-strike-time.js"></script>
+<script src="/widget/public/sl-number-format.js"></script>
 <script>
 (function () {
   "use strict";
@@ -411,7 +412,14 @@
     ? API_BASE.replace(/\/$/, "")
     : (location.origin + "/widget/api");
   const STRELKO_SITE = "https://strelko.meteoinfo.si";
-  const fmt = new Intl.NumberFormat("sl-SI");
+
+  function formatSlInt(value) {
+    const api = window.StrelkoSlNumberFormat;
+    if (api && typeof api.formatSlInt === "function") return api.formatSlInt(value);
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n)) return "—";
+    return String(n);
+  }
 
   const MAPTILER_KEY = "49h4zzj96Wh7pGHWjiId";
   const STYLE_BASE_LIGHT = "019cde7d-3f45-7c4a-974c-c31f0757f24d";
@@ -558,7 +566,7 @@
                 return row ? formatDateSl(row.datum) : "";
               },
               label(ctx) {
-                return `Strele: ${fmt.format(ctx.parsed.y)}`;
+                return `Strele: ${formatSlInt(ctx.parsed.y)}`;
               },
             },
           },
@@ -580,6 +588,9 @@
               color: muted,
               precision: 0,
               maxTicksLimit: 6,
+              callback(value) {
+                return formatSlInt(value);
+              },
             },
           },
         },
@@ -1013,7 +1024,7 @@
       lastStrikeTime,
       lastStrikeDate,
       thirdLabel: `V zadnjih ${periodDays} dneh`,
-      thirdValue: fmt.format(periodTotal),
+      thirdValue: formatSlInt(periodTotal),
       thirdIsZero: periodTotal === 0,
       strikes: strikes24h,
       daily: data.daily || [],
@@ -1171,7 +1182,7 @@
           <div class="stats-grid">
             <div class="stat-card">
               <p class="stat-label">Zadnjih 24 ur</p>
-              <p class="stat-value" aria-label="Število udarov v zadnjih 24 urah">${fmt.format(view.strikesLast24h)}</p>
+              <p class="stat-value" aria-label="Število udarov v zadnjih 24 urah">${formatSlInt(view.strikesLast24h)}</p>
             </div>
             <div class="stat-card">
               <p class="stat-label">Zadnja zaznana strela</p>

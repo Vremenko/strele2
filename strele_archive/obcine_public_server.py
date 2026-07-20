@@ -1385,6 +1385,18 @@ def serve_estimated_strike_time_js() -> FileResponse:
     )
 
 
+@app.get("/public/sl-number-format.js")
+def serve_sl_number_format_js() -> FileResponse:
+    path = _WEB_PUBLIC_DIR / "sl-number-format.js"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="sl-number-format.js ne obstaja")
+    return FileResponse(
+        str(path),
+        media_type="application/javascript; charset=utf-8",
+        headers={"Cache-Control": "no-store, must-revalidate"},
+    )
+
+
 @app.get("/public/obcina-widget.html")
 def serve_obcina_widget() -> FileResponse:
     path = _WEB_PUBLIC_DIR / "obcina-widget.html"
