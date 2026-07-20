@@ -577,58 +577,26 @@
     }
     mapInstance.__streleDesktopGestures = true;
     try { mapInstance.dragging.enable(); } catch (_) {}
+    try { mapInstance.scrollWheelZoom.enable(); } catch (_) {}
     try { mapInstance.touchZoom.disable(); } catch (_) {}
-    mapInstance.on("dragstart", function () { deskMapPanning = true; });
+    mapInstance.on("dragstart", function () {
+      deskMapPanning = true;
+      lockDesktopUserViewport();
+    });
     mapInstance.on("dragend", function () { setTimeout(function () { deskMapPanning = false; }, 0); });
-    const container = mapInstance.getContainer();
-    const WHEEL_PX_PER_ZOOM = 120;
-    const MAX_WHEEL_DELTA_PER_FRAME = 80;
-    let pendingWheelDelta = 0;
-    let zoomWheelRaf = 0;
-    let lastWheelLatLng = null;
-    function normalizeWheelDeltaY(ev) {
-      let dy = ev.deltaY;
-      if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 16;
-      else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= container.clientHeight || 800;
-      return dy;
-    }
-    function flushWheelZoomFrame() {
-      zoomWheelRaf = 0;
-      if (!pendingWheelDelta) return;
-      let consume = pendingWheelDelta;
-      if (Math.abs(consume) > MAX_WHEEL_DELTA_PER_FRAME) consume = Math.sign(consume) * MAX_WHEEL_DELTA_PER_FRAME;
-      pendingWheelDelta -= consume;
-      const zoomChange = -consume / WHEEL_PX_PER_ZOOM;
-      if (zoomChange) {
-        const minZ = mapInstance.getMinZoom(), maxZ = mapInstance.getMaxZoom(), current = mapInstance.getZoom();
-        let next = current + zoomChange;
-        if (next > maxZ) next = maxZ;
-        if (next < minZ) next = minZ;
-        if (next !== current) {
-          if (lastWheelLatLng) mapInstance.setZoomAround(lastWheelLatLng, next, { animate: false });
-          else mapInstance.setZoom(next, { animate: false });
-        } else if ((current >= maxZ && pendingWheelDelta > 0) || (current <= minZ && pendingWheelDelta < 0)) {
-          pendingWheelDelta = 0;
-        }
-      }
-      if (pendingWheelDelta) zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
-    }
-    container.addEventListener("wheel", function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      try {
-        const pt = mapInstance.mouseEventToContainerPoint(ev);
-        lastWheelLatLng = mapInstance.containerPointToLatLng(pt);
-      } catch (_) { lastWheelLatLng = null; }
-      pendingWheelDelta += normalizeWheelDeltaY(ev);
-      if (!zoomWheelRaf) zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
-    }, { passive: false, capture: true });
+    mapInstance.getContainer().addEventListener(
+      "wheel",
+      function () { lockDesktopUserViewport(); },
+      { capture: true, passive: true }
+    );
+    /* Namizni zoom: Leaflet scrollWheelZoom. */
   }
 
   /** On narrow screens fit whole Slovenia; desktop keeps fixed center/zoom. */
   const SLO_MOB_BOUNDS = L.latLngBounds([45.42, 13.38], [46.88, 16.61]);
   let sloBoundsCache = null;
   let mobViewportDone = false;
+  let deskUserViewportLocked = false;
 
   function getSloveniaBounds() {
     if (geojsonLayer && _geojsonFullLoaded) return geojsonLayer.getBounds();
@@ -640,9 +608,23 @@
     return SLO_MOB_BOUNDS;
   }
 
+  let deskViewportProgrammatic = 0;
+
+  function lockDesktopUserViewport() {
+    if (isMobileView() || deskUserViewportLocked) return;
+    if (deskViewportProgrammatic > 0) return;
+    deskUserViewportLocked = true;
+  }
+
   function applyMapViewport() {
     if (!isMobileView()) {
-      map.setView([46.12, 14.82], 8, { animate: false });
+      if (deskUserViewportLocked) return;
+      deskViewportProgrammatic += 1;
+      try {
+        map.setView([46.12, 14.82], 8, { animate: false });
+      } finally {
+        deskViewportProgrammatic -= 1;
+      }
       return;
     }
     if (mobViewportDone) return;
@@ -1131,6 +1113,10 @@
   }).addTo(map);
 
   bindMapZoomGestures(map, document.getElementById("map-stage"));
+  if (!isMobileView()) {
+    map.on("dragstart", lockDesktopUserViewport);
+    map.on("zoomstart", lockDesktopUserViewport);
+  }
 
   /* ——— Legend control ——— */
   const legendControl = L.control({ position: "bottomright" });
@@ -1147,7 +1133,9 @@
   function scheduleMapResize() {
     requestAnimationFrame(() => {
       map.invalidateSize(true);
-      if (!mobView) applyMapViewport();
+      if (!mobView) {
+        if (!deskUserViewportLocked) applyMapViewport();
+      }
       notifyResize();
       resizeDailyChart();
     });
