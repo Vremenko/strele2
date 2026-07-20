@@ -151,14 +151,15 @@
 
     .stat-card {
       background: var(--bg-soft);
-      border: none;
+      /* Enaka širina roba v obeh temah (teme ne smejo spreminjati zunanjih mer). */
+      border: 1px solid transparent;
       border-radius: 12px;
       padding: 1rem;
       text-align: left;
     }
     [data-theme="light"] .stat-card {
       background: var(--bg-map);
-      border: 1px solid var(--border);
+      border-color: var(--border);
     }
     .stat-label {
       font-size: 0.75rem;
@@ -418,9 +419,17 @@
   else if (!IS_PREVIEW && !publicKey) bootError = "Manjka ID widgeta.";
 
   function applyTheme(nextTheme) {
-    theme = nextTheme === "light" ? "light" : "dark";
+    const next = nextTheme === "light" ? "light" : "dark";
+    const changed = theme !== next;
+    theme = next;
     document.documentElement.setAttribute("data-theme", theme);
     document.body.setAttribute("data-theme", theme);
+    if (changed) {
+      requestAnimationFrame(function () {
+        notifyResize();
+        requestAnimationFrame(notifyResize);
+      });
+    }
   }
   applyTheme("dark");
 
