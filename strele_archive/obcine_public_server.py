@@ -1481,6 +1481,26 @@ def serve_obcina_preview() -> FileResponse:
     )
 
 
+@app.get("/public/obcina-si-embed.html")
+def serve_obcina_si_embed() -> FileResponse:
+    """Javni SI widget (kartice, brez zemljevida/grafa) za meteoinfo + admin2 predogled."""
+    path = _WEB_PUBLIC_DIR / "obcina-si-embed.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="obcina-si-embed.html ne obstaja")
+    frame_ancestors = os.getenv(
+        "STRELKO_SI_WIDGET_FRAME_ANCESTORS",
+        "https://strelko.meteoinfo.si https://meteoinfo.si https://www.meteoinfo.si",
+    ).strip()
+    return FileResponse(
+        str(path),
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-store, must-revalidate",
+            "Content-Security-Policy": f"frame-ancestors {frame_ancestors}",
+        },
+    )
+
+
 @app.get("/public/data/{filename:path}")
 def serve_data_file(filename: str) -> FileResponse:
     """Servira statične podatkovne datoteke (GeoJSON ipd.) brez avtentikacije."""
