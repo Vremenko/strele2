@@ -474,33 +474,28 @@
     return !prefersDesktopMapPointer();
   }
 
-  const MOBILE_MAP_HINT_KEY = "strele-map-two-finger-hint-shown";
-  function mobileMapHintAlreadyShown() {
-    try { return sessionStorage.getItem(MOBILE_MAP_HINT_KEY) === "1"; } catch (_) { return false; }
-  }
-  function markMobileMapHintShown() {
-    try { sessionStorage.setItem(MOBILE_MAP_HINT_KEY, "1"); } catch (_) {}
-  }
-
   function bindMobileMapGestures(mapInstance, hostEl) {
     if (!mapInstance || !hostEl) return;
     if (mapInstance.__streleMobileGestures) return;
     mapInstance.__streleMobileGestures = true;
     const hintMsg = "Premaknite zemljevid z dvema prstoma.";
-    const HINT_HIDE_MS = 1600;
+    const HINT_HIDE_AFTER_TOUCH_MS = 500;
     const MOB_DRAG_HINT_PX = 3;
     const PINCH_DIST_CHANGE = 0.02;
     let hintTimer = null;
     let hintEl = null;
-    function hideWheelHint() {
+    function cancelHideTimer() {
       if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    }
+    function hideWheelHint() {
+      cancelHideTimer();
       if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
       hintEl = null;
     }
-    function scheduleWheelHintOnce() {
+    /** Pokaži isti element; prekliči morebitni timer skrivanja. Med gesto ne skrij. */
+    function showWheelHint() {
       if (!hostEl.isConnected) return;
-      if (mobileMapHintAlreadyShown()) return;
-      markMobileMapHintShown();
+      cancelHideTimer();
       if (!hintEl) {
         hintEl = document.createElement("div");
         hintEl.className = "strele-map-wheel-hint";
@@ -508,13 +503,17 @@
         hintEl.textContent = hintMsg;
         hostEl.appendChild(hintEl);
       }
-      if (hintTimer) clearTimeout(hintTimer);
-      hintTimer = setTimeout(hideWheelHint, HINT_HIDE_MS);
+    }
+    /** Skrij ~500 ms po koncu dotika. */
+    function scheduleWheelHintHide() {
+      cancelHideTimer();
+      if (!hintEl) return;
+      hintTimer = setTimeout(hideWheelHint, HINT_HIDE_AFTER_TOUCH_MS);
     }
     try { mapInstance.dragging.disable(); } catch (_) {}
     try { mapInstance.touchZoom.enable(); } catch (_) {}
     const container = mapInstance.getContainer();
-    let singleActive = false, startX = 0, startY = 0;
+    let singleActive = false, startX = 0, startY = 0, hintArmedForGesture = false;
     let multiActive = false, midX = 0, midY = 0, multiStartDist = 0, multiPinching = false;
     function touchMid(touches) {
       return { x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 };
@@ -524,13 +523,15 @@
     }
     function beginMulti(e) {
       hideWheelHint();
-      multiActive = true; singleActive = false; multiPinching = false;
+      multiActive = true; singleActive = false; hintArmedForGesture = false; multiPinching = false;
       const mid = touchMid(e.touches); midX = mid.x; midY = mid.y; multiStartDist = touchDist(e.touches);
     }
     function onTouchStart(e) {
       if (e.touches.length >= 2) { beginMulti(e); return; }
       if (e.touches.length === 1 && !multiActive) {
-        singleActive = true; startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+        cancelHideTimer();
+        singleActive = true; hintArmedForGesture = true;
+        startX = e.touches[0].clientX; startY = e.touches[0].clientY;
       }
     }
     function onTouchMove(e) {
@@ -548,17 +549,19 @@
         return;
       }
       if (!singleActive || e.touches.length !== 1) return;
-      if (Math.hypot(e.touches[0].clientX - startX, e.touches[0].clientY - startY) > MOB_DRAG_HINT_PX) {
-        scheduleWheelHintOnce();
+      if (hintArmedForGesture && Math.hypot(e.touches[0].clientX - startX, e.touches[0].clientY - startY) > MOB_DRAG_HINT_PX) {
+        hintArmedForGesture = false;
+        showWheelHint();
       }
     }
     function onTouchEnd(e) {
       if (e.touches.length >= 2) { beginMulti(e); return; }
       if (e.touches.length === 1) {
-        multiActive = false; multiPinching = false; singleActive = true;
+        multiActive = false; multiPinching = false; singleActive = true; hintArmedForGesture = true;
         startX = e.touches[0].clientX; startY = e.touches[0].clientY; return;
       }
-      singleActive = false; multiActive = false; multiPinching = false;
+      singleActive = false; hintArmedForGesture = false; multiActive = false; multiPinching = false;
+      scheduleWheelHintHide();
     }
     mapInstance.on("movestart", hideWheelHint);
     mapInstance.on("zoomstart", hideWheelHint);

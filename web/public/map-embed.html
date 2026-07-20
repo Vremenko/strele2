@@ -1047,14 +1047,6 @@
     return prefersMobileMapPointer();
   }
 
-  const MOBILE_MAP_HINT_KEY = "strele-map-two-finger-hint-shown";
-  function mobileMapHintAlreadyShown() {
-    try { return sessionStorage.getItem(MOBILE_MAP_HINT_KEY) === "1"; } catch (_) { return false; }
-  }
-  function markMobileMapHintShown() {
-    try { sessionStorage.setItem(MOBILE_MAP_HINT_KEY, "1"); } catch (_) {}
-  }
-
   function bindMobileMapGestures(mapInstance, hostEl) {
     if (!mapInstance || !hostEl) return;
     if (mapInstance.__streleMobileGestures) return;
@@ -1062,22 +1054,26 @@
     mapInstance.__streleMobileGestures = true;
 
     const hintMsg = "Premaknite zemljevid z dvema prstoma.";
-    const HINT_HIDE_MS = 1600;
+    const HINT_HIDE_AFTER_TOUCH_MS = 500;
     const MOB_DRAG_HINT_PX = 3;
     const PINCH_DIST_CHANGE = 0.02;
     let hintTimer = null;
     let hintEl = null;
 
-    function hideWheelHint() {
+    function cancelHideTimer() {
       if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    }
+
+    function hideWheelHint() {
+      cancelHideTimer();
       if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
       hintEl = null;
     }
 
-    function scheduleWheelHintOnce() {
+    /** Pokaži isti element; prekliči morebitni timer skrivanja. Med gesto ne skrij. */
+    function showWheelHint() {
       if (!hostEl.isConnected) return;
-      if (mobileMapHintAlreadyShown()) return;
-      markMobileMapHintShown();
+      cancelHideTimer();
       if (!hintEl) {
         hintEl = document.createElement("div");
         hintEl.className = "strele-map-wheel-hint";
@@ -1085,8 +1081,13 @@
         hintEl.textContent = hintMsg;
         hostEl.appendChild(hintEl);
       }
-      if (hintTimer) clearTimeout(hintTimer);
-      hintTimer = setTimeout(hideWheelHint, HINT_HIDE_MS);
+    }
+
+    /** Skrij ~500 ms po koncu dotika. */
+    function scheduleWheelHintHide() {
+      cancelHideTimer();
+      if (!hintEl) return;
+      hintTimer = setTimeout(hideWheelHint, HINT_HIDE_AFTER_TOUCH_MS);
     }
 
     hideMobileMapWheelHint = hideWheelHint;
@@ -1098,6 +1099,7 @@
     let singleActive = false;
     let startX = 0;
     let startY = 0;
+    let hintArmedForGesture = false;
     let multiActive = false;
     let midX = 0;
     let midY = 0;
@@ -1122,6 +1124,7 @@
       hideWheelHint();
       multiActive = true;
       singleActive = false;
+      hintArmedForGesture = false;
       multiPinching = false;
       const mid = touchMid(e.touches);
       midX = mid.x;
@@ -1135,7 +1138,9 @@
         return;
       }
       if (e.touches.length === 1 && !multiActive) {
+        cancelHideTimer();
         singleActive = true;
+        hintArmedForGesture = true;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
       }
@@ -1167,8 +1172,9 @@
       if (!singleActive || e.touches.length !== 1) return;
       const x = e.touches[0].clientX;
       const y = e.touches[0].clientY;
-      if (Math.hypot(x - startX, y - startY) > MOB_DRAG_HINT_PX) {
-        scheduleWheelHintOnce();
+      if (hintArmedForGesture && Math.hypot(x - startX, y - startY) > MOB_DRAG_HINT_PX) {
+        hintArmedForGesture = false;
+        showWheelHint();
       }
     }
 
@@ -1181,13 +1187,16 @@
         multiActive = false;
         multiPinching = false;
         singleActive = true;
+        hintArmedForGesture = true;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         return;
       }
       singleActive = false;
+      hintArmedForGesture = false;
       multiActive = false;
       multiPinching = false;
+      scheduleWheelHintHide();
     }
 
     mapInstance.on("movestart", hideWheelHint);
