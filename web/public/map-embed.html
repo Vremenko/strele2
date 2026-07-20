@@ -1243,11 +1243,14 @@
   const PUBLIC_MOB_VIEWPORT_PADDING = { paddingTopLeft: [4, 4], paddingBottomRight: [4, 28] };
   const PUBLIC_MOB_FIT_MAX_ZOOM = 11;
   const STATISTIKA_MOB_FIT_MAX_ZOOM = 10;
-  /** Javni embed: po fitBounds približaj glede na širino vsebnika (#map-stage), ne UA. */
-  const PUBLIC_ZOOM_WIDE_MIN_PX = 900;
-  const PUBLIC_ZOOM_MEDIUM_MIN_PX = 520;
-  const PUBLIC_ZOOM_BOOST_WIDE = 0.5;
-  const PUBLIC_ZOOM_BOOST_MEDIUM = 0.25;
+  /** Javni embed: začetni zoom po širini vsebnika (#map-stage), ne UA. */
+  const PUBLIC_MIN_ZOOM = 6.5;
+  const PUBLIC_ZOOM_BY_WIDTH = [
+    { w: 350, z: 6.5 },
+    { w: 400, z: 7 },
+    { w: 700, z: 7.5 },
+    { w: 1100, z: 8.25 },
+  ];
   let deskViewportProgrammatic = 0;
   let sloBoundsCache = null;
   let mobUserViewportLocked = false;
@@ -1280,12 +1283,24 @@
     return el.getBoundingClientRect().width;
   }
 
-  /** Dodatek zooma po fitBounds za javni zemljevid (širok / srednji / ozek). */
-  function publicFitZoomBoost(widthPx) {
+  /**
+   * Ciljni začetni zoom javnega zemljevida glede na širino (linearno med točkami).
+   * ~350→6.5, ~400→7, ~700→7.5, ~1100→8.25
+   */
+  function publicInitialZoomForWidth(widthPx) {
     const w = Number(widthPx) || 0;
-    if (w >= PUBLIC_ZOOM_WIDE_MIN_PX) return PUBLIC_ZOOM_BOOST_WIDE;
-    if (w >= PUBLIC_ZOOM_MEDIUM_MIN_PX) return PUBLIC_ZOOM_BOOST_MEDIUM;
-    return 0;
+    const pts = PUBLIC_ZOOM_BY_WIDTH;
+    if (w <= pts[0].w) return pts[0].z;
+    if (w >= pts[pts.length - 1].w) return pts[pts.length - 1].z;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      if (w <= b.w) {
+        const t = (w - a.w) / (b.w - a.w);
+        return a.z + t * (b.z - a.z);
+      }
+    }
+    return pts[pts.length - 1].z;
   }
 
   function cancelMobileMapViewportRetries() {
@@ -1365,8 +1380,8 @@
   }
 
   /**
-   * Javni embed (meteoinfo + /admin2 predogled): fitBounds Slovenije,
-   * nato +0.5 / +0.25 / 0 glede na širino vsebnika. Brez fiksnega setView.
+   * Javni embed (meteoinfo + /admin2 predogled): fitBounds za središče Slovenije,
+   * nato absolutni zoom po širini vsebnika. Brez fiksnega setView.
    */
   function fitPublicMapToSlovenia() {
     if (!isPublicMapEmbed() || publicUserViewportLocked) return false;
@@ -1376,8 +1391,8 @@
       const bounds = getSloveniaBounds();
       if (!bounds || !bounds.isValid()) return false;
       const width = mapContainerWidth();
-      const boost = publicFitZoomBoost(width);
-      /* Začasno drobnejši snap, da +0.25 ostane; uporabniški zoom ostane 0.5. */
+      const targetZoom = publicInitialZoomForWidth(width);
+      /* 8.25 zahteva začasni snap 0.25; uporabniški zoom ostane zoomSnap 0.5. */
       const prevSnap = map.options.zoomSnap;
       map.options.zoomSnap = 0.25;
       map.fitBounds(bounds, {
@@ -1385,9 +1400,7 @@
         maxZoom: mobileFitMaxZoom(),
         animate: false,
       });
-      if (boost > 0) {
-        map.setZoom(map.getZoom() + boost, { animate: false });
-      }
+      map.setZoom(targetZoom, { animate: false });
       map.options.zoomSnap = prevSnap;
       return true;
     });
@@ -2806,7 +2819,7 @@
   const map = L.map("map", {
     center: [46.12, 14.82],
     zoom: 8,
-    minZoom: 7,
+    minZoom: isPublicMapEmbed() ? PUBLIC_MIN_ZOOM : 7,
     maxZoom: 11,
     attributionControl: false,
     zoomControl: false,
