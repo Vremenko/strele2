@@ -4,8 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Udari strel v občini — Strelko</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <link href="https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.css" rel="stylesheet" />
   <style>
     [data-theme="dark"] {
       --bg: #333333;
@@ -389,21 +387,56 @@
 <body data-theme="dark">
 <div id="root"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin=""></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.umd.min.js"></script>
-<script src="https://cdn.maptiler.com/leaflet-maptilersdk/v4.1.0/leaflet-maptilersdk.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" id="ob-leaflet-css" media="not all" />
+<link href="https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.css" rel="stylesheet" id="ob-maptiler-css" media="not all" />
 <script src="/widget/public/estimated-strike-time.js"></script>
 <script src="/widget/public/sl-number-format.js"></script>
 <script>
 (function () {
   "use strict";
 
+  const HEAVY_LIBS = [
+    { src: "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js", crossOrigin: "" },
+    { src: "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js", crossOrigin: "" },
+    { src: "https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.umd.min.js" },
+    { src: "https://cdn.maptiler.com/leaflet-maptilersdk/v4.1.0/leaflet-maptilersdk.umd.min.js" },
+  ];
+  let heavyLibsPromise = null;
+
+  function enableHeavyStyles() {
+    const a = document.getElementById("ob-leaflet-css");
+    const b = document.getElementById("ob-maptiler-css");
+    if (a) a.media = "all";
+    if (b) b.media = "all";
+  }
+
+  function ensureHeavyLibs() {
+    if (window.Chart && window.L && L.maptiler) return Promise.resolve();
+    if (heavyLibsPromise) return heavyLibsPromise;
+    enableHeavyStyles();
+    heavyLibsPromise = HEAVY_LIBS.reduce(function (chain, lib) {
+      return chain.then(function () {
+        if (document.querySelector('script[data-ob-lib="' + lib.src + '"]')) return;
+        return new Promise(function (resolve, reject) {
+          const s = document.createElement("script");
+          s.src = lib.src;
+          s.async = false;
+          s.dataset.obLib = lib.src;
+          if (lib.crossOrigin !== undefined) s.crossOrigin = lib.crossOrigin;
+          s.onload = resolve;
+          s.onerror = function () { reject(new Error("Lib fail: " + lib.src)); };
+          document.head.appendChild(s);
+        });
+      });
+    }, Promise.resolve());
+    return heavyLibsPromise;
+  }
+
   const params = new URLSearchParams(location.search);
   const cfg = window.OBCINA_WIDGET_CONFIG || {};
   const IS_PREVIEW = /obcina-preview\.html$/i.test(location.pathname);
   const publicKey = IS_PREVIEW ? "" : String(params.get("id") || cfg.publicKey || "").trim();
-  const previewToken = IS_PREVIEW ? String(params.get("token") || "").trim() : "";
+  let previewToken = IS_PREVIEW ? String(params.get("token") || "").trim() : "";
   const legacyQueryBlocked = params.has("ob_mid") || params.has("scope") || params.has("theme")
     || params.has("size") || params.has("api");
 
@@ -415,6 +448,42 @@
   if (legacyQueryBlocked) bootError = "Nepodprti parametri.";
   else if (IS_PREVIEW && !previewToken) bootError = "Manjka preview žeton.";
   else if (!IS_PREVIEW && !publicKey) bootError = "Manjka ID widgeta.";
+
+  const PREVIEW_UPDATE_TYPE = "strele-obcina-preview-update";
+  let previewLoadSeq = 0;
+  let previewForceLoading = false;
+
+  function applyPreviewTokenFromParent(token) {
+    if (!IS_PREVIEW) return;
+    const next = String(token || "").trim();
+    if (!next) return;
+    previewToken = next;
+    bootError = legacyQueryBlocked ? "Nepodprti parametri." : null;
+    municipalityName = "";
+    lat = NaN;
+    lon = NaN;
+    obMidParam = null;
+    isNationalScope = false;
+    previewForceLoading = true;
+    try {
+      const url = new URL(location.href);
+      url.searchParams.set("token", previewToken);
+      history.replaceState(null, "", url.pathname + url.search);
+    } catch (_) {
+      /* ignore */
+    }
+    load();
+  }
+
+  if (IS_PREVIEW) {
+    window.addEventListener("message", function (ev) {
+      if (ev.source !== window.parent) return;
+      if (ev.origin !== location.origin) return;
+      const data = ev.data;
+      if (!data || data.type !== PREVIEW_UPDATE_TYPE) return;
+      applyPreviewTokenFromParent(data.token);
+    });
+  }
 
   function applyTheme(nextTheme) {
     theme = nextTheme === "light" ? "light" : "dark";
@@ -1545,15 +1614,23 @@
   let loadedOnce = false;
 
   async function load() {
-    if (!loadedOnce) renderLoading();
+    const loadId = ++previewLoadSeq;
+    if (!loadedOnce || previewForceLoading) {
+      renderLoading();
+      previewForceLoading = false;
+    }
     try {
       const data = await loadData();
+      if (loadId !== previewLoadSeq) return;
       const national = isNationalScope || data.scope === "slovenija";
-      if (!municipalityName) municipalityName = data.obcina || (national ? "SLOVENIJA" : "Občina");
+      municipalityName = data.obcina || (national ? "SLOVENIJA" : "Občina");
 
       const stats = buildViewFromData(data);
+      if (loadId !== previewLoadSeq) return;
       const showMap = size === "full";
       if (showMap) {
+        await ensureHeavyLibs();
+        if (loadId !== previewLoadSeq) return;
         teardownMap();
         destroyDailyChart();
       }
@@ -1597,6 +1674,7 @@
 
       notifyResize();
     } catch (e) {
+      if (loadId !== previewLoadSeq) return;
       if (!loadedOnce) renderError();
       notifyResize();
     }
