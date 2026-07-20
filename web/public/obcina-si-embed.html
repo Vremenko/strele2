@@ -36,7 +36,10 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      background: var(--bg);
+      height: auto;
+      min-height: 0;
+      overflow: hidden;
+      background: transparent !important;
       color: var(--text);
       font-family: var(--font);
       font-size: 15px;
@@ -45,19 +48,25 @@
     #root {
       width: 100%;
       max-width: 100%;
-      margin: 0 auto;
-      display: flex;
-      justify-content: center;
+      margin: 0;
+      padding: 0;
+      min-height: 0;
+      height: auto;
+      display: block;
+      background: transparent;
     }
     .widget {
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      overflow: visible;
+      overflow: hidden;
       width: 100%;
       max-width: 960px;
-      padding: 1.25rem 1.5rem;
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem 0;
       text-align: left;
+      min-height: 0;
+      height: auto;
     }
     .widget-head {
       display: flex;
@@ -90,7 +99,7 @@
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .widget-body { padding: 0 0 0.5rem; }
+    .widget-body { padding: 0; }
     .widget-state {
       padding: 0.5rem 0;
       text-align: left;
@@ -112,10 +121,13 @@
     .stats-grid {
       display: grid;
       gap: 0.75rem;
+      /* Privzeto: 3 enaki stolpci v eni vrstici (≥ ~680 px) */
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    @media (max-width: 640px) {
+    /* Pod ~680 px: samo en stolpec (3 vrstice). Brez dvostolpčne vmesne postavitve. */
+    @media (max-width: 679px) {
       .stats-grid { grid-template-columns: 1fr; }
+      .widget { padding: 1rem 1.1rem 0; }
     }
 
     .stat-card {
@@ -147,37 +159,15 @@
       font-weight: 600;
     }
 
-    .widget-actions { padding: 0.25rem 0 1rem; }
-    .btn-detail {
-      display: block;
-      width: 100%;
-      min-height: 44px;
-      padding: 0.65rem 1rem;
-      border: none;
-      border-radius: 10px;
-      background: var(--accent);
-      color: #1a1a1a;
-      font: inherit;
-      font-size: 0.92rem;
-      font-weight: 800;
-      text-align: center;
-      text-decoration: none;
-      cursor: pointer;
-      transition: filter 0.15s;
-    }
-    .btn-detail:hover { filter: brightness(1.04); }
-    .btn-detail:focus-visible {
-      outline: 2px solid var(--cyan);
-      outline-offset: 2px;
-    }
-
     .widget-foot {
-      padding: 0.75rem 0 0;
+      /* Odmik samo nad besedilom. Spodaj 7px, da ostane malo črnine in se ne odrežejo črke. */
+      padding: 0.4rem 0 7px;
+      margin: 0.55rem 0 0;
       border-top: 1px solid var(--border);
       background: transparent;
       font-size: 0.82rem;
       color: var(--text-muted);
-      line-height: 1.4;
+      line-height: 1.35;
       text-align: left;
     }
     .widget-foot strong { color: var(--text-muted); font-weight: 600; }
@@ -198,7 +188,6 @@
   const PERIOD_DAYS = 30;
   const WIDGET_API = location.origin + "/widget/api";
   const STRELKO_SITE = "https://strelko.meteoinfo.si";
-  const DETAIL_URL = STRELKO_SITE + "/statistika";
 
   function applyTheme(next) {
     const t = next === "light" ? "light" : "dark";
@@ -223,29 +212,46 @@
       .replace(/"/g, "&quot;");
   }
 
+  function formatTimeSl(d) {
+    if (!d || isNaN(d.getTime())) return "—";
+    const est = window.StrelkoEstimatedStrikeTime;
+    if (est && typeof est.formatEstimatedStrikeDateTime === "function") {
+      return est.formatEstimatedStrikeDateTime(d);
+    }
+    const datePart = d.toLocaleDateString("sl-SI", {
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      timeZone: "Europe/Ljubljana",
+    });
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Ljubljana",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(d);
+    const hour = parts.find((p) => p.type === "hour")?.value || "00";
+    const minute = parts.find((p) => p.type === "minute")?.value || "00";
+    return datePart + ", " + hour + "." + minute;
+  }
+
+  function formatDateSl(dateStr) {
+    if (!dateStr) return "—";
+    const d = new Date(String(dateStr).slice(0, 10) + "T12:00:00");
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("sl-SI", {
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+    });
+  }
+
   function formatLastStrike(lastStrikeTime, lastStrikeDate) {
     if (lastStrikeTime instanceof Date && !isNaN(lastStrikeTime.getTime())) {
-      try {
-        return new Intl.DateTimeFormat("sl-SI", {
-          timeZone: "Europe/Ljubljana",
-          day: "numeric",
-          month: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }).format(lastStrikeTime);
-      } catch (_) {
-        return lastStrikeTime.toISOString();
-      }
+      return formatTimeSl(lastStrikeTime);
     }
-    if (lastStrikeDate) {
-      const parts = String(lastStrikeDate).slice(0, 10).split("-");
-      if (parts.length === 3) {
-        return `${Number(parts[2])}. ${Number(parts[1])}. ${parts[0]}`;
-      }
-      return String(lastStrikeDate);
-    }
-    return "Ni podatka";
+    if (lastStrikeDate) return formatDateSl(lastStrikeDate);
+    return "—";
   }
 
   function lastStrikeDateFromDaily(daily) {
@@ -270,6 +276,7 @@
       '<article class="widget" aria-busy="true">' +
       '<div class="widget-state"><div class="spinner" aria-hidden="true"></div>Nalagam podatke …</div>' +
       "</article>";
+    notifyResize();
   }
 
   function renderError(msg) {
@@ -317,31 +324,53 @@
       escapeHtml(lastVal) +
       "</p></div>" +
       "</div></div>" +
-      '<div class="widget-actions">' +
-      '<a class="btn-detail" href="' +
-      escapeHtml(DETAIL_URL) +
-      '" target="_blank" rel="noopener noreferrer">Podrobna statistika</a>' +
-      "</div>" +
       '<footer class="widget-foot">Informativni prikaz zagotavlja <strong>Meteoinfo d.o.o.</strong> / <strong>Strelko</strong>.</footer>' +
       "</article>";
+    observeWidget();
     notifyResize();
   }
 
   function widgetContentHeight() {
     const widget = document.querySelector(".widget");
-    if (widget) return Math.ceil(widget.getBoundingClientRect().height);
-    return Math.ceil(document.documentElement.scrollHeight);
+    if (!widget) return 0;
+    /* Dejanski spodnji rob kartice (border box), ne body.scrollHeight. */
+    const rect = widget.getBoundingClientRect();
+    const h = rect.bottom - rect.top;
+    if (h > 0) return Math.ceil(h);
+    return Math.ceil(widget.offsetHeight) || 0;
   }
 
   function notifyResize() {
     if (window.parent === window) return;
     requestAnimationFrame(function () {
-      const height = widgetContentHeight();
-      if (height > 0) {
-        window.parent.postMessage({ type: "strele-embed-resize", height: height }, "*");
-      }
+      requestAnimationFrame(function () {
+        const height = widgetContentHeight();
+        if (height > 0) {
+          window.parent.postMessage({ type: "strele-embed-resize", height: height }, "*");
+        }
+      });
     });
   }
+
+  let widgetResizeObserver = null;
+  function observeWidget() {
+    if (widgetResizeObserver) {
+      widgetResizeObserver.disconnect();
+      widgetResizeObserver = null;
+    }
+    const widget = document.querySelector(".widget");
+    if (!widget || typeof ResizeObserver !== "function") return;
+    widgetResizeObserver = new ResizeObserver(function () {
+      notifyResize();
+    });
+    widgetResizeObserver.observe(widget);
+  }
+
+  let resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(notifyResize, 80);
+  });
 
   async function load() {
     renderLoading();

@@ -18,6 +18,8 @@ def test_obcina_si_embed_html_file_exists():
     assert "/si-widget" in html
     assert "SLOVENIJA" in html
     assert "strele-embed-resize" in html
+    assert "Podrobna statistika" not in html
+    assert "overflow: hidden" in html
     assert 'themeParam' in html or 'theme' in html
 
 
