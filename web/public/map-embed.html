@@ -1030,18 +1030,29 @@
     return window.matchMedia("(max-width:899px)").matches;
   }
 
-  /** Namizne geste (Ctrl+kolešček): po tipu kazalnika, ne po širini iframea.
-   *  WP stolpec je pogosto < 900 px — sicer bi se napačno vklopile mobilne geste. */
-  function hasFinePointer() {
-    return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  /** Namizje: any-pointer fine (miška/ploščica). Telefon: sicer. */
+  function prefersDesktopMapPointer() {
+    return window.matchMedia("(any-pointer: fine)").matches;
+  }
+
+  function prefersMobileMapPointer() {
+    return !prefersDesktopMapPointer();
   }
 
   function shouldBindDesktopMapGestures() {
-    return hasFinePointer() || !isMobileView();
+    return prefersDesktopMapPointer();
   }
 
   function shouldBindMobileMapGestures() {
-    return !hasFinePointer() && isMobileView();
+    return prefersMobileMapPointer();
+  }
+
+  const MOBILE_MAP_HINT_KEY = "strele-map-two-finger-hint-shown";
+  function mobileMapHintAlreadyShown() {
+    try { return sessionStorage.getItem(MOBILE_MAP_HINT_KEY) === "1"; } catch (_) { return false; }
+  }
+  function markMobileMapHintShown() {
+    try { sessionStorage.setItem(MOBILE_MAP_HINT_KEY, "1"); } catch (_) {}
   }
 
   function bindMobileMapGestures(mapInstance, hostEl) {
@@ -1051,7 +1062,7 @@
     mapInstance.__streleMobileGestures = true;
 
     const hintMsg = "Premaknite zemljevid z dvema prstoma.";
-    const HINT_HIDE_MS = 700;
+    const HINT_HIDE_MS = 1600;
     const MOB_DRAG_HINT_PX = 3;
     const PINCH_DIST_CHANGE = 0.02;
     let hintTimer = null;
@@ -1063,11 +1074,14 @@
       hintEl = null;
     }
 
-    function scheduleWheelHint() {
+    function scheduleWheelHintOnce() {
       if (!hostEl.isConnected) return;
+      if (mobileMapHintAlreadyShown()) return;
+      markMobileMapHintShown();
       if (!hintEl) {
         hintEl = document.createElement("div");
         hintEl.className = "strele-map-wheel-hint";
+        hintEl.setAttribute("aria-live", "polite");
         hintEl.textContent = hintMsg;
         hostEl.appendChild(hintEl);
       }
@@ -1154,7 +1168,7 @@
       const x = e.touches[0].clientX;
       const y = e.touches[0].clientY;
       if (Math.hypot(x - startX, y - startY) > MOB_DRAG_HINT_PX) {
-        scheduleWheelHint();
+        scheduleWheelHintOnce();
       }
     }
 
@@ -1186,55 +1200,32 @@
 
   function bindMapZoomGestures(mapInstance, hostEl) {
     if (!mapInstance || !hostEl) return;
-    if (mapInstance.__streleDesktopGestures) return;
+    if (mapInstance.__streleDesktopGestures || mapInstance.__streleMobileGestures) return;
     if (!shouldBindDesktopMapGestures()) {
       bindMobileMapGestures(mapInstance, hostEl);
       return;
     }
     mapInstance.__streleDesktopGestures = true;
-    const hintMsg = "Ctrl + kolesce ali vlečenje miške";
-    const HINT_HIDE_MS = 700;
-    let hintTimer = null;
-    let hintEl = null;
-    function hideWheelHint() {
-      if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
-      if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
-      hintEl = null;
-    }
-    function scheduleWheelHint() {
-      if (!hostEl.isConnected) return;
-      if (!hintEl) {
-        hintEl = document.createElement("div");
-        hintEl.className = "strele-map-wheel-hint";
-        hintEl.textContent = hintMsg;
-        hostEl.appendChild(hintEl);
-      }
-      if (hintTimer) clearTimeout(hintTimer);
-      hintTimer = setTimeout(hideWheelHint, HINT_HIDE_MS);
-    }
+    try { mapInstance.dragging.enable(); } catch (_) {}
+    try { mapInstance.touchZoom.disable(); } catch (_) {}
+
+    mapInstance.on("dragstart", function () { deskMapPanning = true; });
+    mapInstance.on("dragend", function () {
+      setTimeout(function () { deskMapPanning = false; }, 0);
+    });
+
     const container = mapInstance.getContainer();
-    const CTRL_PAN_DRAG_PX = 3;
-    let panning = false;
-    let panArm = false;
-    let panStartX = 0;
-    let panStartY = 0;
-    let lastX = 0;
-    let lastY = 0;
-    let ctrlDown = false;
     const WHEEL_PX_PER_ZOOM = 120;
     const MAX_WHEEL_DELTA_PER_FRAME = 80;
     let pendingWheelDelta = 0;
     let zoomWheelRaf = 0;
-    let lastWheelPoint = null;
+    let lastWheelLatLng = null;
+
     function normalizeWheelDeltaY(ev) {
       let dy = ev.deltaY;
       if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 16;
       else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= container.clientHeight || 800;
       return dy;
-    }
-    function updateWheelPoint(ev) {
-      const rect = container.getBoundingClientRect();
-      lastWheelPoint = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
     }
     function flushWheelZoomFrame() {
       zoomWheelRaf = 0;
@@ -1253,12 +1244,11 @@
         if (next > maxZ) next = maxZ;
         if (next < minZ) next = minZ;
         if (next !== current) {
-          const anchor = lastWheelPoint || mapInstance.getSize().divideBy(2);
-          mapInstance.setZoomAround(
-            mapInstance.containerPointToLatLng(anchor),
-            next,
-            { animate: false }
-          );
+          if (lastWheelLatLng) {
+            mapInstance.setZoomAround(lastWheelLatLng, next, { animate: false });
+          } else {
+            mapInstance.setZoom(next, { animate: false });
+          }
         } else if ((current >= maxZ && pendingWheelDelta > 0) || (current <= minZ && pendingWheelDelta < 0)) {
           pendingWheelDelta = 0;
         }
@@ -1267,100 +1257,17 @@
         zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
       }
     }
-    function scheduleWheelZoomFrame() {
-      if (zoomWheelRaf) return;
-      zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
-    }
-    function ctrlZoom(ev) {
-      return ctrlDown || !!(ev.ctrlKey || ev.metaKey || (ev.getModifierState && ev.getModifierState("Control")));
-    }
-    let panPointerId = null;
-    function releasePanCapture() {
-      if (panPointerId == null) return;
-      try {
-        if (container.hasPointerCapture(panPointerId)) {
-          container.releasePointerCapture(panPointerId);
-        }
-      } catch (_) {}
-      panPointerId = null;
-    }
-    function endPan() {
-      panning = false;
-      panArm = false;
-      deskMapPanning = false;
-      releasePanCapture();
-    }
-    mapInstance.on("movestart", hideWheelHint);
-    mapInstance.on("zoomstart", hideWheelHint);
-    window.addEventListener("keydown", (ev) => {
-      if (ev.key === "Control") ctrlDown = true;
-    }, true);
-    window.addEventListener("keyup", (ev) => {
-      if (ev.key === "Control") ctrlDown = false;
-    }, true);
-    window.addEventListener("blur", () => {
-      ctrlDown = false;
-      hideWheelHint();
-      endPan();
-    });
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) endPan();
-    });
-    container.addEventListener("mouseleave", hideWheelHint);
-    container.addEventListener("pointerdown", (ev) => {
-      if (ev.button !== 0) return;
-      if (!ctrlZoom(ev)) return;
-      panPointerId = ev.pointerId;
-      try {
-        container.setPointerCapture(ev.pointerId);
-      } catch (_) {}
-    });
-    container.addEventListener("mousedown", (ev) => {
-      if (ev.button !== 0) return;
-      hideWheelHint();
-      if (ctrlZoom(ev)) {
-        panArm = true;
-        panning = false;
-        panStartX = ev.clientX;
-        panStartY = ev.clientY;
-        lastX = ev.clientX;
-        lastY = ev.clientY;
-      } else {
-        panArm = false;
-        panning = false;
-      }
-    });
-    window.addEventListener("mousemove", (ev) => {
-      if (panArm && !panning) {
-        const dist = Math.hypot(ev.clientX - panStartX, ev.clientY - panStartY);
-        if (dist > CTRL_PAN_DRAG_PX) {
-          panning = true;
-          deskMapPanning = true;
-        }
-      }
-      if (!panning) return;
+    container.addEventListener("wheel", function (ev) {
       ev.preventDefault();
-      const dx = ev.clientX - lastX;
-      const dy = ev.clientY - lastY;
-      lastX = ev.clientX;
-      lastY = ev.clientY;
-      mapInstance.panBy([-dx, -dy], { animate: false });
-    });
-    window.addEventListener("mouseup", endPan);
-    window.addEventListener("pointerup", endPan);
-    window.addEventListener("pointercancel", endPan);
-    container.addEventListener("wheel", (ev) => {
-      if (ctrlZoom(ev)) {
-        hideWheelHint();
-        ev.preventDefault();
-        ev.stopPropagation();
-        updateWheelPoint(ev);
-        pendingWheelDelta += normalizeWheelDeltaY(ev);
-        scheduleWheelZoomFrame();
-      } else {
-        ev.stopPropagation();
-        scheduleWheelHint();
+      ev.stopPropagation();
+      try {
+        const pt = mapInstance.mouseEventToContainerPoint(ev);
+        lastWheelLatLng = mapInstance.containerPointToLatLng(pt);
+      } catch (_) {
+        lastWheelLatLng = null;
       }
+      pendingWheelDelta += normalizeWheelDeltaY(ev);
+      if (!zoomWheelRaf) zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
     }, { passive: false, capture: true });
   }
 
@@ -2951,7 +2858,7 @@
   }
   scheduleDesktopMapGestures();
   try {
-    const fineMq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const fineMq = window.matchMedia("(any-pointer: fine)");
     const onPointerMq = () => {
       desktopGesturesBound = false;
       mobileGesturesBound = false;
@@ -3756,7 +3663,6 @@
     let deskPointerMoved = false;
     let deskPointerStartX = 0;
     let deskPointerStartY = 0;
-    let deskPointerCtrl = false;
 
     container.addEventListener("pointerdown", function (e) {
       if (e.button !== 0 || !e.isPrimary) return;
@@ -3765,7 +3671,6 @@
       deskPointerMoved = false;
       deskPointerStartX = e.clientX;
       deskPointerStartY = e.clientY;
-      deskPointerCtrl = !!(e.ctrlKey || e.metaKey);
     });
 
     container.addEventListener("pointermove", function (e) {
@@ -3780,7 +3685,6 @@
       deskPointerActive = false;
       if (!wasActive) return;
       if (isMapUiChromeTarget(e.target)) return;
-      if (deskPointerCtrl || e.ctrlKey || e.metaKey) return;
       if (deskPointerMoved || deskMapPanning || mapIsZooming) return;
 
       const hit = obcinaHitAtClientPoint(e.clientX, e.clientY);
@@ -3800,7 +3704,6 @@
     container.addEventListener("pointercancel", function () {
       deskPointerActive = false;
       deskPointerMoved = false;
-      deskPointerCtrl = false;
     });
   }
 

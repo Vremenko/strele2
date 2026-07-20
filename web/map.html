@@ -466,14 +466,30 @@
     return window.matchMedia("(max-width:899px)").matches;
   }
 
-  function bindMapZoomGestures(mapInstance, hostEl) {
+  function prefersDesktopMapPointer() {
+    return window.matchMedia("(any-pointer: fine)").matches;
+  }
+
+  function prefersMobileMapPointer() {
+    return !prefersDesktopMapPointer();
+  }
+
+  const MOBILE_MAP_HINT_KEY = "strele-map-two-finger-hint-shown";
+  function mobileMapHintAlreadyShown() {
+    try { return sessionStorage.getItem(MOBILE_MAP_HINT_KEY) === "1"; } catch (_) { return false; }
+  }
+  function markMobileMapHintShown() {
+    try { sessionStorage.setItem(MOBILE_MAP_HINT_KEY, "1"); } catch (_) {}
+  }
+
+  function bindMobileMapGestures(mapInstance, hostEl) {
     if (!mapInstance || !hostEl) return;
-    if (isMobileView()) {
-      try { mapInstance.touchZoom.enable(); } catch (_) {}
-      return;
-    }
-    const hintMsg = "Ctrl + kolesce ali vlečenje miške";
-    const HINT_HIDE_MS = 700;
+    if (mapInstance.__streleMobileGestures) return;
+    mapInstance.__streleMobileGestures = true;
+    const hintMsg = "Premaknite zemljevid z dvema prstoma.";
+    const HINT_HIDE_MS = 1600;
+    const MOB_DRAG_HINT_PX = 3;
+    const PINCH_DIST_CHANGE = 0.02;
     let hintTimer = null;
     let hintEl = null;
     function hideWheelHint() {
@@ -481,141 +497,131 @@
       if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
       hintEl = null;
     }
-    function scheduleWheelHint() {
+    function scheduleWheelHintOnce() {
       if (!hostEl.isConnected) return;
+      if (mobileMapHintAlreadyShown()) return;
+      markMobileMapHintShown();
       if (!hintEl) {
         hintEl = document.createElement("div");
         hintEl.className = "strele-map-wheel-hint";
+        hintEl.setAttribute("aria-live", "polite");
         hintEl.textContent = hintMsg;
         hostEl.appendChild(hintEl);
       }
       if (hintTimer) clearTimeout(hintTimer);
       hintTimer = setTimeout(hideWheelHint, HINT_HIDE_MS);
     }
+    try { mapInstance.dragging.disable(); } catch (_) {}
+    try { mapInstance.touchZoom.enable(); } catch (_) {}
     const container = mapInstance.getContainer();
-    const CTRL_PAN_DRAG_PX = 3;
-    let panning = false;
-    let panArm = false;
-    let panStartX = 0;
-    let panStartY = 0;
-    let lastX = 0;
-    let lastY = 0;
-    let ctrlDown = false;
+    let singleActive = false, startX = 0, startY = 0;
+    let multiActive = false, midX = 0, midY = 0, multiStartDist = 0, multiPinching = false;
+    function touchMid(touches) {
+      return { x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 };
+    }
+    function touchDist(touches) {
+      return Math.hypot(touches[1].clientX - touches[0].clientX, touches[1].clientY - touches[0].clientY);
+    }
+    function beginMulti(e) {
+      hideWheelHint();
+      multiActive = true; singleActive = false; multiPinching = false;
+      const mid = touchMid(e.touches); midX = mid.x; midY = mid.y; multiStartDist = touchDist(e.touches);
+    }
+    function onTouchStart(e) {
+      if (e.touches.length >= 2) { beginMulti(e); return; }
+      if (e.touches.length === 1 && !multiActive) {
+        singleActive = true; startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+      }
+    }
+    function onTouchMove(e) {
+      if (e.touches.length >= 2) {
+        if (!multiActive) beginMulti(e);
+        const dist = touchDist(e.touches);
+        const distChange = multiStartDist > 0 ? Math.abs(dist - multiStartDist) / multiStartDist : 0;
+        if (distChange > PINCH_DIST_CHANGE) { multiPinching = true; return; }
+        if (!multiPinching) {
+          const mid = touchMid(e.touches);
+          const dx = mid.x - midX, dy = mid.y - midY;
+          midX = mid.x; midY = mid.y;
+          if (dx || dy) { e.preventDefault(); mapInstance.panBy([-dx, -dy], { animate: false }); }
+        }
+        return;
+      }
+      if (!singleActive || e.touches.length !== 1) return;
+      if (Math.hypot(e.touches[0].clientX - startX, e.touches[0].clientY - startY) > MOB_DRAG_HINT_PX) {
+        scheduleWheelHintOnce();
+      }
+    }
+    function onTouchEnd(e) {
+      if (e.touches.length >= 2) { beginMulti(e); return; }
+      if (e.touches.length === 1) {
+        multiActive = false; multiPinching = false; singleActive = true;
+        startX = e.touches[0].clientX; startY = e.touches[0].clientY; return;
+      }
+      singleActive = false; multiActive = false; multiPinching = false;
+    }
+    mapInstance.on("movestart", hideWheelHint);
+    mapInstance.on("zoomstart", hideWheelHint);
+    container.addEventListener("touchstart", onTouchStart, { passive: true });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    container.addEventListener("touchend", onTouchEnd, { passive: true });
+    container.addEventListener("touchcancel", onTouchEnd, { passive: true });
+  }
+
+  function bindMapZoomGestures(mapInstance, hostEl) {
+    if (!mapInstance || !hostEl) return;
+    if (mapInstance.__streleDesktopGestures || mapInstance.__streleMobileGestures) return;
+    if (prefersMobileMapPointer()) {
+      bindMobileMapGestures(mapInstance, hostEl);
+      return;
+    }
+    mapInstance.__streleDesktopGestures = true;
+    try { mapInstance.dragging.enable(); } catch (_) {}
+    try { mapInstance.touchZoom.disable(); } catch (_) {}
+    mapInstance.on("dragstart", function () { deskMapPanning = true; });
+    mapInstance.on("dragend", function () { setTimeout(function () { deskMapPanning = false; }, 0); });
+    const container = mapInstance.getContainer();
     const WHEEL_PX_PER_ZOOM = 120;
     const MAX_WHEEL_DELTA_PER_FRAME = 80;
     let pendingWheelDelta = 0;
     let zoomWheelRaf = 0;
-    let lastWheelPoint = null;
+    let lastWheelLatLng = null;
     function normalizeWheelDeltaY(ev) {
       let dy = ev.deltaY;
       if (ev.deltaMode === WheelEvent.DOM_DELTA_LINE) dy *= 16;
       else if (ev.deltaMode === WheelEvent.DOM_DELTA_PAGE) dy *= container.clientHeight || 800;
       return dy;
     }
-    function updateWheelPoint(ev) {
-      const rect = container.getBoundingClientRect();
-      lastWheelPoint = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
-    }
     function flushWheelZoomFrame() {
       zoomWheelRaf = 0;
       if (!pendingWheelDelta) return;
       let consume = pendingWheelDelta;
-      if (Math.abs(consume) > MAX_WHEEL_DELTA_PER_FRAME) {
-        consume = Math.sign(consume) * MAX_WHEEL_DELTA_PER_FRAME;
-      }
+      if (Math.abs(consume) > MAX_WHEEL_DELTA_PER_FRAME) consume = Math.sign(consume) * MAX_WHEEL_DELTA_PER_FRAME;
       pendingWheelDelta -= consume;
       const zoomChange = -consume / WHEEL_PX_PER_ZOOM;
       if (zoomChange) {
-        const minZ = mapInstance.getMinZoom();
-        const maxZ = mapInstance.getMaxZoom();
-        const current = mapInstance.getZoom();
+        const minZ = mapInstance.getMinZoom(), maxZ = mapInstance.getMaxZoom(), current = mapInstance.getZoom();
         let next = current + zoomChange;
         if (next > maxZ) next = maxZ;
         if (next < minZ) next = minZ;
         if (next !== current) {
-          const anchor = lastWheelPoint || mapInstance.getSize().divideBy(2);
-          mapInstance.setZoomAround(
-            mapInstance.containerPointToLatLng(anchor),
-            next,
-            { animate: false }
-          );
+          if (lastWheelLatLng) mapInstance.setZoomAround(lastWheelLatLng, next, { animate: false });
+          else mapInstance.setZoom(next, { animate: false });
         } else if ((current >= maxZ && pendingWheelDelta > 0) || (current <= minZ && pendingWheelDelta < 0)) {
           pendingWheelDelta = 0;
         }
       }
-      if (pendingWheelDelta) {
-        zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
-      }
+      if (pendingWheelDelta) zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
     }
-    function scheduleWheelZoomFrame() {
-      if (zoomWheelRaf) return;
-      zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
-    }
-    function ctrlZoom(ev) {
-      return ctrlDown || !!(ev.ctrlKey || ev.metaKey || (ev.getModifierState && ev.getModifierState("Control")));
-    }
-    function endPan() {
-      panning = false;
-      panArm = false;
-      deskMapPanning = false;
-    }
-    mapInstance.on("movestart", hideWheelHint);
-    mapInstance.on("zoomstart", hideWheelHint);
-    window.addEventListener("keydown", (ev) => {
-      if (ev.key === "Control") ctrlDown = true;
-    }, true);
-    window.addEventListener("keyup", (ev) => {
-      if (ev.key === "Control") ctrlDown = false;
-    }, true);
-    window.addEventListener("blur", () => {
-      ctrlDown = false;
-      hideWheelHint();
-    });
-    container.addEventListener("mouseleave", hideWheelHint);
-    container.addEventListener("mousedown", (ev) => {
-      if (ev.button !== 0) return;
-      hideWheelHint();
-      if (ctrlZoom(ev)) {
-        panArm = true;
-        panning = false;
-        panStartX = ev.clientX;
-        panStartY = ev.clientY;
-        lastX = ev.clientX;
-        lastY = ev.clientY;
-      } else {
-        panArm = false;
-        panning = false;
-      }
-    });
-    window.addEventListener("mousemove", (ev) => {
-      if (panArm && !panning) {
-        const dist = Math.hypot(ev.clientX - panStartX, ev.clientY - panStartY);
-        if (dist > CTRL_PAN_DRAG_PX) {
-          panning = true;
-          deskMapPanning = true;
-        }
-      }
-      if (!panning) return;
+    container.addEventListener("wheel", function (ev) {
       ev.preventDefault();
-      const dx = ev.clientX - lastX;
-      const dy = ev.clientY - lastY;
-      lastX = ev.clientX;
-      lastY = ev.clientY;
-      mapInstance.panBy([-dx, -dy], { animate: false });
-    });
-    window.addEventListener("mouseup", endPan);
-    container.addEventListener("wheel", (ev) => {
-      if (ctrlZoom(ev)) {
-        hideWheelHint();
-        ev.preventDefault();
-        ev.stopPropagation();
-        updateWheelPoint(ev);
-        pendingWheelDelta += normalizeWheelDeltaY(ev);
-        scheduleWheelZoomFrame();
-      } else {
-        ev.stopPropagation();
-        scheduleWheelHint();
-      }
+      ev.stopPropagation();
+      try {
+        const pt = mapInstance.mouseEventToContainerPoint(ev);
+        lastWheelLatLng = mapInstance.containerPointToLatLng(pt);
+      } catch (_) { lastWheelLatLng = null; }
+      pendingWheelDelta += normalizeWheelDeltaY(ev);
+      if (!zoomWheelRaf) zoomWheelRaf = requestAnimationFrame(flushWheelZoomFrame);
     }, { passive: false, capture: true });
   }
 
@@ -1575,7 +1581,6 @@
     let deskPointerMoved = false;
     let deskPointerStartX = 0;
     let deskPointerStartY = 0;
-    let deskPointerCtrl = false;
 
     container.addEventListener("pointerdown", function (e) {
       if (e.button !== 0 || !e.isPrimary) return;
@@ -1584,7 +1589,6 @@
       deskPointerMoved = false;
       deskPointerStartX = e.clientX;
       deskPointerStartY = e.clientY;
-      deskPointerCtrl = !!(e.ctrlKey || e.metaKey);
     });
 
     container.addEventListener("pointermove", function (e) {
@@ -1599,7 +1603,6 @@
       deskPointerActive = false;
       if (!wasActive) return;
       if (isMapUiChromeTarget(e.target)) return;
-      if (deskPointerCtrl || e.ctrlKey || e.metaKey) return;
       if (deskPointerMoved || deskMapPanning || mapIsZooming) return;
 
       const hit = obcinaHitAtClientPoint(e.clientX, e.clientY);
