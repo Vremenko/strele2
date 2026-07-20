@@ -318,6 +318,23 @@
     .widget-map-wrap .leaflet-control-attribution a {
       color: var(--cyan) !important;
     }
+    .leaflet-tooltip.ob-strike-tip-shell {
+      background: rgba(26, 26, 26, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: #f2f2f2;
+      box-shadow: none;
+      padding: 0;
+    }
+    .leaflet-tooltip.ob-strike-tip-shell::before {
+      border-top-color: rgba(26, 26, 26, 0.94);
+    }
+    .ob-strike-tip {
+      padding: 0.45rem 0.6rem;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .ob-strike-tip strong { color: var(--accent); }
 
     .widget-actions { padding: 0 0 1rem; }
     .btn-detail {
@@ -367,6 +384,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="https://cdn.maptiler.com/maptiler-sdk-js/v3.10.2/maptiler-sdk.umd.min.js"></script>
 <script src="https://cdn.maptiler.com/leaflet-maptilersdk/v4.1.0/leaflet-maptilersdk.umd.min.js"></script>
+<script src="/widget/public/estimated-strike-time.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1005,11 +1023,22 @@
 
   function formatTimeSl(d) {
     if (!d || isNaN(d.getTime())) return "—";
+    const est = window.StrelkoEstimatedStrikeTime;
+    if (est && typeof est.formatEstimatedStrikeDateTime === "function") {
+      return est.formatEstimatedStrikeDateTime(d);
+    }
     const datePart = d.toLocaleDateString("sl-SI", {
       day: "numeric", month: "numeric", year: "numeric",
+      timeZone: "Europe/Ljubljana",
     });
-    const hour = d.getHours();
-    const minute = String(d.getMinutes()).padStart(2, "0");
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Ljubljana",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(d);
+    const hour = parts.find((p) => p.type === "hour")?.value || "00";
+    const minute = parts.find((p) => p.type === "minute")?.value || "00";
     return `${datePart}, ${hour}.${minute}`;
   }
 
@@ -1026,6 +1055,23 @@
     if (lastStrikeTime && !isNaN(lastStrikeTime.getTime())) return formatTimeSl(lastStrikeTime);
     if (lastStrikeDate) return formatDateSl(lastStrikeDate);
     return "—";
+  }
+
+  function strikeTooltipHtml(s) {
+    const est = window.StrelkoEstimatedStrikeTime;
+    const when = (est && s && s.ts_utc)
+      ? est.formatEstimatedStrikeDateTime(s.ts_utc)
+      : "—";
+    return `<div class="ob-strike-tip"><strong>Strela</strong><br>${when}</div>`;
+  }
+
+  function bindStrikeMarkerTip(marker, s) {
+    if (!s || !s.ts_utc || !marker || typeof marker.bindTooltip !== "function") return;
+    marker.bindTooltip(strikeTooltipHtml(s), {
+      direction: "top",
+      opacity: 0.95,
+      className: "ob-strike-tip-shell",
+    });
   }
 
   const MAPTILER_NO_CONTROLS = {
@@ -1251,13 +1297,15 @@
     strikeLayer = L.layerGroup();
     (strikes || []).forEach((s) => {
       if (s.lat == null || s.lon == null) return;
-      L.circleMarker([s.lat, s.lon], {
+      const marker = L.circleMarker([s.lat, s.lon], {
         radius: 2.5,
         color: "#e8a008",
         fillColor: "#e8a008",
         fillOpacity: 0.85,
         weight: 0,
-      }).addTo(strikeLayer);
+      });
+      bindStrikeMarkerTip(marker, s);
+      marker.addTo(strikeLayer);
     });
     strikeLayer.addTo(map);
 
