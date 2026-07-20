@@ -67,13 +67,16 @@ def decode_token(token: str) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Neveljaven žeton.") from exc
 
 
-def validate_preview_token(token: str, session_id: str | None) -> dict[str, Any]:
+def validate_preview_token(token: str, session_id: str | None = None) -> dict[str, Any]:
+    """Preveri predogledni JWT.
+
+    Piškotek seje je neobvezen: žeton je že kratkotrajen (TTL) in zadošča za predogled.
+    Zahteva ujemanja piškotka je v nekaterih brskalnikih povzročila prazen predogled
+    (piškotek se ni shranil ali poslal), čeprav je bil žeton veljaven.
+    """
     claims = decode_token(token)
     if claims.get("purpose") != PREVIEW_PURPOSE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Žeton ni namenjen predogledu.")
-    sid = str(claims.get("sid") or "")
-    if not sid or sid != (session_id or "").strip():
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Predogledna seja ni veljavna.")
     scope = claims.get("scope")
     ob_mid = claims.get("ob_mid")
     if scope and scope != NATIONAL_SCOPE:

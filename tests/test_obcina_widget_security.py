@@ -72,10 +72,30 @@ def test_preview_api_rejects_invalid_signature(client):
     assert res.status_code == 401
 
 
-def test_preview_api_rejects_missing_session_cookie(client):
+def test_preview_api_accepts_token_without_session_cookie(client, monkeypatch):
     token = _preview_token(sid="sess-1")
+
+    def _fake_data(**_kwargs):
+        return {
+            "ob_mid": 11026567,
+            "obcina": "Test",
+            "period_days": 30,
+            "period_total": 0,
+            "last_strike_time": None,
+            "bounds": None,
+            "total_24h": 0,
+            "strikes": [],
+            "daily": [],
+        }
+
+    monkeypatch.setattr(
+        "strele_archive.obcine_public_server._api_obcina_widget_data",
+        _fake_data,
+    )
     res = client.get("/api/obcina-widget/preview", params={"token": token})
-    assert res.status_code == 403
+    assert res.status_code == 200
+    assert res.json()["preview"] is True
+    assert res.json()["ob_mid"] == 11026567
 
 
 def test_preview_api_rejects_expired_token(client):
@@ -137,6 +157,13 @@ def test_validate_preview_token_purpose():
     config = validate_preview_token(token, "sess-1")
     assert config["ob_mid"] == 11026567
     assert config["theme"] == "dark"
+
+
+def test_validate_preview_token_without_cookie():
+    token = _preview_token(sid="sess-1")
+    config = validate_preview_token(token, None)
+    assert config["ob_mid"] == 11026567
+    assert config["size"] == "compact"
 
 
 def test_internal_endpoint_requires_key(client):
