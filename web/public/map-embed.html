@@ -4345,6 +4345,21 @@
     if (!isGridView()) return;
     const ll = e && e.latlng;
     if (!ll || !sloveniaHitAtLatLng(ll)) return;
+    /* Če je pod klikom barvna celica mreže, uporabi njeno središče (cell_id).
+       Sicer floor-celico okoli klika — enako kot strežnik. */
+    const strikeHit = gridStrikeHitAtLatLng(ll);
+    if (strikeHit && strikeHit.layer && strikeHit.layer.feature) {
+      const fromProps = gridCellCenterFromProps(strikeHit.layer.feature.properties);
+      if (fromProps && Number.isFinite(fromProps.lat) && Number.isFinite(fromProps.lon)) {
+        selectGridCell(fromProps.lat, fromProps.lon);
+        return;
+      }
+    }
+    const fromFloor = gridCellCenterFromLatLng(ll);
+    if (fromFloor && Number.isFinite(fromFloor.lat) && Number.isFinite(fromFloor.lon)) {
+      selectGridCell(fromFloor.lat, fromFloor.lon);
+      return;
+    }
     selectGridCell(ll.lat, ll.lng);
   }
 

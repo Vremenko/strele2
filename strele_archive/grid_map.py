@@ -113,31 +113,46 @@ WHERE ST_Intersects(
 
 GRID_CELL_DAILY_RADIUS_KM: int = 10
 
+# Enako kot map-embed Math.floor (ne ST_SnapToGrid = najbližji), da klik
+# na meji SI ne pade v sosednjo celico zunaj države.
 _CELL_RESOLVE_SQL = """
 WITH slo AS (
     SELECT ST_SetSRID(ST_GeomFromText(%(slo_wkt)s), 4326) AS geom
 ),
-snapped AS (
+pt AS (
+    SELECT ST_Transform(
+        ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326),
+        %(grid_crs)s
+    ) AS geom
+),
+origin AS (
     SELECT
-        (ST_X(ST_SnapToGrid(
-            ST_Transform(ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326), %(grid_crs)s),
-            %(grid_size)s, %(grid_size)s
-        )))::bigint AS grid_x,
-        (ST_Y(ST_SnapToGrid(
-            ST_Transform(ST_SetSRID(ST_MakePoint(%(lon)s, %(lat)s), 4326), %(grid_crs)s),
-            %(grid_size)s, %(grid_size)s
-        )))::bigint AS grid_y
+        (FLOOR(ST_X(pt.geom) / %(grid_size)s) * %(grid_size)s)::bigint AS grid_x0,
+        (FLOOR(ST_Y(pt.geom) / %(grid_size)s) * %(grid_size)s)::bigint AS grid_y0
+    FROM pt
+),
+candidates AS (
+    SELECT
+        o.grid_x0 + dx * %(grid_size)s AS grid_x,
+        o.grid_y0 + dy * %(grid_size)s AS grid_y,
+        ABS(dx) + ABS(dy) AS manhattan
+    FROM origin o
+    CROSS JOIN (VALUES
+        (0, 0), (1, 0), (-1, 0), (0, 1), (0, -1),
+        (1, 1), (1, -1), (-1, 1), (-1, -1)
+    ) AS n(dx, dy)
 ),
 cell AS (
     SELECT
-        s.grid_x,
-        s.grid_y,
+        c.grid_x,
+        c.grid_y,
+        c.manhattan,
         ST_MakeEnvelope(
-            s.grid_x, s.grid_y,
-            s.grid_x + %(grid_size)s, s.grid_y + %(grid_size)s,
+            c.grid_x, c.grid_y,
+            c.grid_x + %(grid_size)s, c.grid_y + %(grid_size)s,
             %(grid_crs)s
         ) AS cell_geom
-    FROM snapped s
+    FROM candidates c
 )
 SELECT
     c.grid_x,
@@ -145,12 +160,12 @@ SELECT
     ST_AsGeoJSON(ST_Transform(c.cell_geom, 4326))::text AS geometry_json,
     ST_Y(ST_Transform(ST_Centroid(c.cell_geom), 4326)) AS center_lat,
     ST_X(ST_Transform(ST_Centroid(c.cell_geom), 4326)) AS center_lon,
-    EXISTS (
-        SELECT 1
-        FROM slo
-        WHERE ST_Intersects(ST_Transform(c.cell_geom, 4326), slo.geom)
-    ) AS in_slovenia
+    TRUE AS in_slovenia
 FROM cell c
+CROSS JOIN slo
+WHERE ST_Intersects(ST_Transform(c.cell_geom, 4326), slo.geom)
+ORDER BY c.manhattan ASC, c.grid_x ASC, c.grid_y ASC
+LIMIT 1
 """
 
 _RADIUS_DAILY_SQL = """
@@ -534,7 +549,11 @@ def resolve_grid_cell(
     lon: float,
     data_dir: Path | None = None,
 ) -> dict | None:
-    """Poravna točko na celico 1 × 1 km; vrne None, če celica ni v Sloveniji."""
+    """
+    Poravna točko na celico 1 × 1 km (floor, kot map-embed).
+    Če primarna celica ni v SI (npr. meja), vzame najbližjo sosednjo znotraj SI.
+    Vrne None, če nobena kandidatka ne seka Slovenije.
+    """
     slo_wkt = _slovenia_wkt(str(data_dir or _default_data_dir()))
     with conn.cursor() as cur:
         cur.execute(
@@ -548,7 +567,7 @@ def resolve_grid_cell(
             },
         )
         row = cur.fetchone()
-    if not row or not row[5]:
+    if not row:
         return None
     grid_x, grid_y, geometry_json, center_lat, center_lon, _in_slo = row
     geometry = json.loads(geometry_json) if isinstance(geometry_json, str) else geometry_json

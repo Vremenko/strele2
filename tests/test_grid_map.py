@@ -241,6 +241,9 @@ class GridMapEndpointTest(unittest.TestCase):
         self.assertIn("0 st. / km²", html)
         self.assertIn("radij 10 km", html)
         self.assertNotIn("data-radius-km", html)
+        self.assertIn("gridCellCenterFromProps", html)
+        self.assertIn("selectGridCell(fromProps.lat, fromProps.lon)", html)
+        self.assertIn("selectGridCell(fromFloor.lat, fromFloor.lon)", html)
 
     def test_map_embed_has_no_grid_storm_mode_button(self):
         html = (Path(__file__).resolve().parent.parent / "web" / "public" / "map-embed.html").read_text(
@@ -521,14 +524,36 @@ class GridCellDailyTest(unittest.TestCase):
 
     def test_resolve_grid_cell_outside_slovenia(self):
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = (1000, 2000, "{}", 46.0, 14.5, False)
+        mock_cursor.fetchone.return_value = None
         mock_conn = MagicMock()
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
         out = resolve_grid_cell(mock_conn, lat=36.0, lon=14.5)
         self.assertIsNone(out)
         sql = mock_cursor.execute.call_args[0][0]
-        self.assertIn("SnapToGrid", sql)
+        self.assertIn("FLOOR", sql)
+        self.assertNotIn("SnapToGrid", sql)
+
+    def test_resolve_grid_cell_sql_uses_floor_and_neighbors(self):
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = (
+            478000,
+            66000,
+            '{"type":"Polygon","coordinates":[]}',
+            46.05,
+            14.5,
+            True,
+        )
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        out = resolve_grid_cell(mock_conn, lat=46.05, lon=14.5)
+        self.assertIsNotNone(out)
+        self.assertEqual(out["cell_id"], make_cell_id(478000, 66000))
+        sql = mock_cursor.execute.call_args[0][0]
+        self.assertIn("FLOOR", sql)
+        self.assertIn("manhattan", sql)
+        self.assertIn("LIMIT 1", sql)
 
     def test_fetch_grid_cell_daily_shape(self):
         geom = json.dumps(
