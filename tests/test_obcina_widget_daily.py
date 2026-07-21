@@ -1,24 +1,20 @@
-"""Testi uskladitve dnevnega grafa občinskega widgeta z live StormAPI podatki."""
+"""Testi uskladitve dnevnega grafa občinskega widgeta z live podatki."""
 
 from __future__ import annotations
 
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 
 from strele_archive.obcina_widget_daily import (
     StormUnavailable,
     apply_live_daily_sync,
-    local_today,
     merge_live_today_into_daily,
     parse_storm_hourly_payload,
     recalc_period_total,
     today_count_from_hourly_buckets,
 )
-from strele_archive.obcine_public_server import (
-    _fetch_obcina_live_stats_multi,
-    api_obcina_widget,
-)
+from strele_archive.obcine_public_server import _api_obcina_widget_data
 
 
 class ObcinaWidgetDailyTest(unittest.TestCase):
@@ -59,7 +55,6 @@ class ObcinaWidgetDailyTest(unittest.TestCase):
             date(2026, 7, 20),
         )
 
-        # Simulacija: arhiv samo včeraj (Idrija=1), delni arhiv za danes NI v rows
         archive_rows = [
             {"ob_id": 1, "obcina": "Idrija", "pov_km2": 10.0, "stevilo": 1, "dni_z_nevihto": 1},
             {"ob_id": 2, "obcina": "Medvode", "pov_km2": 20.0, "stevilo": 0, "dni_z_nevihto": 0},
@@ -72,14 +67,28 @@ class ObcinaWidgetDailyTest(unittest.TestCase):
         self.assertEqual(by_id[2]["stevilo"], 12)
         self.assertEqual(by_id[2]["dni_z_nevihto"], 1)
 
-        # Če bi arhiv za danes že bil v rows (napaka), bi se seštelo — zato
-        # api_obcine_map izključi danes iz SQL (replace, ne add).
         wrongly_included = [
             {"ob_id": 2, "obcina": "Medvode", "pov_km2": 20.0, "stevilo": 5, "dni_z_nevihto": 1},
         ]
         double = merge_live_today_into_obcine_map_rows(wrongly_included, {2: 12})
-        self.assertEqual(double[0]["stevilo"], 17)  # opozorilo: zato archive_end izključi danes
+        self.assertEqual(double[0]["stevilo"], 17)
 
+    def test_daily_chart_live_replaces_partial_archive(self):
+        """Enaka zamenjava za dnevni graf (obcina-daily / si-daily)."""
+        today = date(2026, 7, 21)
+        daily = [
+            {"datum": "2026-07-20", "stevilo": 1},
+            {"datum": "2026-07-21", "stevilo": 40},  # delni arhiv
+        ]
+        merged, total, _peak = apply_live_daily_sync(
+            daily,
+            data_source="live",
+            today_live=169,
+            today=today,
+        )
+        self.assertEqual(merged[-1]["stevilo"], 169)
+        self.assertEqual(total, 170)
+        self.assertNotEqual(total, 1 + 40 + 169)
 
     def test_rolling_24h_includes_yesterday_before_midnight(self):
         now = datetime(2026, 7, 11, 20, 0, tzinfo=timezone.utc)
@@ -87,9 +96,9 @@ class ObcinaWidgetDailyTest(unittest.TestCase):
             "total": 15,
             "groups": [{
                 "points": [
-                    {"t": "2026-07-10T21:00:00Z", "count": 5},  # 23:00 Lj 10.7.
-                    {"t": "2026-07-10T22:00:00Z", "count": 3},  # 00:00 Lj 11.7.
-                    {"t": "2026-07-11T18:00:00Z", "count": 7},  # 20:00 Lj 11.7.
+                    {"t": "2026-07-10T21:00:00Z", "count": 5},
+                    {"t": "2026-07-10T22:00:00Z", "count": 3},
+                    {"t": "2026-07-11T18:00:00Z", "count": 7},
                 ],
             }],
         }
@@ -138,39 +147,45 @@ class ObcinaWidgetDailyTest(unittest.TestCase):
 
 
 class ObcinaWidgetApiFallbackTest(unittest.TestCase):
-    def test_api_fallback_on_storm_unavailable(self):
+    def test_api_fallback_uses_udari_when_storm_unavailable(self):
+        """StormAPI 403/nedosegljiv → danes iz udari_24h (ne arhiv 0)."""
         archive_daily = [
             {"datum": "2026-07-10", "stevilo": 0},
-            {"datum": "2026-07-11", "stevilo": 99},
+            {"datum": "2026-07-11", "stevilo": 40},
         ]
+        now = datetime(2026, 7, 11, 18, 0, tzinfo=timezone.utc)
+        muni_inside = [(46.3, 13.5, now - timedelta(hours=1))] * 5
 
         class FakeOb:
             ob_mid = 11027962
             id = 85
             name = "Novo mesto"
             geometry = None
-
-        fake_ob = FakeOb()
+            prepared = None
 
         with patch("strele_archive.obcine_public_server._parse_ob_mids", return_value=[11027962]), \
-             patch("strele_archive.obcine_public_server._find_obcine", return_value=[fake_ob]), \
+             patch("strele_archive.obcine_public_server._find_obcine", return_value=[FakeOb()]), \
              patch("strele_archive.obcine_public_server._widget_obcina_label", return_value="Novo mesto"), \
              patch("strele_archive.obcine_public_server._obcina_bounds_multi", return_value=[]), \
-             patch("strele_archive.obcine_public_server._fetch_daily_calm", return_value=(archive_daily, 192, None)), \
+             patch("strele_archive.obcine_public_server._fetch_daily_calm", return_value=(archive_daily, 40, None)), \
              patch("strele_archive.obcine_public_server._fetch_last_strike_time_multi", return_value="2026-07-11T20:36:00Z"), \
-             patch("strele_archive.obcine_public_server._fetch_obcina_live_stats_multi", side_effect=StormUnavailable("429")), \
-             patch("strele_archive.obcine_public_server._fetch_strikes_24h_multi", return_value=[]), \
+             patch("strele_archive.obcine_public_server._fetch_obcina_live_stats_multi", side_effect=StormUnavailable("403")), \
+             patch("strele_archive.obcine_public_server._live_today_count_for_ob_mids", return_value=169), \
+             patch("strele_archive.obcine_public_server._muni_rolling_24h_pip_tuples", return_value=muni_inside), \
+             patch("strele_archive.obcine_public_server._utc_now", return_value=now), \
              patch("strele_archive.obcine_public_server.local_today", return_value=date(2026, 7, 11)):
-            out = api_obcina_widget(ob_mid=11027962, title=None, calm_days=30)
+            out = _api_obcina_widget_data(ob_mid=11027962, calm_days=30)
 
-        self.assertEqual(out["data_source"], "archive_fallback")
-        self.assertEqual(out["total_24h"], 99)
+        self.assertEqual(out["data_source"], "live")
+        self.assertEqual(out["total_24h"], 5)
         self.assertEqual(out["mode"], "storm")
         today_row = [r for r in out["daily"] if r["datum"] == "2026-07-11"][0]
-        self.assertEqual(today_row["stevilo"], 99)
-        self.assertEqual(out["period_total"], recalc_period_total(out["daily"]))
+        self.assertEqual(today_row["stevilo"], 169)
+        self.assertEqual(out["period_total"], 169)
+        self.assertNotEqual(today_row["stevilo"], 40)
 
-    def test_api_live_syncs_today_and_period_total(self):
+    def test_api_live_uses_udari_today_not_storm_today(self):
+        """Tudi ob uspešnem StormAPI je današnji stolpec usklajen z udari (zemljevid)."""
         archive_daily = [
             {"datum": "2026-07-10", "stevilo": 93},
             {"datum": "2026-07-11", "stevilo": 64},
@@ -196,15 +211,16 @@ class ObcinaWidgetApiFallbackTest(unittest.TestCase):
              patch("strele_archive.obcine_public_server._fetch_last_strike_time_multi", return_value="2026-07-11T20:36:00Z"), \
              patch("strele_archive.obcine_public_server._fetch_obcina_live_stats_multi", return_value=live_stats), \
              patch("strele_archive.obcine_public_server._fetch_strikes_24h_multi", return_value=[]), \
+             patch("strele_archive.obcine_public_server._live_today_count_for_ob_mids", return_value=169), \
              patch("strele_archive.obcine_public_server.local_today", return_value=date(2026, 7, 11)):
-            out = api_obcina_widget(ob_mid=11027962, title=None, calm_days=30)
+            out = _api_obcina_widget_data(ob_mid=11027962, calm_days=30)
 
         self.assertEqual(out["data_source"], "live")
         self.assertEqual(out["total_24h"], 118)
         today_row = [r for r in out["daily"] if r["datum"] == "2026-07-11"][0]
-        self.assertEqual(today_row["stevilo"], 114)
-        self.assertNotEqual(out["total_24h"], today_row["stevilo"])
-        self.assertEqual(out["period_total"], 93 + 114)
+        self.assertEqual(today_row["stevilo"], 169)
+        self.assertNotEqual(today_row["stevilo"], 114)
+        self.assertEqual(out["period_total"], 93 + 169)
 
 
 if __name__ == "__main__":

@@ -35,7 +35,6 @@ from strele_archive.obcina_widget_daily import (
     StormUnavailable,
     apply_live_daily_sync,
     archive_end_excluding_live_today,
-    daily_value_for_date,
     local_today,
     merge_live_today_into_obcine_map_rows,
     parse_storm_hourly_payload,
@@ -590,7 +589,7 @@ def _fetch_daily_calm(ob_mids: list[int] | int, days: int = 30) -> tuple[list[di
         mids = [ob_mids]
     else:
         mids = ob_mids
-    end = date.today()
+    end = local_today()
     start = end - timedelta(days=days - 1)
     sql = """
         WITH date_series AS (
@@ -630,7 +629,7 @@ def _si_storm_bbox_params() -> dict[str, float]:
 
 
 def _fetch_daily_calm_si(days: int = 30) -> tuple[list[dict], int, dict | None]:
-    end = date.today()
+    end = local_today()
     start = end - timedelta(days=days - 1)
     sql = """
         WITH date_series AS (
@@ -854,15 +853,12 @@ def api_obcine_gostota(
     return [{"obcina": r[0], "gostota": float(r[1] or 0), "stevilo": r[2]} for r in rows]
 
 
-def _live_today_obcina_counts_by_ob_mid(
+def _live_today_si_pip_tuples(
     *,
     today: date | None = None,
     now_utc: datetime | None = None,
-) -> dict[int, int]:
-    """
-    Današnji udari (Europe/Ljubljana) → števci po ob_mid.
-    Isti vir kot mreža/živi SI widget: udari_24h (ali StormAPI) + PiP.
-    """
+) -> list[tuple[float, float, datetime]]:
+    """Današnji PiP udari v Sloveniji (Europe/Ljubljana) — isti vir kot mreža."""
     day = today or local_today(now_utc)
     now = now_utc or datetime.now(timezone.utc)
     if now.tzinfo is None:
@@ -874,7 +870,16 @@ def _live_today_obcina_counts_by_ob_mid(
     else:
         end_inclusive = end_utc
     raw = _fetch_raw_strikes_window_si(start_utc, end_inclusive)
-    inside = dedup_pip_strikes(filter_pip_strikes(raw, _get_region_index()))
+    return dedup_pip_strikes(filter_pip_strikes(raw, _get_region_index()))
+
+
+def _live_today_obcina_counts_by_ob_mid(
+    *,
+    today: date | None = None,
+    now_utc: datetime | None = None,
+) -> dict[int, int]:
+    """Današnji udari (Europe/Ljubljana) → števci po ob_mid."""
+    inside = _live_today_si_pip_tuples(today=today, now_utc=now_utc)
     obcine = _get_obcina_index()
     id_to_mid = {o.id: o.ob_mid for o in obcine.obcine}
     counts: dict[int, int] = {}
@@ -887,6 +892,37 @@ def _live_today_obcina_counts_by_ob_mid(
             continue
         counts[mid] = counts.get(mid, 0) + 1
     return counts
+
+
+def _live_today_count_for_ob_mids(
+    ob_mids: list[int],
+    *,
+    today: date | None = None,
+    now_utc: datetime | None = None,
+) -> int:
+    counts = _live_today_obcina_counts_by_ob_mid(today=today, now_utc=now_utc)
+    return sum(int(counts.get(int(mid), 0) or 0) for mid in ob_mids)
+
+
+def _live_today_si_count(
+    *,
+    today: date | None = None,
+    now_utc: datetime | None = None,
+) -> int:
+    return len(_live_today_si_pip_tuples(today=today, now_utc=now_utc))
+
+
+def _muni_rolling_24h_pip_tuples(obs: list) -> list[tuple[float, float, datetime]]:
+    """Rolling 24 h udari znotraj občin (udari_24h + PiP) — fallback, če StormAPI odpove."""
+    now = _utc_now()
+    start = now - timedelta(hours=24)
+    raw = _fetch_raw_strikes_window_si(start, now)
+    inside: list[tuple[float, float, datetime]] = []
+    for lat, lon, ts in raw:
+        pt = Point(lon, lat)
+        if any(ob.prepared.contains(pt) for ob in obs):
+            inside.append((lat, lon, ts))
+    return dedup_pip_strikes(inside)
 
 
 @app.get("/api/obcine-map")
@@ -1095,10 +1131,11 @@ def api_obcina_daily(
     days: int | None = Query(None, ge=1, le=365),
 ) -> list[dict]:
     """Dnevni potek strel za posamezno občino (za dnevni graf)."""
+    today_lj = local_today()
     if from_ is not None and to_ is not None:
         start, end = from_, to_
     elif days is not None:
-        end = date.today()
+        end = today_lj
         start = end - timedelta(days=days - 1)
     else:
         raise HTTPException(status_code=422, detail="Podaj days ali from+to")
@@ -1119,7 +1156,16 @@ def api_obcina_daily(
         with conn.cursor() as cur:
             cur.execute(sql, (start, end, ob_mid))
             rows = cur.fetchall()
-    return [{"datum": str(r[0]), "stevilo": r[1]} for r in rows]
+    daily = [{"datum": str(r[0]), "stevilo": r[1]} for r in rows]
+    if start <= today_lj <= end:
+        today_live = _live_today_count_for_ob_mids([ob_mid], today=today_lj)
+        daily, _, _ = apply_live_daily_sync(
+            daily,
+            data_source="live",
+            today_live=today_live,
+            today=today_lj,
+        )
+    return daily
 
 
 @app.get("/api/obcina-by-coords")
@@ -1161,10 +1207,11 @@ def api_si_daily(
     days: int | None = Query(None, ge=1, le=365),
 ) -> list[dict]:
     """Dnevni potek strel za celotno Slovenijo."""
+    today_lj = local_today()
     if from_ is not None and to_ is not None:
         start, end = from_, to_
     elif days is not None:
-        end = date.today()
+        end = today_lj
         start = end - timedelta(days=days - 1)
     else:
         raise HTTPException(status_code=422, detail="Podaj days ali from+to")
@@ -1181,7 +1228,16 @@ def api_si_daily(
         with conn.cursor() as cur:
             cur.execute(sql, (start, end))
             rows = cur.fetchall()
-    return [{"datum": str(r[0]), "stevilo": r[1]} for r in rows]
+    daily = [{"datum": str(r[0]), "stevilo": r[1]} for r in rows]
+    if start <= today_lj <= end:
+        today_live = _live_today_si_count(today=today_lj)
+        daily, _, _ = apply_live_daily_sync(
+            daily,
+            data_source="live",
+            today_live=today_live,
+            today=today_lj,
+        )
+    return daily
 
 
 @app.get("/api/si-geometry")
@@ -1209,6 +1265,14 @@ def api_si_widget(
 
 def _api_si_widget_data(calm_days: int) -> dict:
     daily, period_total, peak = _fetch_daily_calm_si(calm_days)
+    today_lj = local_today()
+    today_live = _live_today_si_count(today=today_lj)
+    daily, period_total, peak = apply_live_daily_sync(
+        daily,
+        data_source="live",
+        today_live=today_live,
+        today=today_lj,
+    )
     last_strike_time = _fetch_last_strike_time_si(daily)
     bounds = _si_bounds()
 
@@ -1235,6 +1299,7 @@ def _api_si_widget_data(calm_days: int) -> dict:
         "last_strike_time": last_strike_time,
         "bounds": bounds,
         "updated_at": _iso_utc(_utc_now()),
+        "data_source": "live",
     }
 
     if total_24h > 0:
@@ -1306,14 +1371,16 @@ def _api_obcina_widget_data(
 
     daily, _archive_period_total, peak = _fetch_daily_calm(mids, calm_days)
     today_lj = local_today()
-    archive_today = daily_value_for_date(daily, today_lj)
+    # Isti vir kot občinski zemljevid (udari_24h + PiP) — ne odvisno od StormAPI.
+    today_live = _live_today_count_for_ob_mids(mids, today=today_lj)
 
-    data_source = "archive"
+    data_source = "live"
     total_24h = 0
     last_hour = 0
     hourly: list[dict] = []
-    today_live: int | None = None
     last_strike_time: str | None = None
+    muni_inside: list[tuple[float, float, datetime]] | None = None
+    used_storm = False
 
     def _load_live() -> StormObcinaLiveStats:
         return _fetch_obcina_live_stats_multi(muni_codes)
@@ -1324,15 +1391,15 @@ def _api_obcina_widget_data(
         last_strike_time = fut_last.result()
         try:
             live = fut_live.result()
-            data_source = "live"
+            used_storm = True
             total_24h = live.total_24h
             last_hour = live.last_hour
             hourly = live.hourly
-            today_live = live.today_from_midnight
         except StormUnavailable:
-            data_source = "archive_fallback"
-            total_24h = archive_today
-            today_live = archive_today
+            muni_inside = _muni_rolling_24h_pip_tuples(obs)
+            total_24h, last_hour, hourly = bucket_hourly_rolling_24h(
+                muni_inside, now_utc=_utc_now(), tz_name="Europe/Ljubljana"
+            )
 
     daily, period_total, peak = apply_live_daily_sync(
         daily,
@@ -1358,7 +1425,16 @@ def _api_obcina_widget_data(
 
     if storm_active:
         try:
-            strikes = _fetch_strikes_24h_multi(obs)
+            if used_storm:
+                strikes = _fetch_strikes_24h_multi(obs)
+            else:
+                if muni_inside is None:
+                    muni_inside = _muni_rolling_24h_pip_tuples(obs)
+                strikes, _meta = pip_strikes_to_map_records(
+                    muni_inside,
+                    iso_utc=_iso_utc,
+                    max_strikes=SI_WIDGET_MAP_MAX_STRIKES,
+                )
         except HTTPException:
             strikes = []
         return {
