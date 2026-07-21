@@ -810,21 +810,49 @@ def api_obcine_top(
     days: int | None = Query(None, ge=1, le=365),
     limit: int = Query(10, ge=1, le=50),
 ) -> list[dict]:
+    from strele_archive.live_today_obcine import (
+        live_today_obcina_counts_by_ob_mid,
+        merge_live_named_counts,
+        top_obcine_from_counts,
+    )
+    from strele_archive.obcina_widget_daily import archive_end_excluding_live_today
+
     start, end = _date_bounds(day, days)
-    sql = """
-        SELECT o.ime_sl AS obcina, SUM(s.stevilo)::int AS stevilo
-        FROM strele_obcina_dnevno s
-        JOIN obcine o ON o.id = s.obcina_id
-        WHERE s.datum BETWEEN %s AND %s
-        GROUP BY o.id, o.ime_sl
-        ORDER BY stevilo DESC
-        LIMIT %s
-    """
-    with psycopg.connect(_database_url()) as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, (start, end, limit))
-            rows = cur.fetchall()
-    return [{"obcina": r[0], "stevilo": r[1]} for r in rows]
+    today_lj = local_today()
+    include_live = start <= today_lj <= end
+    archive_end = archive_end_excluding_live_today(start, end, today_lj)
+    if archive_end is None:
+        archive_rows: list[dict] = []
+    else:
+        sql = """
+            SELECT o.ime_sl AS obcina, SUM(s.stevilo)::int AS stevilo
+            FROM strele_obcina_dnevno s
+            JOIN obcine o ON o.id = s.obcina_id
+            WHERE s.datum BETWEEN %s AND %s
+            GROUP BY o.id, o.ime_sl
+            ORDER BY stevilo DESC
+        """
+        with psycopg.connect(_database_url()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (start, archive_end))
+                rows = cur.fetchall()
+        archive_rows = [{"obcina": r[0], "stevilo": r[1]} for r in rows]
+
+    if include_live:
+        counts = live_today_obcina_counts_by_ob_mid(today=today_lj)
+        if day == today_lj and days is None:
+            return top_obcine_from_counts(counts, limit=limit)
+        live_by_name = {
+            o.name: int(counts.get(o.ob_mid, 0) or 0)
+            for o in _get_obcina_index().obcine
+            if int(counts.get(o.ob_mid, 0) or 0) > 0
+        }
+        merged = merge_live_named_counts(archive_rows, live_by_name, name_key="obcina")
+        merged.sort(key=lambda r: (-int(r.get("stevilo") or 0), str(r.get("obcina") or "")))
+        return merged[: max(1, int(limit))]
+
+    archive_rows.sort(key=lambda r: (-int(r.get("stevilo") or 0), str(r.get("obcina") or "")))
+    return archive_rows[: max(1, int(limit))]
 
 
 @app.get("/api/obcine-gostota")
@@ -833,24 +861,52 @@ def api_obcine_gostota(
     days: int | None = Query(None, ge=1, le=365),
     limit: int = Query(10, ge=1, le=50),
 ) -> list[dict]:
+    from strele_archive.live_today_obcine import (
+        gostota_obcine_from_counts,
+        live_today_obcina_counts_by_ob_mid,
+    )
+    from strele_archive.obcina_widget_daily import archive_end_excluding_live_today
+
     start, end = _date_bounds(day, days)
-    sql = """
-        SELECT
-            o.ime_sl AS obcina,
-            SUM(s.stevilo)::float / NULLIF(o.pov_km2, 0) AS gostota,
-            SUM(s.stevilo)::int AS stevilo
-        FROM strele_obcina_dnevno s
-        JOIN obcine o ON o.id = s.obcina_id
-        WHERE s.datum BETWEEN %s AND %s
-        GROUP BY o.id, o.ime_sl, o.pov_km2
-        ORDER BY gostota DESC NULLS LAST
-        LIMIT %s
-    """
-    with psycopg.connect(_database_url()) as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, (start, end, limit))
-            rows = cur.fetchall()
-    return [{"obcina": r[0], "gostota": float(r[1] or 0), "stevilo": r[2]} for r in rows]
+    today_lj = local_today()
+    include_live = start <= today_lj <= end
+    archive_end = archive_end_excluding_live_today(start, end, today_lj)
+
+    # Gostota za obdobje: arhiv (brez danes) + živi današnji števci → gostota.
+    pov_by_name = {o.name: float(o.pov_km2 or 0) for o in _get_obcina_index().obcine}
+    stevilo_by_name: dict[str, int] = {}
+    if archive_end is not None:
+        sql = """
+            SELECT o.ime_sl AS obcina, SUM(s.stevilo)::int AS stevilo
+            FROM strele_obcina_dnevno s
+            JOIN obcine o ON o.id = s.obcina_id
+            WHERE s.datum BETWEEN %s AND %s
+            GROUP BY o.id, o.ime_sl
+        """
+        with psycopg.connect(_database_url()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (start, archive_end))
+                for name, stevilo in cur.fetchall():
+                    stevilo_by_name[str(name)] = int(stevilo or 0)
+
+    if include_live:
+        counts = live_today_obcina_counts_by_ob_mid(today=today_lj)
+        if day == today_lj and days is None:
+            return gostota_obcine_from_counts(counts, limit=limit)
+        for o in _get_obcina_index().obcine:
+            live = int(counts.get(o.ob_mid, 0) or 0)
+            if live:
+                stevilo_by_name[o.name] = stevilo_by_name.get(o.name, 0) + live
+
+    rows: list[dict] = []
+    for name, stevilo in stevilo_by_name.items():
+        if stevilo <= 0:
+            continue
+        pov = float(pov_by_name.get(name) or 0)
+        gostota = (stevilo / pov) if pov > 0 else 0.0
+        rows.append({"obcina": name, "gostota": float(gostota), "stevilo": int(stevilo)})
+    rows.sort(key=lambda r: (-r["gostota"], r["obcina"]))
+    return rows[: max(1, int(limit))]
 
 
 def _live_today_si_pip_tuples(
@@ -858,19 +914,10 @@ def _live_today_si_pip_tuples(
     today: date | None = None,
     now_utc: datetime | None = None,
 ) -> list[tuple[float, float, datetime]]:
-    """Današnji PiP udari v Sloveniji (Europe/Ljubljana) — isti vir kot mreža."""
-    day = today or local_today(now_utc)
-    now = now_utc or datetime.now(timezone.utc)
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    start_utc, end_utc = lj_day_bounds_utc(day, end_cap_utc=now)
-    # end_utc je [start, end); SQL uporablja <=, zato odštejemo 1 µs
-    if end_utc > start_utc:
-        end_inclusive = end_utc - timedelta(microseconds=1)
-    else:
-        end_inclusive = end_utc
-    raw = _fetch_raw_strikes_window_si(start_utc, end_inclusive)
-    return dedup_pip_strikes(filter_pip_strikes(raw, _get_region_index()))
+    """Današnji PiP udari v Sloveniji — isti skupni vir kot grafi/zemljevid."""
+    from strele_archive.live_today_obcine import live_today_si_pip_tuples
+
+    return live_today_si_pip_tuples(today=today, now_utc=now_utc)
 
 
 def _live_today_obcina_counts_by_ob_mid(
@@ -879,19 +926,9 @@ def _live_today_obcina_counts_by_ob_mid(
     now_utc: datetime | None = None,
 ) -> dict[int, int]:
     """Današnji udari (Europe/Ljubljana) → števci po ob_mid."""
-    inside = _live_today_si_pip_tuples(today=today, now_utc=now_utc)
-    obcine = _get_obcina_index()
-    id_to_mid = {o.id: o.ob_mid for o in obcine.obcine}
-    counts: dict[int, int] = {}
-    for lat, lon, _ts in inside:
-        ob_id = obcine.lookup(lon, lat)
-        if ob_id is None:
-            continue
-        mid = id_to_mid.get(ob_id)
-        if mid is None:
-            continue
-        counts[mid] = counts.get(mid, 0) + 1
-    return counts
+    from strele_archive.live_today_obcine import live_today_obcina_counts_by_ob_mid
+
+    return live_today_obcina_counts_by_ob_mid(today=today, now_utc=now_utc)
 
 
 def _live_today_count_for_ob_mids(

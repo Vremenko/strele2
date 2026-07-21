@@ -56,8 +56,47 @@ def get_si_hourly(
 
 def get_regije(day: date | None = None, *, days: int | None = None) -> tuple[list[dict], str]:
     try:
+        from strele_archive.live_today_obcine import (
+            live_regije_for_today,
+            merge_live_named_counts,
+        )
+        from strele_archive.obcina_widget_daily import (
+            archive_end_excluding_live_today,
+            local_today,
+        )
+
+        from datetime import timedelta
+
+        today = local_today()
+        # Samo danes → živi števci občin → vsote regij.
+        if day is not None and day == today and days is None:
+            live = live_regije_for_today(today=today)
+            if live is not None:
+                return live, "live"
+        # Obdobje do danes: arhiv do včeraj + živi danes (replace, ne prištevanje).
         if days is not None:
-            return _local().export_regije_period(days), "local"
+            end = today
+            start = end - timedelta(days=days - 1)
+            archive_end = archive_end_excluding_live_today(start, end, today)
+            by_name: dict[str, int] = {}
+            if archive_end is not None:
+                d = start
+                while d <= archive_end:
+                    for row in _local().export_regije_daily(d):
+                        name = str(row.get("regija") or "")
+                        if name:
+                            by_name[name] = by_name.get(name, 0) + int(
+                                row.get("stevilo") or 0
+                            )
+                    d += timedelta(days=1)
+            archive = [{"regija": k, "stevilo": v} for k, v in by_name.items()]
+            live_rows = live_regije_for_today(today=today) or []
+            live_map = {r["regija"]: int(r["stevilo"]) for r in live_rows}
+            merged = merge_live_named_counts(archive, live_map, name_key="regija")
+            merged.sort(
+                key=lambda r: (-int(r.get("stevilo") or 0), str(r.get("regija") or ""))
+            )
+            return merged, "live"
         if day is not None:
             return _local().export_regije_daily(day), "local"
     except Exception:

@@ -43,10 +43,10 @@ class DailyChartLastBarSelectionTest(unittest.TestCase):
         fake = [(46.0, 14.5, now)] * 3
         with patch("strele_archive.si_live_day.local_today", return_value=today), \
              patch("strele_archive.si_live_day.udari_database_url", return_value="postgresql://x"), \
-             patch("strele_archive.si_live_day._fetch_udari_24h_window", return_value=fake), \
-             patch("strele_archive.si_live_day.filter_pip_strikes", side_effect=lambda rows, _idx: rows), \
-             patch("strele_archive.si_live_day.dedup_pip_strikes", side_effect=lambda rows: rows), \
-             patch("strele_archive.si_live_day._regions", return_value=object()):
+             patch(
+                 "strele_archive.si_live_day.live_today_si_pip_tuples",
+                 return_value=fake,
+             ):
             hourly = live_si_hourly_for_day(today, now_utc=now)
         self.assertIsNotNone(hourly)
         assert hourly is not None
