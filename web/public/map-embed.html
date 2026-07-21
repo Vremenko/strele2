@@ -1030,9 +1030,12 @@
     return window.matchMedia("(max-width:899px)").matches;
   }
 
-  /** Namizje: any-pointer fine (miška/ploščica). Telefon: sicer. */
+  /** Namizje: hover + fine (miška/ploščica). Telefon/Android: sicer (tudi pri lažnem any-pointer:fine). */
   function prefersDesktopMapPointer() {
-    return window.matchMedia("(any-pointer: fine)").matches;
+    return (
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches ||
+      window.matchMedia("(any-hover: hover) and (any-pointer: fine)").matches
+    );
   }
 
   function prefersMobileMapPointer() {
@@ -2961,7 +2964,8 @@
 
 
   try {
-    const fineMq = window.matchMedia("(any-pointer: fine)");
+    const deskMqPrimary = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const deskMqAny = window.matchMedia("(any-hover: hover) and (any-pointer: fine)");
     const onPointerMq = () => {
       desktopGesturesBound = false;
       mobileGesturesBound = false;
@@ -2971,10 +2975,12 @@
       }
       ensureDesktopMapGestures();
     };
-    if (typeof fineMq.addEventListener === "function") {
-      fineMq.addEventListener("change", onPointerMq);
-    } else if (typeof fineMq.addListener === "function") {
-      fineMq.addListener(onPointerMq);
+    for (const mq of [deskMqPrimary, deskMqAny]) {
+      if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", onPointerMq);
+      } else if (typeof mq.addListener === "function") {
+        mq.addListener(onPointerMq);
+      }
     }
   } catch (_) {}
 
