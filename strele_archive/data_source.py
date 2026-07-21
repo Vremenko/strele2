@@ -38,6 +38,13 @@ def get_si_hourly(
         if days is not None:
             return _local().export_si_hourly_period(days), "local"
         if day is not None:
+            # Tekoči dan: živi urni profil (enako kot si-daily na 8083) — sicer
+            # arhiv vrne 0 in klik na današnji stolpec počisti izbiro.
+            from strele_archive.si_live_day import live_si_hourly_for_day
+
+            live = live_si_hourly_for_day(day)
+            if live is not None:
+                return live, "live"
             reconciled = reconcile_hourly_for_day(day)
             if reconciled is not None:
                 return reconciled, "local"

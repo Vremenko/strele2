@@ -472,7 +472,8 @@
       detailMode = "day";
       syncFilterUi();
       const hourlyTotal = await reloadDetailCharts();
-      if (hourlyTotal === 0) {
+      /* Ne počisti izbire, če dnevni stolpec ima udare (npr. živi danes). */
+      if (hourlyTotal === 0 && !(dailyCountsByDay.get(day) > 0)) {
         clearSelectedDay();
       }
     }

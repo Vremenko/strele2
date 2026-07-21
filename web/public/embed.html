@@ -945,7 +945,9 @@
       detailMode = "day";
       syncFilterUi();
       const hourlyTotal = await reloadDetailCharts();
-      if (EMBED.hourly && hourlyTotal === 0) {
+      /* Ne počisti izbire, če dnevni stolpec ima udare (npr. živi danes),
+         tudi če urni API trenutno vrne 0 — sicer zadnji stolpec »ne deluje«. */
+      if (EMBED.hourly && hourlyTotal === 0 && !(dailyCountsByDay.get(day) > 0)) {
         clearSelectedDay();
       }
     }
