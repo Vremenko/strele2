@@ -34,10 +34,13 @@ from strele_archive.obcina_widget_daily import (
     StormObcinaLiveStats,
     StormUnavailable,
     apply_live_daily_sync,
+    archive_end_excluding_live_today,
     daily_value_for_date,
     local_today,
+    merge_live_today_into_obcine_map_rows,
     parse_storm_hourly_payload,
 )
+from strele_archive.timezone_utils import lj_day_bounds_utc
 from strele_archive.regions import load_regions
 from strele_archive.grid_map import (
     fetch_grid_cell_daily,
@@ -851,6 +854,41 @@ def api_obcine_gostota(
     return [{"obcina": r[0], "gostota": float(r[1] or 0), "stevilo": r[2]} for r in rows]
 
 
+def _live_today_obcina_counts_by_ob_mid(
+    *,
+    today: date | None = None,
+    now_utc: datetime | None = None,
+) -> dict[int, int]:
+    """
+    Današnji udari (Europe/Ljubljana) → števci po ob_mid.
+    Isti vir kot mreža/živi SI widget: udari_24h (ali StormAPI) + PiP.
+    """
+    day = today or local_today(now_utc)
+    now = now_utc or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    start_utc, end_utc = lj_day_bounds_utc(day, end_cap_utc=now)
+    # end_utc je [start, end); SQL uporablja <=, zato odštejemo 1 µs
+    if end_utc > start_utc:
+        end_inclusive = end_utc - timedelta(microseconds=1)
+    else:
+        end_inclusive = end_utc
+    raw = _fetch_raw_strikes_window_si(start_utc, end_inclusive)
+    inside = dedup_pip_strikes(filter_pip_strikes(raw, _get_region_index()))
+    obcine = _get_obcina_index()
+    id_to_mid = {o.id: o.ob_mid for o in obcine.obcine}
+    counts: dict[int, int] = {}
+    for lat, lon, _ts in inside:
+        ob_id = obcine.lookup(lon, lat)
+        if ob_id is None:
+            continue
+        mid = id_to_mid.get(ob_id)
+        if mid is None:
+            continue
+        counts[mid] = counts.get(mid, 0) + 1
+    return counts
+
+
 @app.get("/api/obcine-map")
 def api_obcine_map(
     from_: date | None = Query(None, alias="from"),
@@ -859,7 +897,20 @@ def api_obcine_map(
     days: int | None = Query(None, ge=1, le=365),
 ) -> list[dict]:
     """Vse občine z OB_ID za choropleth – vrne stevilo za vsako občino."""
-    start, end = _date_range(from_, to_, day, days)
+    today_lj = local_today()
+    # days=… naj se konča na lokalnem »danes« (ne UTC date.today())
+    if day is None and from_ is None and to_ is None and days is not None:
+        end = today_lj
+        start = end - timedelta(days=days - 1)
+    else:
+        start, end = _date_range(from_, to_, day, days)
+
+    include_live_today = start <= today_lj <= end
+    archive_end = archive_end_excluding_live_today(start, end, today_lj)
+    # Če ni preteklih dni (samo danes): BETWEEN z nemogočim razponom → same ničle
+    archive_start = start
+    archive_to = archive_end if archive_end is not None else start - timedelta(days=1)
+
     sql = """
         SELECT
             o.ob_mid,
@@ -878,9 +929,9 @@ def api_obcine_map(
     """
     with psycopg.connect(_database_url()) as conn:
         with conn.cursor() as cur:
-            cur.execute(sql, (start, end))
+            cur.execute(sql, (archive_start, archive_to))
             rows = cur.fetchall()
-    return [
+    result = [
         {
             "ob_id": r[0],
             "obcina": r[1],
@@ -890,6 +941,10 @@ def api_obcine_map(
         }
         for r in rows
     ]
+    if include_live_today:
+        live_counts = _live_today_obcina_counts_by_ob_mid(today=today_lj)
+        result = merge_live_today_into_obcine_map_rows(result, live_counts)
+    return result
 
 
 @app.get("/api/grid-map", response_model=None)

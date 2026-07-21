@@ -106,6 +106,51 @@ def merge_live_today_into_daily(
     return merged
 
 
+def merge_live_today_into_obcine_map_rows(
+    rows: list[dict],
+    live_by_ob_mid: dict[int, int],
+) -> list[dict]:
+    """
+    Prišteje današnje žive števce k občinam.
+
+    Predpogoj: rows NE smejo že vsebovati arhivskega zapisa za danes
+    (sicer bi prišlo do dvojnega štetja). Live torej nadomesti morebitni
+    delni arhiv — enaka zamenjalna semantika kot merge_live_today_into_daily.
+    """
+    merged: list[dict] = []
+    for row in rows:
+        mid = int(row["ob_id"])
+        live = int(live_by_ob_mid.get(mid, 0) or 0)
+        stevilo = int(row.get("stevilo") or 0) + live
+        dni = int(row.get("dni_z_nevihto") or 0)
+        if live > 0:
+            dni += 1
+        out = dict(row)
+        out["stevilo"] = stevilo
+        out["dni_z_nevihto"] = dni
+        merged.append(out)
+    return merged
+
+
+def archive_end_excluding_live_today(
+    start: date,
+    end: date,
+    today: date,
+) -> date | None:
+    """
+    Vrne zgornjo mejo arhivskega obdobja, ko je danes pokrit z live.
+
+    Če obdobje vključuje today: arhiv do včeraj (ali None, če ni preteklih dni).
+    Sicer: celotno [start, end] (vrne end).
+    """
+    if start <= today <= end:
+        archive_end = today - timedelta(days=1)
+        if start <= archive_end:
+            return archive_end
+        return None
+    return end
+
+
 def daily_value_for_date(daily: list[dict], day: date) -> int:
     day_str = str(day)
     for row in daily:

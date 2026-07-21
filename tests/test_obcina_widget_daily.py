@@ -38,6 +38,49 @@ class ObcinaWidgetDailyTest(unittest.TestCase):
         self.assertEqual(total, 119)
         self.assertEqual(peak, {"datum": "2026-07-11", "stevilo": 114})
 
+    def test_obcine_map_live_replaces_not_adds(self):
+        """Live za danes se prišteje samo k arhivu BREZ današnjega dne."""
+        from strele_archive.obcina_widget_daily import (
+            archive_end_excluding_live_today,
+            merge_live_today_into_obcine_map_rows,
+        )
+
+        today = date(2026, 7, 21)
+        self.assertEqual(
+            archive_end_excluding_live_today(today, today, today),
+            None,
+        )
+        self.assertEqual(
+            archive_end_excluding_live_today(date(2026, 7, 20), today, today),
+            date(2026, 7, 20),
+        )
+        self.assertEqual(
+            archive_end_excluding_live_today(date(2026, 7, 19), date(2026, 7, 20), today),
+            date(2026, 7, 20),
+        )
+
+        # Simulacija: arhiv samo včeraj (Idrija=1), delni arhiv za danes NI v rows
+        archive_rows = [
+            {"ob_id": 1, "obcina": "Idrija", "pov_km2": 10.0, "stevilo": 1, "dni_z_nevihto": 1},
+            {"ob_id": 2, "obcina": "Medvode", "pov_km2": 20.0, "stevilo": 0, "dni_z_nevihto": 0},
+        ]
+        live = {2: 12, 1: 0}
+        merged = merge_live_today_into_obcine_map_rows(archive_rows, live)
+        by_id = {r["ob_id"]: r for r in merged}
+        self.assertEqual(by_id[1]["stevilo"], 1)
+        self.assertEqual(by_id[1]["dni_z_nevihto"], 1)
+        self.assertEqual(by_id[2]["stevilo"], 12)
+        self.assertEqual(by_id[2]["dni_z_nevihto"], 1)
+
+        # Če bi arhiv za danes že bil v rows (napaka), bi se seštelo — zato
+        # api_obcine_map izključi danes iz SQL (replace, ne add).
+        wrongly_included = [
+            {"ob_id": 2, "obcina": "Medvode", "pov_km2": 20.0, "stevilo": 5, "dni_z_nevihto": 1},
+        ]
+        double = merge_live_today_into_obcine_map_rows(wrongly_included, {2: 12})
+        self.assertEqual(double[0]["stevilo"], 17)  # opozorilo: zato archive_end izključi danes
+
+
     def test_rolling_24h_includes_yesterday_before_midnight(self):
         now = datetime(2026, 7, 11, 20, 0, tzinfo=timezone.utc)
         payload = {

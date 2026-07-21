@@ -705,11 +705,22 @@
     }
     return `${fmtFull(fromIso)} – ${fmtFull(toIso)}`;
   }
-  function todayIso() { return new Date().toISOString().slice(0, 10); }
+  /** Koledarski »danes« v Europe/Ljubljana (ne UTC). */
+  function todayIso() {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Ljubljana",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  }
   function subtractDays(iso, n) {
     const d = new Date(iso + "T12:00:00");
     d.setDate(d.getDate() - n + 1);
-    return d.toISOString().slice(0, 10);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
 
   function scaleDaysKey() {
@@ -2071,7 +2082,6 @@
   let _mapLastReload = Date.now();
   setInterval(async () => {
     try {
-      const todayIso = new Date().toISOString().slice(0, 10);
       const d = await fetch(apiUrl(`/api/obcine-map?days=1`)).then((r) => r.ok ? r.json() : null).catch(() => null);
       const todayTotal = d ? d.reduce((s, r) => s + (r.stevilo || 0), 0) : -1;
       const stale = Date.now() - _mapLastReload >= REFRESH_SEC * 1000;
