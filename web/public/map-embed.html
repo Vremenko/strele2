@@ -2579,7 +2579,7 @@
     "data/strelko-dark.json?v=" + STRELKO_DARK_STYLE_VERSION,
     window.location.href
   ).href;
-  const STRELKO_PLACES_STYLE_VERSION = "20260722j";
+  const STRELKO_PLACES_STYLE_VERSION = "20260722n";
   const STRELKO_PLACES_STYLE = new URL(
     "data/strelko-places.json?v=" + STRELKO_PLACES_STYLE_VERSION,
     window.location.href
@@ -3039,7 +3039,8 @@
       if (v === "0") return false;
       if (v === "1") return true;
     } catch (_) {}
-    return true;
+    /* Privzeto: na desktopu vklopljeno, na mobilnem izklopljeno (vklop prek gumba Aa). */
+    return !isMobileView();
   }
   function savePlacesPref(on) {
     try {
@@ -3047,6 +3048,8 @@
     } catch (_) {}
   }
   let placesLabelsOn = loadPlacesPref();
+  /* Na mobilnem vsakič začnemo brez krajev — vklop samo z gumbom Aa. */
+  if (isMobileView()) placesLabelsOn = false;
 
   function syncPlacesToggleUi() {
     const btn = document.getElementById("mapPlacesBtn");
@@ -3064,40 +3067,70 @@
     if (!placesOverlayLayer || typeof placesOverlayLayer.getMaplibreMap !== "function") return;
     const glPlaces = placesOverlayLayer.getMaplibreMap();
     if (!glPlaces || typeof glPlaces.setLayerZoomRange !== "function") return;
-    /* Ožji zasloni: brez krajev v celotnem SI; ob zoomu več krajev, brez prekrivanja. */
-    const narrow = isMobileView();
-    const ranges = narrow
-      ? {
-          si_place_tier1: [7.8, 22],
-          si_place_tier2: [8.0, 22],
-          si_place_tier3: [8.6, 22],
-          si_place_tier4: [9.3, 22],
-        }
-      : {
-          si_place_tier1: [5, 22],
-          si_place_tier2: [6.2, 22],
-          si_place_tier3: [7.8, 22],
-          si_place_tier4: [9.0, 22],
-        };
-    /* Zmerno padding: dovolj za ločitev, a ne skrije preveč napisov. */
-    const padding = narrow ? 1.25 : 1;
+    /*
+     * Mobilni osnovni pogled: samo enakomerno razporejeni kraji (mbase),
+     * berljiva velikost — sicer se zaradi trkov vidita samo LJ/MB.
+     * Ob zumiranju (zoom >= 8.35): vsi kraji kot na desktopu.
+     */
+    const stage = document.getElementById("map-stage");
+    let stageW = 0;
+    try {
+      stageW = stage ? stage.getBoundingClientRect().width : 0;
+    } catch (_) {}
+    const compact = isMobileView() || (stageW > 0 && stageW < 720);
+    let z = 8;
+    try {
+      z = map.getZoom();
+    } catch (_) {}
+    const compactBase = compact && z < 8.35;
+
+    const ranges = {
+      si_place_tier1: [5, 22],
+      si_place_tier2: [6.2, 22],
+      si_place_tier3: [7.8, 22],
+      si_place_tier4: [9.0, 22],
+    };
+
+    function filterForTier(tier) {
+      if (compactBase) {
+        return [
+          "all",
+          ["==", ["get", "tier"], tier],
+          ["==", ["get", "mbase"], 1],
+        ];
+      }
+      return ["==", ["get", "tier"], tier];
+    }
+
     Object.keys(ranges).forEach(function (id) {
       try {
         if (!glPlaces.getLayer(id)) return;
+        const tier = id === "si_place_tier1" ? 1
+          : id === "si_place_tier2" ? 2
+          : id === "si_place_tier3" ? 3
+          : 4;
         glPlaces.setLayerZoomRange(id, ranges[id][0], ranges[id][1]);
-        glPlaces.setLayoutProperty(id, "text-padding", padding);
+        glPlaces.setFilter(id, filterForTier(tier));
+        glPlaces.setLayoutProperty(id, "text-padding", compactBase ? 0.8 : compact ? 0.5 : 0.6);
         glPlaces.setLayoutProperty(id, "text-allow-overlap", false);
         glPlaces.setLayoutProperty(id, "text-ignore-placement", false);
-        if (narrow) {
-          if (id === "si_place_tier4") {
-            glPlaces.setLayoutProperty(id, "text-size", 10.5);
-          } else if (id === "si_place_tier3") {
-            glPlaces.setLayoutProperty(id, "text-size", 11.5);
-          } else if (id === "si_place_tier2") {
-            glPlaces.setLayoutProperty(id, "text-size", 12.5);
-          } else {
-            glPlaces.setLayoutProperty(id, "text-size", 13.5);
-          }
+
+        if (compactBase && (tier === 3 || tier === 4)) {
+          glPlaces.setLayoutProperty(id, "visibility", "none");
+        } else {
+          glPlaces.setLayoutProperty(id, "visibility", "visible");
+        }
+
+        if (compact) {
+          /* Berljivo — ne drobceno. */
+          if (tier === 4) glPlaces.setLayoutProperty(id, "text-size", 10);
+          else if (tier === 3) glPlaces.setLayoutProperty(id, "text-size", 10.5);
+          else if (tier === 2) glPlaces.setLayoutProperty(id, "text-size", 11.5);
+          else glPlaces.setLayoutProperty(id, "text-size", 12.5);
+          glPlaces.setLayoutProperty(id, "text-max-width", 8);
+          try {
+            glPlaces.setPaintProperty(id, "text-halo-width", 1.1);
+          } catch (_) {}
         }
       } catch (_) {}
     });
@@ -3120,6 +3153,9 @@
       } catch (_) {
         window.addEventListener("resize", run);
       }
+      /* Ob zoomu preklop: osnovni nabor ↔ vsi kraji. */
+      map.on("zoomend", run);
+      map.on("moveend", run);
     }
   }
 

@@ -15,7 +15,8 @@
             "properties": {
               "name": "Ljubljana",
               "tier": 1,
-              "pri": 1
+              "pri": 1,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -30,7 +31,8 @@
             "properties": {
               "name": "Maribor",
               "tier": 1,
-              "pri": 2
+              "pri": 2,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -45,7 +47,8 @@
             "properties": {
               "name": "Celje",
               "tier": 2,
-              "pri": 3
+              "pri": 3,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -60,7 +63,8 @@
             "properties": {
               "name": "Kranj",
               "tier": 2,
-              "pri": 4
+              "pri": 4,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -75,7 +79,8 @@
             "properties": {
               "name": "Koper",
               "tier": 2,
-              "pri": 5
+              "pri": 5,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -90,7 +95,8 @@
             "properties": {
               "name": "Novo mesto",
               "tier": 2,
-              "pri": 6
+              "pri": 6,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -105,7 +111,8 @@
             "properties": {
               "name": "Nova Gorica",
               "tier": 2,
-              "pri": 7
+              "pri": 7,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -120,7 +127,8 @@
             "properties": {
               "name": "Murska Sobota",
               "tier": 2,
-              "pri": 8
+              "pri": 8,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -135,7 +143,8 @@
             "properties": {
               "name": "Ptuj",
               "tier": 2,
-              "pri": 9
+              "pri": 9,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -150,7 +159,8 @@
             "properties": {
               "name": "Slovenj Gradec",
               "tier": 2,
-              "pri": 11
+              "pri": 11,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -165,7 +175,8 @@
             "properties": {
               "name": "Postojna",
               "tier": 2,
-              "pri": 12
+              "pri": 12,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -180,7 +191,8 @@
             "properties": {
               "name": "Celovec",
               "tier": 2,
-              "pri": 13
+              "pri": 13,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -195,7 +207,8 @@
             "properties": {
               "name": "Bovec",
               "tier": 2,
-              "pri": 14
+              "pri": 14,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -210,7 +223,8 @@
             "properties": {
               "name": "Črnomelj",
               "tier": 2,
-              "pri": 15
+              "pri": 15,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -225,7 +239,8 @@
             "properties": {
               "name": "Jesenice",
               "tier": 3,
-              "pri": 20
+              "pri": 20,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -240,7 +255,8 @@
             "properties": {
               "name": "Škofja Loka",
               "tier": 3,
-              "pri": 21
+              "pri": 21,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -255,7 +271,8 @@
             "properties": {
               "name": "Kamnik",
               "tier": 3,
-              "pri": 22
+              "pri": 22,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -270,7 +287,8 @@
             "properties": {
               "name": "Trbovlje",
               "tier": 3,
-              "pri": 23
+              "pri": 23,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -285,7 +303,8 @@
             "properties": {
               "name": "Krško",
               "tier": 3,
-              "pri": 24
+              "pri": 24,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -300,7 +319,8 @@
             "properties": {
               "name": "Brežice",
               "tier": 3,
-              "pri": 25
+              "pri": 25,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -315,7 +335,8 @@
             "properties": {
               "name": "Kočevje",
               "tier": 3,
-              "pri": 26
+              "pri": 26,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -330,7 +351,8 @@
             "properties": {
               "name": "Sežana",
               "tier": 3,
-              "pri": 27
+              "pri": 27,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -345,7 +367,8 @@
             "properties": {
               "name": "Ajdovščina",
               "tier": 3,
-              "pri": 28
+              "pri": 28,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -360,7 +383,8 @@
             "properties": {
               "name": "Idrija",
               "tier": 3,
-              "pri": 29
+              "pri": 29,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -375,7 +399,8 @@
             "properties": {
               "name": "Tolmin",
               "tier": 3,
-              "pri": 30
+              "pri": 30,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -390,7 +415,8 @@
             "properties": {
               "name": "Lendava",
               "tier": 3,
-              "pri": 31
+              "pri": 31,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -405,7 +431,8 @@
             "properties": {
               "name": "Ormož",
               "tier": 3,
-              "pri": 32
+              "pri": 32,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -420,7 +447,8 @@
             "properties": {
               "name": "Ravne na Koroškem",
               "tier": 3,
-              "pri": 33
+              "pri": 33,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -435,7 +463,8 @@
             "properties": {
               "name": "Velenje",
               "tier": 3,
-              "pri": 34
+              "pri": 34,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -450,7 +479,8 @@
             "properties": {
               "name": "Litija",
               "tier": 3,
-              "pri": 35
+              "pri": 35,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -465,7 +495,8 @@
             "properties": {
               "name": "Grosuplje",
               "tier": 3,
-              "pri": 36
+              "pri": 36,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -480,7 +511,8 @@
             "properties": {
               "name": "Logatec",
               "tier": 3,
-              "pri": 37
+              "pri": 37,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -495,7 +527,8 @@
             "properties": {
               "name": "Izola",
               "tier": 4,
-              "pri": 40
+              "pri": 40,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -510,7 +543,8 @@
             "properties": {
               "name": "Piran",
               "tier": 4,
-              "pri": 41
+              "pri": 41,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -525,7 +559,8 @@
             "properties": {
               "name": "Domžale",
               "tier": 4,
-              "pri": 43
+              "pri": 43,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -540,7 +575,8 @@
             "properties": {
               "name": "Vrhnika",
               "tier": 4,
-              "pri": 44
+              "pri": 44,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -555,7 +591,8 @@
             "properties": {
               "name": "Žalec",
               "tier": 4,
-              "pri": 45
+              "pri": 45,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -570,7 +607,8 @@
             "properties": {
               "name": "Slovenska Bistrica",
               "tier": 4,
-              "pri": 46
+              "pri": 46,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -585,7 +623,8 @@
             "properties": {
               "name": "Metlika",
               "tier": 4,
-              "pri": 47
+              "pri": 47,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -600,7 +639,8 @@
             "properties": {
               "name": "Bled",
               "tier": 4,
-              "pri": 48
+              "pri": 48,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -615,7 +655,8 @@
             "properties": {
               "name": "Radovljica",
               "tier": 4,
-              "pri": 49
+              "pri": 49,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -630,7 +671,8 @@
             "properties": {
               "name": "Tržič",
               "tier": 4,
-              "pri": 50
+              "pri": 50,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -645,7 +687,8 @@
             "properties": {
               "name": "Medvode",
               "tier": 4,
-              "pri": 51
+              "pri": 51,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -660,7 +703,8 @@
             "properties": {
               "name": "Mengeš",
               "tier": 4,
-              "pri": 52
+              "pri": 52,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -675,7 +719,8 @@
             "properties": {
               "name": "Cerknica",
               "tier": 4,
-              "pri": 53
+              "pri": 53,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -690,7 +735,8 @@
             "properties": {
               "name": "Ilirska Bistrica",
               "tier": 4,
-              "pri": 54
+              "pri": 54,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -705,7 +751,8 @@
             "properties": {
               "name": "Ribnica",
               "tier": 4,
-              "pri": 55
+              "pri": 55,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -720,7 +767,8 @@
             "properties": {
               "name": "Trebnje",
               "tier": 4,
-              "pri": 56
+              "pri": 56,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -735,7 +783,8 @@
             "properties": {
               "name": "Laško",
               "tier": 4,
-              "pri": 57
+              "pri": 57,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -750,7 +799,8 @@
             "properties": {
               "name": "Šentjur",
               "tier": 4,
-              "pri": 58
+              "pri": 58,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -765,7 +815,8 @@
             "properties": {
               "name": "Slovenske Konjice",
               "tier": 4,
-              "pri": 59
+              "pri": 59,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -780,7 +831,8 @@
             "properties": {
               "name": "Rogaška Slatina",
               "tier": 4,
-              "pri": 60
+              "pri": 60,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -795,7 +847,8 @@
             "properties": {
               "name": "Lenart",
               "tier": 4,
-              "pri": 61
+              "pri": 61,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -810,7 +863,8 @@
             "properties": {
               "name": "Gornja Radgona",
               "tier": 4,
-              "pri": 62
+              "pri": 62,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -825,7 +879,8 @@
             "properties": {
               "name": "Ljutomer",
               "tier": 4,
-              "pri": 63
+              "pri": 63,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -840,7 +895,8 @@
             "properties": {
               "name": "Dravograd",
               "tier": 4,
-              "pri": 64
+              "pri": 64,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -855,7 +911,8 @@
             "properties": {
               "name": "Kobarid",
               "tier": 4,
-              "pri": 65
+              "pri": 65,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -870,7 +927,8 @@
             "properties": {
               "name": "Vipava",
               "tier": 4,
-              "pri": 66
+              "pri": 66,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -885,7 +943,8 @@
             "properties": {
               "name": "Cerkno",
               "tier": 4,
-              "pri": 67
+              "pri": 67,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -900,7 +959,8 @@
             "properties": {
               "name": "Mozirje",
               "tier": 4,
-              "pri": 68
+              "pri": 68,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -915,7 +975,8 @@
             "properties": {
               "name": "Ruše",
               "tier": 4,
-              "pri": 69
+              "pri": 69,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -930,7 +991,8 @@
             "properties": {
               "name": "Beltinci",
               "tier": 4,
-              "pri": 70
+              "pri": 70,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -945,7 +1007,8 @@
             "properties": {
               "name": "Žiri",
               "tier": 4,
-              "pri": 71
+              "pri": 71,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -960,7 +1023,8 @@
             "properties": {
               "name": "Šmarje pri Jelšah",
               "tier": 4,
-              "pri": 72
+              "pri": 72,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -975,7 +1039,8 @@
             "properties": {
               "name": "Hrastnik",
               "tier": 4,
-              "pri": 73
+              "pri": 73,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -990,7 +1055,8 @@
             "properties": {
               "name": "Zagorje ob Savi",
               "tier": 4,
-              "pri": 74
+              "pri": 74,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1005,7 +1071,8 @@
             "properties": {
               "name": "Hrpelje-Kozina",
               "tier": 4,
-              "pri": 75
+              "pri": 75,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1020,7 +1087,8 @@
             "properties": {
               "name": "Pivka",
               "tier": 4,
-              "pri": 76
+              "pri": 76,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1035,7 +1103,8 @@
             "properties": {
               "name": "Divača",
               "tier": 4,
-              "pri": 77
+              "pri": 77,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1050,7 +1119,8 @@
             "properties": {
               "name": "Ivančna Gorica",
               "tier": 4,
-              "pri": 78
+              "pri": 78,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1065,7 +1135,8 @@
             "properties": {
               "name": "Žužemberk",
               "tier": 4,
-              "pri": 79
+              "pri": 79,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1080,7 +1151,8 @@
             "properties": {
               "name": "Mirna Peč",
               "tier": 4,
-              "pri": 80
+              "pri": 80,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1095,7 +1167,8 @@
             "properties": {
               "name": "Šentjernej",
               "tier": 4,
-              "pri": 81
+              "pri": 81,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1110,7 +1183,8 @@
             "properties": {
               "name": "Kostanjevica na Krki",
               "tier": 4,
-              "pri": 82
+              "pri": 82,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1125,7 +1199,8 @@
             "properties": {
               "name": "Sevnica",
               "tier": 4,
-              "pri": 83
+              "pri": 83,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1140,7 +1215,8 @@
             "properties": {
               "name": "Radeče",
               "tier": 4,
-              "pri": 84
+              "pri": 84,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1155,7 +1231,8 @@
             "properties": {
               "name": "Šoštanj",
               "tier": 4,
-              "pri": 85
+              "pri": 85,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1170,7 +1247,8 @@
             "properties": {
               "name": "Poljčane",
               "tier": 4,
-              "pri": 86
+              "pri": 86,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1185,7 +1263,8 @@
             "properties": {
               "name": "Majšperk",
               "tier": 4,
-              "pri": 87
+              "pri": 87,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1200,7 +1279,8 @@
             "properties": {
               "name": "Kidričevo",
               "tier": 4,
-              "pri": 88
+              "pri": 88,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1215,7 +1295,8 @@
             "properties": {
               "name": "Pesnica",
               "tier": 4,
-              "pri": 89
+              "pri": 89,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1230,7 +1311,8 @@
             "properties": {
               "name": "Radlje ob Dravi",
               "tier": 4,
-              "pri": 90
+              "pri": 90,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1245,7 +1327,8 @@
             "properties": {
               "name": "Mežica",
               "tier": 4,
-              "pri": 91
+              "pri": 91,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1260,7 +1343,8 @@
             "properties": {
               "name": "Črna na Koroškem",
               "tier": 4,
-              "pri": 92
+              "pri": 92,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1275,7 +1359,8 @@
             "properties": {
               "name": "Prevalje",
               "tier": 4,
-              "pri": 93
+              "pri": 93,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1290,7 +1375,8 @@
             "properties": {
               "name": "Radenci",
               "tier": 4,
-              "pri": 94
+              "pri": 94,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1305,7 +1391,8 @@
             "properties": {
               "name": "Turnišče",
               "tier": 4,
-              "pri": 95
+              "pri": 95,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1320,7 +1407,8 @@
             "properties": {
               "name": "Dobrovnik",
               "tier": 4,
-              "pri": 96
+              "pri": 96,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1335,7 +1423,8 @@
             "properties": {
               "name": "Kranjska Gora",
               "tier": 4,
-              "pri": 97
+              "pri": 97,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1350,7 +1439,8 @@
             "properties": {
               "name": "Bohinjska Bistrica",
               "tier": 4,
-              "pri": 98
+              "pri": 98,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1365,7 +1455,8 @@
             "properties": {
               "name": "Most na Soči",
               "tier": 4,
-              "pri": 99
+              "pri": 99,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1380,7 +1471,8 @@
             "properties": {
               "name": "Anhovo",
               "tier": 4,
-              "pri": 100
+              "pri": 100,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1395,7 +1487,8 @@
             "properties": {
               "name": "Kanal",
               "tier": 4,
-              "pri": 101
+              "pri": 101,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1410,7 +1503,8 @@
             "properties": {
               "name": "Šempeter pri Gorici",
               "tier": 4,
-              "pri": 102
+              "pri": 102,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1425,7 +1519,8 @@
             "properties": {
               "name": "Renče",
               "tier": 4,
-              "pri": 103
+              "pri": 103,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1440,7 +1535,8 @@
             "properties": {
               "name": "Miren",
               "tier": 4,
-              "pri": 104
+              "pri": 104,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1455,7 +1551,8 @@
             "properties": {
               "name": "Komen",
               "tier": 4,
-              "pri": 105
+              "pri": 105,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1470,7 +1567,8 @@
             "properties": {
               "name": "Dutovlje",
               "tier": 4,
-              "pri": 106
+              "pri": 106,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1485,7 +1583,8 @@
             "properties": {
               "name": "Portorož",
               "tier": 4,
-              "pri": 107
+              "pri": 107,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1500,7 +1599,8 @@
             "properties": {
               "name": "Lucija",
               "tier": 4,
-              "pri": 108
+              "pri": 108,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1515,7 +1615,8 @@
             "properties": {
               "name": "Ankaran",
               "tier": 4,
-              "pri": 109
+              "pri": 109,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1530,7 +1631,8 @@
             "properties": {
               "name": "Ig",
               "tier": 4,
-              "pri": 110
+              "pri": 110,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1545,7 +1647,8 @@
             "properties": {
               "name": "Borovnica",
               "tier": 4,
-              "pri": 111
+              "pri": 111,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1560,7 +1663,8 @@
             "properties": {
               "name": "Horjul",
               "tier": 4,
-              "pri": 112
+              "pri": 112,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1575,7 +1679,8 @@
             "properties": {
               "name": "Dobrova",
               "tier": 4,
-              "pri": 113
+              "pri": 113,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1590,7 +1695,8 @@
             "properties": {
               "name": "Škofljica",
               "tier": 4,
-              "pri": 114
+              "pri": 114,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1605,7 +1711,8 @@
             "properties": {
               "name": "Žirovnica",
               "tier": 4,
-              "pri": 115
+              "pri": 115,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1620,7 +1727,8 @@
             "properties": {
               "name": "Preddvor",
               "tier": 4,
-              "pri": 116
+              "pri": 116,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1635,7 +1743,8 @@
             "properties": {
               "name": "Cerklje na Gorenjskem",
               "tier": 4,
-              "pri": 117
+              "pri": 117,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1650,7 +1759,8 @@
             "properties": {
               "name": "Komenda",
               "tier": 4,
-              "pri": 118
+              "pri": 118,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1665,7 +1775,8 @@
             "properties": {
               "name": "Lukovica",
               "tier": 4,
-              "pri": 119
+              "pri": 119,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1680,7 +1791,8 @@
             "properties": {
               "name": "Moravče",
               "tier": 4,
-              "pri": 120
+              "pri": 120,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1695,7 +1807,8 @@
             "properties": {
               "name": "Dol pri Ljubljani",
               "tier": 4,
-              "pri": 121
+              "pri": 121,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1710,7 +1823,8 @@
             "properties": {
               "name": "Vodice",
               "tier": 4,
-              "pri": 122
+              "pri": 122,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1725,7 +1839,8 @@
             "properties": {
               "name": "Šenčur",
               "tier": 4,
-              "pri": 123
+              "pri": 123,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1740,7 +1855,8 @@
             "properties": {
               "name": "Naklo",
               "tier": 4,
-              "pri": 124
+              "pri": 124,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1755,7 +1871,8 @@
             "properties": {
               "name": "Mislinja",
               "tier": 4,
-              "pri": 125
+              "pri": 125,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1770,7 +1887,8 @@
             "properties": {
               "name": "Vuzenica",
               "tier": 4,
-              "pri": 126
+              "pri": 126,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1785,7 +1903,8 @@
             "properties": {
               "name": "Muta",
               "tier": 4,
-              "pri": 127
+              "pri": 127,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1800,7 +1919,8 @@
             "properties": {
               "name": "Podvelka",
               "tier": 4,
-              "pri": 128
+              "pri": 128,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1815,7 +1935,8 @@
             "properties": {
               "name": "Lovrenc na Pohorju",
               "tier": 4,
-              "pri": 129
+              "pri": 129,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1830,7 +1951,8 @@
             "properties": {
               "name": "Apače",
               "tier": 4,
-              "pri": 130
+              "pri": 130,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1845,7 +1967,8 @@
             "properties": {
               "name": "Cerkvenjak",
               "tier": 4,
-              "pri": 131
+              "pri": 131,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1860,7 +1983,8 @@
             "properties": {
               "name": "Benedikt",
               "tier": 4,
-              "pri": 132
+              "pri": 132,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1875,7 +1999,8 @@
             "properties": {
               "name": "Sveta Ana",
               "tier": 4,
-              "pri": 133
+              "pri": 133,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1890,7 +2015,8 @@
             "properties": {
               "name": "Odranci",
               "tier": 4,
-              "pri": 134
+              "pri": 134,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1905,7 +2031,8 @@
             "properties": {
               "name": "Velika Polana",
               "tier": 4,
-              "pri": 135
+              "pri": 135,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1920,7 +2047,8 @@
             "properties": {
               "name": "Semič",
               "tier": 4,
-              "pri": 136
+              "pri": 136,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1935,7 +2063,8 @@
             "properties": {
               "name": "Mirna",
               "tier": 4,
-              "pri": 137
+              "pri": 137,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1950,7 +2079,8 @@
             "properties": {
               "name": "Mokronog",
               "tier": 4,
-              "pri": 138
+              "pri": 138,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1965,7 +2095,8 @@
             "properties": {
               "name": "Škocjan",
               "tier": 4,
-              "pri": 139
+              "pri": 139,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1980,7 +2111,8 @@
             "properties": {
               "name": "Straža",
               "tier": 4,
-              "pri": 140
+              "pri": 140,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -1995,7 +2127,8 @@
             "properties": {
               "name": "Dolenjske Toplice",
               "tier": 4,
-              "pri": 141
+              "pri": 141,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2010,7 +2143,8 @@
             "properties": {
               "name": "Tišina",
               "tier": 4,
-              "pri": 142
+              "pri": 142,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2025,7 +2159,8 @@
             "properties": {
               "name": "Cankova",
               "tier": 4,
-              "pri": 143
+              "pri": 143,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2040,7 +2175,8 @@
             "properties": {
               "name": "Rogašovci",
               "tier": 4,
-              "pri": 144
+              "pri": 144,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2055,7 +2191,8 @@
             "properties": {
               "name": "Kuzma",
               "tier": 4,
-              "pri": 145
+              "pri": 145,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2070,7 +2207,8 @@
             "properties": {
               "name": "Grad",
               "tier": 4,
-              "pri": 146
+              "pri": 146,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2085,7 +2223,8 @@
             "properties": {
               "name": "Središče ob Dravi",
               "tier": 4,
-              "pri": 147
+              "pri": 147,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2100,7 +2239,8 @@
             "properties": {
               "name": "Zavrč",
               "tier": 4,
-              "pri": 148
+              "pri": 148,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2115,7 +2255,8 @@
             "properties": {
               "name": "Gorišnica",
               "tier": 4,
-              "pri": 149
+              "pri": 149,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2130,7 +2271,8 @@
             "properties": {
               "name": "Dornava",
               "tier": 4,
-              "pri": 150
+              "pri": 150,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2145,7 +2287,8 @@
             "properties": {
               "name": "Markovci",
               "tier": 4,
-              "pri": 151
+              "pri": 151,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2160,7 +2303,8 @@
             "properties": {
               "name": "Hajdina",
               "tier": 4,
-              "pri": 152
+              "pri": 152,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2175,7 +2319,8 @@
             "properties": {
               "name": "Starše",
               "tier": 4,
-              "pri": 153
+              "pri": 153,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2190,7 +2335,8 @@
             "properties": {
               "name": "Duplek",
               "tier": 4,
-              "pri": 154
+              "pri": 154,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2205,7 +2351,8 @@
             "properties": {
               "name": "Miklavž na Dravskem polju",
               "tier": 4,
-              "pri": 155
+              "pri": 155,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2220,7 +2367,8 @@
             "properties": {
               "name": "Hoče",
               "tier": 4,
-              "pri": 156
+              "pri": 156,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2235,7 +2383,8 @@
             "properties": {
               "name": "Rače",
               "tier": 4,
-              "pri": 157
+              "pri": 157,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2250,7 +2399,8 @@
             "properties": {
               "name": "Kungota",
               "tier": 4,
-              "pri": 158
+              "pri": 158,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2265,7 +2415,8 @@
             "properties": {
               "name": "Šentilj",
               "tier": 4,
-              "pri": 159
+              "pri": 159,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2280,7 +2431,8 @@
             "properties": {
               "name": "Vitanje",
               "tier": 4,
-              "pri": 160
+              "pri": 160,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2295,7 +2447,8 @@
             "properties": {
               "name": "Zreče",
               "tier": 4,
-              "pri": 161
+              "pri": 161,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2310,7 +2463,8 @@
             "properties": {
               "name": "Oplotnica",
               "tier": 4,
-              "pri": 162
+              "pri": 162,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2325,7 +2479,8 @@
             "properties": {
               "name": "Braslovče",
               "tier": 4,
-              "pri": 163
+              "pri": 163,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2340,7 +2495,8 @@
             "properties": {
               "name": "Polzela",
               "tier": 4,
-              "pri": 164
+              "pri": 164,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2355,7 +2511,8 @@
             "properties": {
               "name": "Prebold",
               "tier": 4,
-              "pri": 165
+              "pri": 165,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2370,7 +2527,8 @@
             "properties": {
               "name": "Vransko",
               "tier": 4,
-              "pri": 166
+              "pri": 166,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2385,7 +2543,8 @@
             "properties": {
               "name": "Nazarje",
               "tier": 4,
-              "pri": 167
+              "pri": 167,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2400,7 +2559,8 @@
             "properties": {
               "name": "Gornji Grad",
               "tier": 4,
-              "pri": 168
+              "pri": 168,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2415,7 +2575,8 @@
             "properties": {
               "name": "Ljubno",
               "tier": 4,
-              "pri": 169
+              "pri": 169,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2430,7 +2591,8 @@
             "properties": {
               "name": "Sodražica",
               "tier": 4,
-              "pri": 170
+              "pri": 170,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2445,7 +2607,8 @@
             "properties": {
               "name": "Loški Potok",
               "tier": 4,
-              "pri": 171
+              "pri": 171,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2460,7 +2623,8 @@
             "properties": {
               "name": "Bloke",
               "tier": 4,
-              "pri": 172
+              "pri": 172,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2475,7 +2639,8 @@
             "properties": {
               "name": "Loška Dolina",
               "tier": 4,
-              "pri": 173
+              "pri": 173,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2490,7 +2655,8 @@
             "properties": {
               "name": "Dobrovo",
               "tier": 4,
-              "pri": 174
+              "pri": 174,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2505,7 +2671,8 @@
             "properties": {
               "name": "Štore",
               "tier": 4,
-              "pri": 175
+              "pri": 175,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2520,7 +2687,8 @@
             "properties": {
               "name": "Vojnik",
               "tier": 4,
-              "pri": 176
+              "pri": 176,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2535,7 +2703,8 @@
             "properties": {
               "name": "Dobrna",
               "tier": 4,
-              "pri": 177
+              "pri": 177,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2550,7 +2719,8 @@
             "properties": {
               "name": "Bistrica ob Sotli",
               "tier": 4,
-              "pri": 178
+              "pri": 178,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2565,7 +2735,8 @@
             "properties": {
               "name": "Kozje",
               "tier": 4,
-              "pri": 179
+              "pri": 179,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2580,7 +2751,8 @@
             "properties": {
               "name": "Podčetrtek",
               "tier": 4,
-              "pri": 180
+              "pri": 180,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2595,7 +2767,8 @@
             "properties": {
               "name": "Makole",
               "tier": 4,
-              "pri": 181
+              "pri": 181,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2610,7 +2783,8 @@
             "properties": {
               "name": "Videm",
               "tier": 4,
-              "pri": 182
+              "pri": 182,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2625,7 +2799,8 @@
             "properties": {
               "name": "Destrnik",
               "tier": 4,
-              "pri": 183
+              "pri": 183,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2640,7 +2815,8 @@
             "properties": {
               "name": "Juršinci",
               "tier": 4,
-              "pri": 184
+              "pri": 184,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2655,7 +2831,8 @@
             "properties": {
               "name": "Puconci",
               "tier": 4,
-              "pri": 185
+              "pri": 185,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2670,7 +2847,8 @@
             "properties": {
               "name": "Moravske Toplice",
               "tier": 4,
-              "pri": 186
+              "pri": 186,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2685,7 +2863,8 @@
             "properties": {
               "name": "Šalovci",
               "tier": 4,
-              "pri": 187
+              "pri": 187,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2700,7 +2879,8 @@
             "properties": {
               "name": "Veržej",
               "tier": 4,
-              "pri": 188
+              "pri": 188,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2715,7 +2895,8 @@
             "properties": {
               "name": "Križevci",
               "tier": 4,
-              "pri": 189
+              "pri": 189,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2730,7 +2911,8 @@
             "properties": {
               "name": "Razkrižje",
               "tier": 4,
-              "pri": 190
+              "pri": 190,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2745,7 +2927,8 @@
             "properties": {
               "name": "Šmartno pri Litiji",
               "tier": 4,
-              "pri": 191
+              "pri": 191,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2760,7 +2943,8 @@
             "properties": {
               "name": "Dol pri Hrastniku",
               "tier": 4,
-              "pri": 192
+              "pri": 192,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2775,7 +2959,8 @@
             "properties": {
               "name": "Trzin",
               "tier": 4,
-              "pri": 193
+              "pri": 193,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2790,7 +2975,8 @@
             "properties": {
               "name": "Šmartno ob Paki",
               "tier": 4,
-              "pri": 194
+              "pri": 194,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2805,7 +2991,8 @@
             "properties": {
               "name": "Rečica ob Savinji",
               "tier": 4,
-              "pri": 195
+              "pri": 195,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2820,7 +3007,8 @@
             "properties": {
               "name": "Tabor",
               "tier": 4,
-              "pri": 196
+              "pri": 196,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2835,7 +3023,8 @@
             "properties": {
               "name": "Železniki",
               "tier": 4,
-              "pri": 197
+              "pri": 197,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2850,7 +3039,8 @@
             "properties": {
               "name": "Gorenja vas",
               "tier": 4,
-              "pri": 198
+              "pri": 198,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2865,7 +3055,8 @@
             "properties": {
               "name": "Podnanos",
               "tier": 4,
-              "pri": 199
+              "pri": 199,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2880,7 +3071,8 @@
             "properties": {
               "name": "Branik",
               "tier": 4,
-              "pri": 200
+              "pri": 200,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2895,7 +3087,8 @@
             "properties": {
               "name": "Kostanjevica na Krasu",
               "tier": 4,
-              "pri": 201
+              "pri": 201,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2910,7 +3103,8 @@
             "properties": {
               "name": "Hrpelje",
               "tier": 4,
-              "pri": 202
+              "pri": 202,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2925,7 +3119,8 @@
             "properties": {
               "name": "Materija",
               "tier": 4,
-              "pri": 203
+              "pri": 203,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2940,7 +3135,8 @@
             "properties": {
               "name": "Podgrad",
               "tier": 4,
-              "pri": 204
+              "pri": 204,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2955,7 +3151,8 @@
             "properties": {
               "name": "Knežak",
               "tier": 4,
-              "pri": 205
+              "pri": 205,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2970,7 +3167,8 @@
             "properties": {
               "name": "Senožeče",
               "tier": 4,
-              "pri": 206
+              "pri": 206,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -2985,7 +3183,8 @@
             "properties": {
               "name": "Vreme",
               "tier": 4,
-              "pri": 207
+              "pri": 207,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3000,7 +3199,8 @@
             "properties": {
               "name": "Prem",
               "tier": 4,
-              "pri": 208
+              "pri": 208,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3015,7 +3215,8 @@
             "properties": {
               "name": "Jelšane",
               "tier": 4,
-              "pri": 209
+              "pri": 209,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3030,7 +3231,8 @@
             "properties": {
               "name": "Rakek",
               "tier": 4,
-              "pri": 210
+              "pri": 210,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3045,7 +3247,8 @@
             "properties": {
               "name": "Unec",
               "tier": 4,
-              "pri": 211
+              "pri": 211,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3060,7 +3263,8 @@
             "properties": {
               "name": "Planina",
               "tier": 4,
-              "pri": 212
+              "pri": 212,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3075,7 +3279,8 @@
             "properties": {
               "name": "Begunje pri Cerknici",
               "tier": 4,
-              "pri": 213
+              "pri": 213,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3090,7 +3295,8 @@
             "properties": {
               "name": "Stari trg pri Ložu",
               "tier": 4,
-              "pri": 214
+              "pri": 214,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3105,7 +3311,8 @@
             "properties": {
               "name": "Babno Polje",
               "tier": 4,
-              "pri": 215
+              "pri": 215,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3120,7 +3327,8 @@
             "properties": {
               "name": "Kočevska Reka",
               "tier": 4,
-              "pri": 216
+              "pri": 216,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3135,7 +3343,8 @@
             "properties": {
               "name": "Onek",
               "tier": 4,
-              "pri": 217
+              "pri": 217,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3150,7 +3359,8 @@
             "properties": {
               "name": "Vinica",
               "tier": 4,
-              "pri": 218
+              "pri": 218,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3165,7 +3375,8 @@
             "properties": {
               "name": "Adlešiči",
               "tier": 4,
-              "pri": 219
+              "pri": 219,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3180,7 +3391,8 @@
             "properties": {
               "name": "Dragatuš",
               "tier": 4,
-              "pri": 220
+              "pri": 220,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3195,7 +3407,8 @@
             "properties": {
               "name": "Gradac",
               "tier": 4,
-              "pri": 221
+              "pri": 221,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3210,7 +3423,8 @@
             "properties": {
               "name": "Podzemelj",
               "tier": 4,
-              "pri": 222
+              "pri": 222,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3225,7 +3439,8 @@
             "properties": {
               "name": "Kanižarica",
               "tier": 4,
-              "pri": 223
+              "pri": 223,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3240,7 +3455,8 @@
             "properties": {
               "name": "Otovec",
               "tier": 4,
-              "pri": 224
+              "pri": 224,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3255,7 +3471,8 @@
             "properties": {
               "name": "Rožni Dol",
               "tier": 4,
-              "pri": 225
+              "pri": 225,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3270,7 +3487,8 @@
             "properties": {
               "name": "Šmarješke Toplice",
               "tier": 4,
-              "pri": 226
+              "pri": 226,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3285,7 +3503,8 @@
             "properties": {
               "name": "Šentrupert",
               "tier": 4,
-              "pri": 227
+              "pri": 227,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3300,7 +3519,8 @@
             "properties": {
               "name": "Šmarje",
               "tier": 4,
-              "pri": 228
+              "pri": 228,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3315,7 +3535,8 @@
             "properties": {
               "name": "Rogatec",
               "tier": 4,
-              "pri": 229
+              "pri": 229,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3330,7 +3551,8 @@
             "properties": {
               "name": "Dobje",
               "tier": 4,
-              "pri": 230
+              "pri": 230,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3345,7 +3567,8 @@
             "properties": {
               "name": "Šentvid pri Stični",
               "tier": 4,
-              "pri": 231
+              "pri": 231,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3360,7 +3583,8 @@
             "properties": {
               "name": "Višnja Gora",
               "tier": 4,
-              "pri": 232
+              "pri": 232,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3375,7 +3599,8 @@
             "properties": {
               "name": "Lavrica",
               "tier": 4,
-              "pri": 233
+              "pri": 233,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3390,7 +3615,8 @@
             "properties": {
               "name": "Iška vas",
               "tier": 4,
-              "pri": 234
+              "pri": 234,
+              "mbase": 0
             },
             "geometry": {
               "type": "Point",
@@ -3405,7 +3631,8 @@
             "properties": {
               "name": "Trst",
               "tier": 2,
-              "pri": 235
+              "pri": 235,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -3420,7 +3647,8 @@
             "properties": {
               "name": "Gradec",
               "tier": 2,
-              "pri": 236
+              "pri": 236,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -3435,7 +3663,8 @@
             "properties": {
               "name": "Zagreb",
               "tier": 2,
-              "pri": 237
+              "pri": 237,
+              "mbase": 1
             },
             "geometry": {
               "type": "Point",
@@ -3488,11 +3717,13 @@
             "zoom"
           ],
           5,
-          13,
-          9,
-          16
+          11,
+          8,
+          12,
+          9.5,
+          15
         ],
-        "text-padding": 0.5,
+        "text-padding": 0.6,
         "text-max-width": 9,
         "symbol-sort-key": [
           "get",
@@ -3539,11 +3770,13 @@
             "zoom"
           ],
           6.2,
-          11.5,
-          9,
-          14
+          10,
+          8,
+          11,
+          10,
+          13.5
         ],
-        "text-padding": 0.5,
+        "text-padding": 0.6,
         "text-max-width": 9,
         "symbol-sort-key": [
           "get",
@@ -3589,12 +3822,14 @@
           [
             "zoom"
           ],
-          8.2,
+          7.8,
+          10,
+          9.5,
           11,
           11,
-          13
+          12.5
         ],
-        "text-padding": 0.5,
+        "text-padding": 0.6,
         "text-max-width": 8,
         "symbol-sort-key": [
           "get",
@@ -3639,12 +3874,14 @@
           [
             "zoom"
           ],
+          9,
           9.5,
           10.5,
-          11,
-          12
+          10.5,
+          11.5,
+          11.5
         ],
-        "text-padding": 0.5,
+        "text-padding": 0.6,
         "text-max-width": 8,
         "symbol-sort-key": [
           "get",
