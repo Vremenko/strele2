@@ -230,6 +230,29 @@ def reconcile_today(
     )
 
 
+def should_defer_finalize(
+    result: ReconcileResult,
+    now_local: datetime,
+    *,
+    retry_until_hour: int = 12,
+) -> bool:
+    """
+    True = še ne zakleni dneva; poskusi znova ob naslednjem reconcile.
+
+    Odloži, če je total 0 ali očitno nižji od že zbranega arhiva (vir še ni poln).
+    Po retry_until_hour (lokalno) sprejmi tudi 0 / nižjo vrednost.
+    """
+    if now_local.hour >= retry_until_hour:
+        return False
+    total = int(result.national_total or 0)
+    prev = int(result.previous_daily or 0)
+    if total == 0:
+        return True
+    if prev > 0 and total < prev:
+        return True
+    return False
+
+
 def maybe_finalize_previous_day(
     *,
     settings: Settings | None = None,
@@ -243,6 +266,9 @@ def maybe_finalize_previous_day(
 
     udari_24h ob 00:05 ne vsebuje več celotnega prejšnjega dne — zato je
     zanesljiv vir zgodovinska tabela udari ali arhiv, zgrajen med dnem.
+
+    Če je rezultat 0 ali sumljivo nizek glede na arhiv, ne zaklene dneva
+    in poskusi znova (do finalize_retry_until_hour).
     """
     settings = settings or get_settings()
     tz = lj_timezone(settings.timezone)
@@ -262,6 +288,29 @@ def maybe_finalize_previous_day(
             yesterday.isoformat(),
         )
         return None
+
+    # Najprej samo preveri — ne piši 0/nižje vrednosti, če še čakamo na poln vir.
+    probe = reconcile_day(
+        yesterday,
+        settings=settings,
+        db=db,
+        regions=regions,
+        obcine=obcine,
+        dry_run=True,
+    )
+    if should_defer_finalize(
+        probe,
+        now_local,
+        retry_until_hour=settings.finalize_retry_until_hour,
+    ):
+        logger.warning(
+            "Zaključek %s odložen: total=%s prev_arhiv=%s (ponovni poskus do %s:00)",
+            yesterday.isoformat(),
+            probe.national_total,
+            probe.previous_daily,
+            settings.finalize_retry_until_hour,
+        )
+        return probe
 
     result = reconcile_day(
         yesterday,

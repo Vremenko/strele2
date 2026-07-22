@@ -160,12 +160,13 @@ def run_loop(settings: Settings | None = None) -> None:
     db.upsert_regije([(r.id, r.name, r.sr_mid) for r in regions.regions])
     db.upsert_obcine([(o.id, o.name, o.ob_mid, o.pov_km2) for o in obcine.obcine])
     logger.info(
-        "Ingest zagnan (poll=%ss, reconcile=%ss, min_gap=%s, regije=%s, api=%s)",
+        "Ingest zagnan (poll=%ss, reconcile=%ss, min_gap=%s, regije=%s, api=%s, strele_key=%s)",
         settings.poll_interval_sec,
         settings.reconcile_interval_sec,
         settings.reconcile_min_gap,
         len(regions.regions),
         settings.api_base_url,
+        "da" if settings.strele_api_key else "ne",
     )
 
     last_reconcile_at = 0.0
@@ -179,12 +180,19 @@ def run_loop(settings: Settings | None = None) -> None:
                 stats["new"],
                 stats["skipped"],
             )
+        except Exception:
+            logger.exception("Poll ni uspel")
+
+        # Zaključek dneva / reconcile tudi ob napaki polla (npr. 403),
+        # sicer arhiv za včeraj ostane prazen.
+        try:
             now_mono = time.monotonic()
             if now_mono - last_reconcile_at >= settings.reconcile_interval_sec:
                 run_reconcile_pass(settings, db, regions, obcine)
                 last_reconcile_at = now_mono
         except Exception:
-            logger.exception("Poll ni uspel")
+            logger.exception("Reconcile pass ni uspel")
+
         time.sleep(settings.poll_interval_sec)
 
 

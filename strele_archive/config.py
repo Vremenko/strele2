@@ -16,6 +16,8 @@ load_dotenv(ROOT / ".env")
 class Settings:
     database_url: str
     api_base_url: str
+    # Ključ za StormAPI /api/v1/strele (glava X-Strele-Key).
+    strele_api_key: str
     poll_interval_sec: int
     regions_geojson: Path
     obcine_geojson: Path
@@ -30,12 +32,18 @@ class Settings:
     reconcile_min_gap: int
     finalize_local_hour: int
     finalize_local_minute: int
+    # Po tej lokalni uri sprejmi tudi 0 / nižji total (res miren dan).
+    finalize_retry_until_hour: int
 
 
 def get_settings() -> Settings:
     return Settings(
         database_url=os.environ["DATABASE_URL"],
         api_base_url=os.getenv("API_BASE_URL", "https://test.meteoinfo.si").rstrip("/"),
+        strele_api_key=(
+            os.getenv("STRELE_API_KEY", "").strip()
+            or os.getenv("STRELKO_INTERNAL_API_KEY", "").strip()
+        ),
         poll_interval_sec=int(os.getenv("POLL_INTERVAL_SEC", "300")),
         regions_geojson=Path(
             os.getenv("REGIONS_GEOJSON", str(ROOT / "data" / "SR.geojson"))
@@ -54,4 +62,5 @@ def get_settings() -> Settings:
         reconcile_min_gap=int(os.getenv("RECONCILE_MIN_GAP", "50")),
         finalize_local_hour=int(os.getenv("FINALIZE_LOCAL_HOUR", "23")),
         finalize_local_minute=int(os.getenv("FINALIZE_LOCAL_MINUTE", "50")),
+        finalize_retry_until_hour=int(os.getenv("FINALIZE_RETRY_UNTIL_HOUR", "12")),
     )

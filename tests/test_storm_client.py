@@ -17,6 +17,7 @@ def _fake_settings() -> Settings:
     return Settings(
         database_url="postgresql://x",
         api_base_url="http://stormapi.test",
+        strele_api_key="test-strele-key",
         poll_interval_sec=300,
         regions_geojson=__import__("pathlib").Path("/tmp"),
         obcine_geojson=__import__("pathlib").Path("/tmp"),
@@ -31,6 +32,7 @@ def _fake_settings() -> Settings:
         reconcile_min_gap=50,
         finalize_local_hour=23,
         finalize_local_minute=50,
+        finalize_retry_until_hour=12,
     )
 
 
@@ -56,7 +58,7 @@ class StormClientPaginationTest(unittest.TestCase):
             {"lat": 46.2, "lon": 14.2, "ts_utc": "2026-07-11T10:02:00Z"},
         ]
 
-        def side_effect(url, params=None, timeout=None):
+        def side_effect(url, params=None, headers=None, timeout=None):
             resp = MagicMock()
             resp.raise_for_status = MagicMock()
             if params.get("offset", 0) == 0:
@@ -72,6 +74,9 @@ class StormClientPaginationTest(unittest.TestCase):
         )
         self.assertEqual(len(strikes), 2)
         self.assertTrue(paginated)
+        self.assertTrue(mock_get.called)
+        _, kwargs = mock_get.call_args
+        self.assertEqual(kwargs.get("headers", {}).get("X-Strele-Key"), "test-strele-key")
 
         mock_interval = MagicMock()
         with patch("strele_archive.storm_client.fetch_strikes_page") as mock_page:

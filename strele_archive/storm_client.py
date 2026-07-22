@@ -87,12 +87,15 @@ def fetch_strikes_page(
     if limit is not None:
         params["limit"] = limit
         params["offset"] = offset
-    response = requests.get(url, params=params, timeout=timeout_sec)
+    headers: dict[str, str] = {}
+    if settings.strele_api_key:
+        headers["X-Strele-Key"] = settings.strele_api_key
+    response = requests.get(url, params=params, headers=headers, timeout=timeout_sec)
     if response.status_code == 422 and limit is not None:
         params.pop("limit", None)
         params.pop("offset", None)
         pagination_supported = False
-        response = requests.get(url, params=params, timeout=timeout_sec)
+        response = requests.get(url, params=params, headers=headers, timeout=timeout_sec)
     response.raise_for_status()
     data = response.json()
     if not isinstance(data, list):

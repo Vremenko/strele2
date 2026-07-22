@@ -23,6 +23,7 @@ node_modules/
 # Logs and runtime markers
 *.log
 .ingest-heartbeat
+.reconcile-state.json
 
 # OS
 .DS_Store
