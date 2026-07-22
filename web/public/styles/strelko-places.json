@@ -1,0 +1,3664 @@
+{
+  "version": 8,
+  "name": "Strelko Places Overlay",
+  "metadata": {
+    "strelko:note": "Kurirani kraji SI (enakomerna pokritost); Nova Gorica namesto Gorice."
+  },
+  "sources": {
+    "si-places": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ljubljana",
+              "tier": 1,
+              "pri": 1
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.5058,
+                46.0569
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Maribor",
+              "tier": 1,
+              "pri": 2
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.6456,
+                46.5547
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Celje",
+              "tier": 2,
+              "pri": 3
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.2677,
+                46.2312
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kranj",
+              "tier": 2,
+              "pri": 4
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.3556,
+                46.2389
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Koper",
+              "tier": 2,
+              "pri": 5
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.7304,
+                45.5469
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Novo mesto",
+              "tier": 2,
+              "pri": 6
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.1662,
+                45.804
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Nova Gorica",
+              "tier": 2,
+              "pri": 7
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.6486,
+                45.9555
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Murska Sobota",
+              "tier": 2,
+              "pri": 8
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.1664,
+                46.6629
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ptuj",
+              "tier": 2,
+              "pri": 9
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.8702,
+                46.42
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Slovenj Gradec",
+              "tier": 2,
+              "pri": 11
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.0806,
+                46.5103
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Postojna",
+              "tier": 2,
+              "pri": 12
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.2142,
+                45.7747
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Celovec",
+              "tier": 2,
+              "pri": 13
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.3058,
+                46.6247
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Bovec",
+              "tier": 2,
+              "pri": 14
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.5525,
+                46.3378
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Črnomelj",
+              "tier": 2,
+              "pri": 15
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.1922,
+                45.5711
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Jesenice",
+              "tier": 3,
+              "pri": 20
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.06,
+                46.4306
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Škofja Loka",
+              "tier": 3,
+              "pri": 21
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.3064,
+                46.1655
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kamnik",
+              "tier": 3,
+              "pri": 22
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.6092,
+                46.2259
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Trbovlje",
+              "tier": 3,
+              "pri": 23
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.0533,
+                46.155
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Krško",
+              "tier": 3,
+              "pri": 24
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.4922,
+                45.9592
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Brežice",
+              "tier": 3,
+              "pri": 25
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.5911,
+                45.9033
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kočevje",
+              "tier": 3,
+              "pri": 26
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.8633,
+                45.6433
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Sežana",
+              "tier": 3,
+              "pri": 27
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.8733,
+                45.7042
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ajdovščina",
+              "tier": 3,
+              "pri": 28
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.9097,
+                45.8869
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Idrija",
+              "tier": 3,
+              "pri": 29
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.0278,
+                46.0028
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Tolmin",
+              "tier": 3,
+              "pri": 30
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.7331,
+                46.1831
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Lendava",
+              "tier": 3,
+              "pri": 31
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.4508,
+                46.565
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ormož",
+              "tier": 3,
+              "pri": 32
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.1544,
+                46.4072
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ravne na Koroškem",
+              "tier": 3,
+              "pri": 33
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.9647,
+                46.545
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Velenje",
+              "tier": 3,
+              "pri": 34
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.1103,
+                46.3592
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Litija",
+              "tier": 3,
+              "pri": 35
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.8222,
+                46.06
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Grosuplje",
+              "tier": 3,
+              "pri": 36
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.6589,
+                45.9556
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Logatec",
+              "tier": 3,
+              "pri": 37
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.2258,
+                45.9144
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Izola",
+              "tier": 4,
+              "pri": 40
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.6619,
+                45.5369
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Piran",
+              "tier": 4,
+              "pri": 41
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.5683,
+                45.5283
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Domžale",
+              "tier": 4,
+              "pri": 43
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.5937,
+                46.1379
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vrhnika",
+              "tier": 4,
+              "pri": 44
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.2956,
+                45.9664
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Žalec",
+              "tier": 4,
+              "pri": 45
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.1647,
+                46.2514
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Slovenska Bistrica",
+              "tier": 4,
+              "pri": 46
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.5728,
+                46.3928
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Metlika",
+              "tier": 4,
+              "pri": 47
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.3142,
+                45.6475
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Bled",
+              "tier": 4,
+              "pri": 48
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.1103,
+                46.3692
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Radovljica",
+              "tier": 4,
+              "pri": 49
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.1744,
+                46.3444
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Tržič",
+              "tier": 4,
+              "pri": 50
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.3106,
+                46.3636
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Medvode",
+              "tier": 4,
+              "pri": 51
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.4136,
+                46.14
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Mengeš",
+              "tier": 4,
+              "pri": 52
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.575,
+                46.1669
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Cerknica",
+              "tier": 4,
+              "pri": 53
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.3622,
+                45.7931
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ilirska Bistrica",
+              "tier": 4,
+              "pri": 54
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.2492,
+                45.565
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ribnica",
+              "tier": 4,
+              "pri": 55
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.7275,
+                45.7389
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Trebnje",
+              "tier": 4,
+              "pri": 56
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.0217,
+                45.9081
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Laško",
+              "tier": 4,
+              "pri": 57
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.2358,
+                46.1544
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šentjur",
+              "tier": 4,
+              "pri": 58
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.3975,
+                46.2172
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Slovenske Konjice",
+              "tier": 4,
+              "pri": 59
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.4758,
+                46.3367
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Rogaška Slatina",
+              "tier": 4,
+              "pri": 60
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.6392,
+                46.2375
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Lenart",
+              "tier": 4,
+              "pri": 61
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.8311,
+                46.5758
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Gornja Radgona",
+              "tier": 4,
+              "pri": 62
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.9925,
+                46.6747
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ljutomer",
+              "tier": 4,
+              "pri": 63
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.1969,
+                46.5208
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dravograd",
+              "tier": 4,
+              "pri": 64
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.0192,
+                46.5883
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kobarid",
+              "tier": 4,
+              "pri": 65
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.5786,
+                46.2458
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vipava",
+              "tier": 4,
+              "pri": 66
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.9625,
+                45.8467
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Cerkno",
+              "tier": 4,
+              "pri": 67
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.9897,
+                46.1256
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Mozirje",
+              "tier": 4,
+              "pri": 68
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.9639,
+                46.3394
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ruše",
+              "tier": 4,
+              "pri": 69
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.5156,
+                46.5397
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Beltinci",
+              "tier": 4,
+              "pri": 70
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.2408,
+                46.6053
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Žiri",
+              "tier": 4,
+              "pri": 71
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.1072,
+                46.0469
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šmarje pri Jelšah",
+              "tier": 4,
+              "pri": 72
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.5192,
+                46.2289
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Hrastnik",
+              "tier": 4,
+              "pri": 73
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.0811,
+                46.1461
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Zagorje ob Savi",
+              "tier": 4,
+              "pri": 74
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.9942,
+                46.1342
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Hrpelje-Kozina",
+              "tier": 4,
+              "pri": 75
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.9347,
+                45.61
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Pivka",
+              "tier": 4,
+              "pri": 76
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.1961,
+                45.6828
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Divača",
+              "tier": 4,
+              "pri": 77
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.9703,
+                45.6819
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ivančna Gorica",
+              "tier": 4,
+              "pri": 78
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.8044,
+                45.9381
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Žužemberk",
+              "tier": 4,
+              "pri": 79
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.9292,
+                45.8339
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Mirna Peč",
+              "tier": 4,
+              "pri": 80
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.0833,
+                45.8603
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šentjernej",
+              "tier": 4,
+              "pri": 81
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.3361,
+                45.8403
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kostanjevica na Krki",
+              "tier": 4,
+              "pri": 82
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.4222,
+                45.8461
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Sevnica",
+              "tier": 4,
+              "pri": 83
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.3156,
+                46.0078
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Radeče",
+              "tier": 4,
+              "pri": 84
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.1839,
+                46.0681
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šoštanj",
+              "tier": 4,
+              "pri": 85
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.0486,
+                46.38
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Poljčane",
+              "tier": 4,
+              "pri": 86
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.5792,
+                46.3125
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Majšperk",
+              "tier": 4,
+              "pri": 87
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.7339,
+                46.3514
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kidričevo",
+              "tier": 4,
+              "pri": 88
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.7911,
+                46.4036
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Pesnica",
+              "tier": 4,
+              "pri": 89
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.6744,
+                46.6097
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Radlje ob Dravi",
+              "tier": 4,
+              "pri": 90
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.2264,
+                46.6142
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Mežica",
+              "tier": 4,
+              "pri": 91
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.8536,
+                46.5217
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Črna na Koroškem",
+              "tier": 4,
+              "pri": 92
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.8497,
+                46.4706
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Prevalje",
+              "tier": 4,
+              "pri": 93
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.9208,
+                46.5469
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Radenci",
+              "tier": 4,
+              "pri": 94
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.0444,
+                46.6422
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Turnišče",
+              "tier": 4,
+              "pri": 95
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.3194,
+                46.6228
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dobrovnik",
+              "tier": 4,
+              "pri": 96
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.3528,
+                46.6517
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kranjska Gora",
+              "tier": 4,
+              "pri": 97
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.7897,
+                46.4858
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Bohinjska Bistrica",
+              "tier": 4,
+              "pri": 98
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.9536,
+                46.2722
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Most na Soči",
+              "tier": 4,
+              "pri": 99
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.7444,
+                46.1517
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Anhovo",
+              "tier": 4,
+              "pri": 100
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.6181,
+                46.0583
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kanal",
+              "tier": 4,
+              "pri": 101
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.6347,
+                46.0886
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šempeter pri Gorici",
+              "tier": 4,
+              "pri": 102
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.6411,
+                45.9286
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Renče",
+              "tier": 4,
+              "pri": 103
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.6681,
+                45.8903
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Miren",
+              "tier": 4,
+              "pri": 104
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.6075,
+                45.8958
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Komen",
+              "tier": 4,
+              "pri": 105
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.7486,
+                45.8153
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dutovlje",
+              "tier": 4,
+              "pri": 106
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.8333,
+                45.7556
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Portorož",
+              "tier": 4,
+              "pri": 107
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.5922,
+                45.5144
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Lucija",
+              "tier": 4,
+              "pri": 108
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.6069,
+                45.5053
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ankaran",
+              "tier": 4,
+              "pri": 109
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.7367,
+                45.5792
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ig",
+              "tier": 4,
+              "pri": 110
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.5289,
+                45.9583
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Borovnica",
+              "tier": 4,
+              "pri": 111
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.3631,
+                45.9181
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Horjul",
+              "tier": 4,
+              "pri": 112
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.2986,
+                46.0236
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dobrova",
+              "tier": 4,
+              "pri": 113
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.4172,
+                46.0528
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Škofljica",
+              "tier": 4,
+              "pri": 114
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.5764,
+                45.9833
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Žirovnica",
+              "tier": 4,
+              "pri": 115
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.14,
+                46.404
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Preddvor",
+              "tier": 4,
+              "pri": 116
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.423,
+                46.302
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Cerklje na Gorenjskem",
+              "tier": 4,
+              "pri": 117
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.487,
+                46.254
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Komenda",
+              "tier": 4,
+              "pri": 118
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.538,
+                46.205
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Lukovica",
+              "tier": 4,
+              "pri": 119
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.69,
+                46.17
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Moravče",
+              "tier": 4,
+              "pri": 120
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.745,
+                46.136
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dol pri Ljubljani",
+              "tier": 4,
+              "pri": 121
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.642,
+                46.089
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vodice",
+              "tier": 4,
+              "pri": 122
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.495,
+                46.19
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šenčur",
+              "tier": 4,
+              "pri": 123
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.42,
+                46.243
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Naklo",
+              "tier": 4,
+              "pri": 124
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.317,
+                46.273
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Mislinja",
+              "tier": 4,
+              "pri": 125
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.196,
+                46.443
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vuzenica",
+              "tier": 4,
+              "pri": 126
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.167,
+                46.596
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Muta",
+              "tier": 4,
+              "pri": 127
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.166,
+                46.611
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Podvelka",
+              "tier": 4,
+              "pri": 128
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.331,
+                46.587
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Lovrenc na Pohorju",
+              "tier": 4,
+              "pri": 129
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.393,
+                46.574
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Apače",
+              "tier": 4,
+              "pri": 130
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.911,
+                46.697
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Cerkvenjak",
+              "tier": 4,
+              "pri": 131
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.943,
+                46.57
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Benedikt",
+              "tier": 4,
+              "pri": 132
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.889,
+                46.608
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Sveta Ana",
+              "tier": 4,
+              "pri": 133
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.844,
+                46.649
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Odranci",
+              "tier": 4,
+              "pri": 134
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.278,
+                46.586
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Velika Polana",
+              "tier": 4,
+              "pri": 135
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.347,
+                46.572
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Semič",
+              "tier": 4,
+              "pri": 136
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.182,
+                45.646
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Mirna",
+              "tier": 4,
+              "pri": 137
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.062,
+                45.955
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Mokronog",
+              "tier": 4,
+              "pri": 138
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.143,
+                45.934
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Škocjan",
+              "tier": 4,
+              "pri": 139
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.292,
+                45.907
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Straža",
+              "tier": 4,
+              "pri": 140
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.075,
+                45.785
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dolenjske Toplice",
+              "tier": 4,
+              "pri": 141
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.059,
+                45.757
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Tišina",
+              "tier": 4,
+              "pri": 142
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.092,
+                46.656
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Cankova",
+              "tier": 4,
+              "pri": 143
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.022,
+                46.721
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Rogašovci",
+              "tier": 4,
+              "pri": 144
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.033,
+                46.8
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kuzma",
+              "tier": 4,
+              "pri": 145
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.083,
+                46.836
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Grad",
+              "tier": 4,
+              "pri": 146
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.1,
+                46.8
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Središče ob Dravi",
+              "tier": 4,
+              "pri": 147
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.268,
+                46.396
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Zavrč",
+              "tier": 4,
+              "pri": 148
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.05,
+                46.368
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Gorišnica",
+              "tier": 4,
+              "pri": 149
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.014,
+                46.415
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dornava",
+              "tier": 4,
+              "pri": 150
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.954,
+                46.435
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Markovci",
+              "tier": 4,
+              "pri": 151
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.933,
+                46.394
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Hajdina",
+              "tier": 4,
+              "pri": 152
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.844,
+                46.41
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Starše",
+              "tier": 4,
+              "pri": 153
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.768,
+                46.466
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Duplek",
+              "tier": 4,
+              "pri": 154
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.745,
+                46.503
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Miklavž na Dravskem polju",
+              "tier": 4,
+              "pri": 155
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.697,
+                46.506
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Hoče",
+              "tier": 4,
+              "pri": 156
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.65,
+                46.5
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Rače",
+              "tier": 4,
+              "pri": 157
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.681,
+                46.452
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kungota",
+              "tier": 4,
+              "pri": 158
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.604,
+                46.639
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šentilj",
+              "tier": 4,
+              "pri": 159
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.648,
+                46.679
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vitanje",
+              "tier": 4,
+              "pri": 160
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.296,
+                46.381
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Zreče",
+              "tier": 4,
+              "pri": 161
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.382,
+                46.376
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Oplotnica",
+              "tier": 4,
+              "pri": 162
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.447,
+                46.387
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Braslovče",
+              "tier": 4,
+              "pri": 163
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.04,
+                46.288
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Polzela",
+              "tier": 4,
+              "pri": 164
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.076,
+                46.282
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Prebold",
+              "tier": 4,
+              "pri": 165
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.094,
+                46.237
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vransko",
+              "tier": 4,
+              "pri": 166
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.951,
+                46.244
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Nazarje",
+              "tier": 4,
+              "pri": 167
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.954,
+                46.318
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Gornji Grad",
+              "tier": 4,
+              "pri": 168
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.806,
+                46.296
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Ljubno",
+              "tier": 4,
+              "pri": 169
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.834,
+                46.344
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Sodražica",
+              "tier": 4,
+              "pri": 170
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.636,
+                45.761
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Loški Potok",
+              "tier": 4,
+              "pri": 171
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.66,
+                45.701
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Bloke",
+              "tier": 4,
+              "pri": 172
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.506,
+                45.783
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Loška Dolina",
+              "tier": 4,
+              "pri": 173
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.467,
+                45.692
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dobrovo",
+              "tier": 4,
+              "pri": 174
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.526,
+                45.997
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Štore",
+              "tier": 4,
+              "pri": 175
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.314,
+                46.221
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vojnik",
+              "tier": 4,
+              "pri": 176
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.303,
+                46.293
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dobrna",
+              "tier": 4,
+              "pri": 177
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.226,
+                46.337
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Bistrica ob Sotli",
+              "tier": 4,
+              "pri": 178
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.664,
+                46.059
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kozje",
+              "tier": 4,
+              "pri": 179
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.56,
+                46.075
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Podčetrtek",
+              "tier": 4,
+              "pri": 180
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.597,
+                46.157
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Makole",
+              "tier": 4,
+              "pri": 181
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.667,
+                46.317
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Videm",
+              "tier": 4,
+              "pri": 182
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.85,
+                46.37
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Destrnik",
+              "tier": 4,
+              "pri": 183
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.875,
+                46.492
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Juršinci",
+              "tier": 4,
+              "pri": 184
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.971,
+                46.486
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Puconci",
+              "tier": 4,
+              "pri": 185
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.156,
+                46.707
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Moravske Toplice",
+              "tier": 4,
+              "pri": 186
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.221,
+                46.691
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šalovci",
+              "tier": 4,
+              "pri": 187
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.298,
+                46.825
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Veržej",
+              "tier": 4,
+              "pri": 188
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.165,
+                46.584
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Križevci",
+              "tier": 4,
+              "pri": 189
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.139,
+                46.55
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Razkrižje",
+              "tier": 4,
+              "pri": 190
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                16.307,
+                46.522
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šmartno pri Litiji",
+              "tier": 4,
+              "pri": 191
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.844,
+                46.044
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dol pri Hrastniku",
+              "tier": 4,
+              "pri": 192
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.113,
+                46.143
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Trzin",
+              "tier": 4,
+              "pri": 193
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.557,
+                46.133
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šmartno ob Paki",
+              "tier": 4,
+              "pri": 194
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.033,
+                46.329
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Rečica ob Savinji",
+              "tier": 4,
+              "pri": 195
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.922,
+                46.324
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Tabor",
+              "tier": 4,
+              "pri": 196
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.018,
+                46.236
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Železniki",
+              "tier": 4,
+              "pri": 197
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.172,
+                46.179
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Gorenja vas",
+              "tier": 4,
+              "pri": 198
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.148,
+                46.107
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Podnanos",
+              "tier": 4,
+              "pri": 199
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.971,
+                45.796
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Branik",
+              "tier": 4,
+              "pri": 200
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.788,
+                45.858
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kostanjevica na Krasu",
+              "tier": 4,
+              "pri": 201
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.624,
+                45.846
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Hrpelje",
+              "tier": 4,
+              "pri": 202
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.935,
+                45.61
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Materija",
+              "tier": 4,
+              "pri": 203
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.997,
+                45.58
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Podgrad",
+              "tier": 4,
+              "pri": 204
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.1,
+                45.526
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Knežak",
+              "tier": 4,
+              "pri": 205
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.248,
+                45.625
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Senožeče",
+              "tier": 4,
+              "pri": 206
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.041,
+                45.721
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vreme",
+              "tier": 4,
+              "pri": 207
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.07,
+                45.69
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Prem",
+              "tier": 4,
+              "pri": 208
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.18,
+                45.605
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Jelšane",
+              "tier": 4,
+              "pri": 209
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.22,
+                45.52
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Rakek",
+              "tier": 4,
+              "pri": 210
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.311,
+                45.813
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Unec",
+              "tier": 4,
+              "pri": 211
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.295,
+                45.82
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Planina",
+              "tier": 4,
+              "pri": 212
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.253,
+                45.829
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Begunje pri Cerknici",
+              "tier": 4,
+              "pri": 213
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.38,
+                45.813
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Stari trg pri Ložu",
+              "tier": 4,
+              "pri": 214
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.497,
+                45.714
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Babno Polje",
+              "tier": 4,
+              "pri": 215
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.544,
+                45.642
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kočevska Reka",
+              "tier": 4,
+              "pri": 216
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.8,
+                45.57
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Onek",
+              "tier": 4,
+              "pri": 217
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.95,
+                45.58
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Vinica",
+              "tier": 4,
+              "pri": 218
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.254,
+                45.46
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Adlešiči",
+              "tier": 4,
+              "pri": 219
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.303,
+                45.527
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dragatuš",
+              "tier": 4,
+              "pri": 220
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.18,
+                45.532
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Gradac",
+              "tier": 4,
+              "pri": 221
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.24,
+                45.57
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Podzemelj",
+              "tier": 4,
+              "pri": 222
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.27,
+                45.61
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Kanižarica",
+              "tier": 4,
+              "pri": 223
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.15,
+                45.55
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Otovec",
+              "tier": 4,
+              "pri": 224
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.14,
+                45.62
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Rožni Dol",
+              "tier": 4,
+              "pri": 225
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.12,
+                45.68
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šmarješke Toplice",
+              "tier": 4,
+              "pri": 226
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.246,
+                45.862
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šentrupert",
+              "tier": 4,
+              "pri": 227
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.095,
+                45.978
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šmarje",
+              "tier": 4,
+              "pri": 228
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.5192,
+                46.2289
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Rogatec",
+              "tier": 4,
+              "pri": 229
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.7,
+                46.229
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Dobje",
+              "tier": 4,
+              "pri": 230
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.394,
+                46.137
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Šentvid pri Stični",
+              "tier": 4,
+              "pri": 231
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.85,
+                45.95
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Višnja Gora",
+              "tier": 4,
+              "pri": 232
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.744,
+                45.958
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Lavrica",
+              "tier": 4,
+              "pri": 233
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.557,
+                46.002
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Iška vas",
+              "tier": 4,
+              "pri": 234
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                14.52,
+                45.94
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Trst",
+              "tier": 2,
+              "pri": 235
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                13.7768,
+                45.6496
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Gradec",
+              "tier": 2,
+              "pri": 236
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.4395,
+                47.0707
+              ]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {
+              "name": "Zagreb",
+              "tier": 2,
+              "pri": 237
+            },
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                15.9819,
+                45.815
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background-transparent",
+      "type": "background",
+      "paint": {
+        "background-color": "rgba(0,0,0,0)"
+      }
+    },
+    {
+      "id": "si_place_tier1",
+      "type": "symbol",
+      "source": "si-places",
+      "minzoom": 5,
+      "filter": [
+        "==",
+        [
+          "get",
+          "tier"
+        ],
+        1
+      ],
+      "layout": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          5,
+          13,
+          9,
+          16
+        ],
+        "text-padding": 0.5,
+        "text-max-width": 9,
+        "symbol-sort-key": [
+          "get",
+          "pri"
+        ],
+        "text-allow-overlap": false,
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "#e8eaed",
+        "text-halo-color": "rgba(20, 22, 24, 0.92)",
+        "text-halo-width": 1.4,
+        "text-halo-blur": 0.4,
+        "text-opacity": 0.95
+      }
+    },
+    {
+      "id": "si_place_tier2",
+      "type": "symbol",
+      "source": "si-places",
+      "minzoom": 6.2,
+      "filter": [
+        "==",
+        [
+          "get",
+          "tier"
+        ],
+        2
+      ],
+      "layout": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6.2,
+          11.5,
+          9,
+          14
+        ],
+        "text-padding": 0.5,
+        "text-max-width": 9,
+        "symbol-sort-key": [
+          "get",
+          "pri"
+        ],
+        "text-allow-overlap": false,
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "#d5dae1",
+        "text-halo-color": "rgba(20, 22, 24, 0.9)",
+        "text-halo-width": 1.25,
+        "text-halo-blur": 0.35,
+        "text-opacity": 0.93
+      }
+    },
+    {
+      "id": "si_place_tier3",
+      "type": "symbol",
+      "source": "si-places",
+      "minzoom": 7.8,
+      "filter": [
+        "==",
+        [
+          "get",
+          "tier"
+        ],
+        3
+      ],
+      "layout": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          8.2,
+          11,
+          11,
+          13
+        ],
+        "text-padding": 0.5,
+        "text-max-width": 8,
+        "symbol-sort-key": [
+          "get",
+          "pri"
+        ],
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "#b8c0ca",
+        "text-halo-color": "rgba(20, 22, 24, 0.88)",
+        "text-halo-width": 1.1,
+        "text-halo-blur": 0.3,
+        "text-opacity": 0.9
+      }
+    },
+    {
+      "id": "si_place_tier4",
+      "type": "symbol",
+      "source": "si-places",
+      "minzoom": 9.0,
+      "filter": [
+        "==",
+        [
+          "get",
+          "tier"
+        ],
+        4
+      ],
+      "layout": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9.5,
+          10.5,
+          11,
+          12
+        ],
+        "text-padding": 0.5,
+        "text-max-width": 8,
+        "symbol-sort-key": [
+          "get",
+          "pri"
+        ],
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "#9aa3ae",
+        "text-halo-color": "rgba(20, 22, 24, 0.86)",
+        "text-halo-width": 1,
+        "text-halo-blur": 0.25,
+        "text-opacity": 0.88
+      }
+    }
+  ]
+}

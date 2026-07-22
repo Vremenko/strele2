@@ -384,6 +384,103 @@
       width: 100%;
       height: 100%;
     }
+    /* Cel zaslon: gumb + razširitev (tudi če brskalnik ne podpira Fullscreen API) */
+    .map-fs-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1200;
+      width: 40px;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(36, 36, 36, 0.92);
+      color: var(--text);
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .map-fs-btn:hover,
+    .map-fs-btn:focus-visible {
+      border-color: var(--accent2);
+      color: #fff;
+      outline: none;
+    }
+    .map-fs-btn svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+    .map-fs-btn .map-fs-icon-exit { display: none; }
+    .map-fs-btn.is-active .map-fs-icon-enter { display: none; }
+    .map-fs-btn.is-active .map-fs-icon-exit { display: block; }
+    .map-places-btn {
+      right: 56px;
+      display: none;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .map-places-btn.is-visible {
+      display: inline-flex;
+    }
+    .map-places-btn.is-off {
+      opacity: 0.55;
+      color: var(--muted);
+    }
+    .map-places-btn .map-places-label {
+      line-height: 1;
+      user-select: none;
+    }
+    html.map-fs-parent,
+    html.map-fs-parent body,
+    html.map-fs-pseudo,
+    html.map-fs-pseudo body {
+      overflow: hidden;
+      height: 100%;
+      margin: 0;
+    }
+    #map-stage.map-stage--fs {
+      position: fixed !important;
+      inset: 0;
+      z-index: 10000;
+      height: 100% !important;
+      height: 100dvh !important;
+      width: 100% !important;
+      max-height: none;
+      border-radius: 0;
+    }
+    /* V iframe (iPhone): starš da iframe 100dvh; tukaj flex + toolbar. */
+    html.map-fs-parent,
+    html.map-fs-parent body {
+      height: 100%;
+    }
+    html.map-fs-parent #root {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    html.map-fs-parent #chart-section {
+      display: none !important;
+    }
+    html.map-fs-parent #toolbar {
+      flex: 0 0 auto;
+    }
+    html.map-fs-parent #map-stage.map-stage--fs-embed {
+      position: relative !important;
+      inset: auto;
+      flex: 1 1 auto;
+      height: auto !important;
+      min-height: 0;
+      max-height: none;
+      width: 100%;
+    }
+    html.map-fs-pseudo:not(.map-fs-parent) #chart-section {
+      display: none !important;
+    }
     .leaflet-container {
       touch-action: pan-y pinch-zoom;
     }
@@ -909,6 +1006,17 @@
   </div>
   <div id="map-stage">
     <div id="map"></div>
+    <button type="button" id="mapPlacesBtn" class="map-fs-btn map-places-btn" title="Skrij kraje" aria-label="Skrij kraje" aria-pressed="true" hidden>
+      <span class="map-places-label" aria-hidden="true">Aa</span>
+    </button>
+    <button type="button" id="mapFullscreenBtn" class="map-fs-btn" title="Cel zaslon" aria-label="Cel zaslon" aria-pressed="false">
+      <svg class="map-fs-icon-enter" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <svg class="map-fs-icon-exit" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+        <path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
     <div id="status">Nalagam …</div>
     <div id="map-feature-lock" aria-hidden="true">
       <div class="locked-content__inner">
@@ -2471,6 +2579,11 @@
     "data/strelko-dark.json?v=" + STRELKO_DARK_STYLE_VERSION,
     window.location.href
   ).href;
+  const STRELKO_PLACES_STYLE_VERSION = "20260722j";
+  const STRELKO_PLACES_STYLE = new URL(
+    "data/strelko-places.json?v=" + STRELKO_PLACES_STYLE_VERSION,
+    window.location.href
+  ).href;
   const OPENFREEMAP_DARK_STYLE = "https://tiles.openfreemap.org/styles/dark";
   const OPENFREEMAP_STYLE = STRELKO_DARK_STYLE;
   /** Ena atribucija za Leaflet control (prefix: false) — brez podvajanja iz slojev. */
@@ -2916,13 +3029,368 @@
     : createMapTilerBaseLayer();
   baseTileLayer.addTo(map);
 
-  function resizeMaplibreBasemap() {
+  /* Kraji čez gostoto/mrežo — samo pri Mreži 1×1 km (ne na občinah). */
+  let placesOverlayLayer = null;
+  let placesMinZoomBound = false;
+  const PLACES_PREF_KEY = "strele_map_places_on";
+  function loadPlacesPref() {
     try {
-      if (typeof baseTileLayer.getMaplibreMap !== "function") return;
-      const glMap = baseTileLayer.getMaplibreMap();
-      if (glMap && typeof glMap.resize === "function") glMap.resize();
+      const v = localStorage.getItem(PLACES_PREF_KEY);
+      if (v === "0") return false;
+      if (v === "1") return true;
+    } catch (_) {}
+    return true;
+  }
+  function savePlacesPref(on) {
+    try {
+      localStorage.setItem(PLACES_PREF_KEY, on ? "1" : "0");
     } catch (_) {}
   }
+  let placesLabelsOn = loadPlacesPref();
+
+  function syncPlacesToggleUi() {
+    const btn = document.getElementById("mapPlacesBtn");
+    if (!btn) return;
+    const showBtn = isGridView() && !!placesOverlayLayer;
+    btn.hidden = !showBtn;
+    btn.classList.toggle("is-visible", showBtn);
+    btn.classList.toggle("is-off", !placesLabelsOn);
+    btn.setAttribute("aria-pressed", placesLabelsOn ? "true" : "false");
+    btn.setAttribute("aria-label", placesLabelsOn ? "Skrij kraje" : "Prikaži kraje");
+    btn.title = placesLabelsOn ? "Skrij kraje" : "Prikaži kraje";
+  }
+
+  function applyPlacesMinZoomForViewport() {
+    if (!placesOverlayLayer || typeof placesOverlayLayer.getMaplibreMap !== "function") return;
+    const glPlaces = placesOverlayLayer.getMaplibreMap();
+    if (!glPlaces || typeof glPlaces.setLayerZoomRange !== "function") return;
+    /* Ožji zasloni: brez krajev v celotnem SI; ob zoomu več krajev, brez prekrivanja. */
+    const narrow = isMobileView();
+    const ranges = narrow
+      ? {
+          si_place_tier1: [7.8, 22],
+          si_place_tier2: [8.0, 22],
+          si_place_tier3: [8.6, 22],
+          si_place_tier4: [9.3, 22],
+        }
+      : {
+          si_place_tier1: [5, 22],
+          si_place_tier2: [6.2, 22],
+          si_place_tier3: [7.8, 22],
+          si_place_tier4: [9.0, 22],
+        };
+    /* Zmerno padding: dovolj za ločitev, a ne skrije preveč napisov. */
+    const padding = narrow ? 1.25 : 1;
+    Object.keys(ranges).forEach(function (id) {
+      try {
+        if (!glPlaces.getLayer(id)) return;
+        glPlaces.setLayerZoomRange(id, ranges[id][0], ranges[id][1]);
+        glPlaces.setLayoutProperty(id, "text-padding", padding);
+        glPlaces.setLayoutProperty(id, "text-allow-overlap", false);
+        glPlaces.setLayoutProperty(id, "text-ignore-placement", false);
+        if (narrow) {
+          if (id === "si_place_tier4") {
+            glPlaces.setLayoutProperty(id, "text-size", 10.5);
+          } else if (id === "si_place_tier3") {
+            glPlaces.setLayoutProperty(id, "text-size", 11.5);
+          } else if (id === "si_place_tier2") {
+            glPlaces.setLayoutProperty(id, "text-size", 12.5);
+          } else {
+            glPlaces.setLayoutProperty(id, "text-size", 13.5);
+          }
+        }
+      } catch (_) {}
+    });
+  }
+
+  function bindPlacesMinZoomToStyle() {
+    if (!placesOverlayLayer || typeof placesOverlayLayer.getMaplibreMap !== "function") return;
+    const glPlaces = placesOverlayLayer.getMaplibreMap();
+    if (!glPlaces) return;
+    const run = function () {
+      applyPlacesMinZoomForViewport();
+    };
+    if (glPlaces.isStyleLoaded && glPlaces.isStyleLoaded()) run();
+    else glPlaces.once("load", run);
+    glPlaces.on("styledata", run);
+    if (!placesMinZoomBound) {
+      placesMinZoomBound = true;
+      try {
+        window.matchMedia("(max-width:899px)").addEventListener("change", run);
+      } catch (_) {
+        window.addEventListener("resize", run);
+      }
+    }
+  }
+
+  function syncPlacesOverlayForView() {
+    if (!placesOverlayLayer) {
+      syncPlacesToggleUi();
+      return;
+    }
+    const want = isGridView() && placesLabelsOn;
+    try {
+      if (want && !map.hasLayer(placesOverlayLayer)) {
+        placesOverlayLayer.addTo(map);
+        bindPlacesMinZoomToStyle();
+        applyPlacesMinZoomForViewport();
+        resizeMaplibreBasemap();
+      } else if (!want && map.hasLayer(placesOverlayLayer)) {
+        map.removeLayer(placesOverlayLayer);
+      }
+    } catch (syncErr) {
+      console.warn("[map-embed] sync krajev:", syncErr);
+    }
+    syncPlacesToggleUi();
+  }
+
+  (function setupPlacesToggle() {
+    const btn = document.getElementById("mapPlacesBtn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      placesLabelsOn = !placesLabelsOn;
+      savePlacesPref(placesLabelsOn);
+      syncPlacesOverlayForView();
+    });
+  })();
+
+  (function addPlacesOverlay() {
+    if (typeof L.maplibreGL !== "function") return;
+    if (!map.getPane("placesOverlayPane")) {
+      map.createPane("placesOverlayPane");
+    }
+    const placesPane = map.getPane("placesOverlayPane");
+    placesPane.style.zIndex = "450";
+    placesPane.style.pointerEvents = "none";
+    try {
+      placesOverlayLayer = L.maplibreGL({
+        style: STRELKO_PLACES_STYLE,
+        attribution: "",
+        interactive: false,
+        attributionControl: false,
+        pane: "placesOverlayPane",
+      });
+      console.info("[map-embed] sloj krajev pripravljen:", STRELKO_PLACES_STYLE);
+      bindPlacesMinZoomToStyle();
+      syncPlacesOverlayForView();
+    } catch (placesErr) {
+      console.warn("[map-embed] sloj krajev ni uspel:", placesErr);
+      placesOverlayLayer = null;
+      syncPlacesToggleUi();
+    }
+  })();
+
+  function resizeMaplibreBasemap() {
+    try {
+      if (typeof baseTileLayer.getMaplibreMap === "function") {
+        const glMap = baseTileLayer.getMaplibreMap();
+        if (glMap && typeof glMap.resize === "function") glMap.resize();
+      }
+    } catch (_) {}
+    try {
+      if (
+        placesOverlayLayer &&
+        map.hasLayer(placesOverlayLayer) &&
+        typeof placesOverlayLayer.getMaplibreMap === "function"
+      ) {
+        const glPlaces = placesOverlayLayer.getMaplibreMap();
+        if (glPlaces && typeof glPlaces.resize === "function") glPlaces.resize();
+      }
+    } catch (_) {}
+  }
+
+  /* ——— Cel zaslon ——— */
+  (function setupMapFullscreen() {
+    const stage = document.getElementById("map-stage");
+    const btn = document.getElementById("mapFullscreenBtn");
+    if (!stage || !btn) return;
+
+    let parentFsActive = false;
+
+    function isEmbedded() {
+      try {
+        return window.self !== window.top;
+      } catch (_) {
+        return true;
+      }
+    }
+
+    function isIosLike() {
+      const ua = navigator.userAgent || "";
+      if (/iPad|iPhone|iPod/.test(ua)) return true;
+      /* iPadOS desktop UA */
+      return navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1;
+    }
+
+    /** V iframe (posebej iPhone) native Fullscreen ne pokrije celotnega ekrana. */
+    function preferParentFullscreen() {
+      return isEmbedded() && (isIosLike() || isMobileView() || !document.fullscreenEnabled);
+    }
+
+    function notifyParentFs(active) {
+      if (!isEmbedded()) return;
+      try {
+        window.parent.postMessage(
+          { type: "strele-map-fullscreen", active: !!active },
+          "*"
+        );
+      } catch (_) {}
+    }
+
+    function isFsActive() {
+      const fsEl =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        null;
+      return (
+        fsEl === stage ||
+        stage.classList.contains("map-stage--fs") ||
+        stage.classList.contains("map-stage--fs-embed") ||
+        parentFsActive
+      );
+    }
+
+    let fsSavedCenter = null;
+    let fsSavedZoom = null;
+
+    function syncFsUi() {
+      const on = isFsActive();
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.setAttribute("aria-label", on ? "Zapri cel zaslon" : "Cel zaslon");
+      btn.title = on ? "Zapri cel zaslon" : "Cel zaslon";
+      /* Ob FS se spremeni velikost iframe → resize ne sme fitBounds; ohrani center/zoom. */
+      const center = fsSavedCenter || (function () {
+        try { return map.getCenter(); } catch (_) { return null; }
+      })();
+      const zoom = fsSavedZoom != null ? fsSavedZoom : (function () {
+        try { return map.getZoom(); } catch (_) { return null; }
+      })();
+      mobUserViewportLocked = true;
+      deskUserViewportLocked = true;
+      if (isPublicMapEmbed()) publicUserViewportLocked = true;
+      cancelMobileMapViewportRetries();
+      function restoreView() {
+        try {
+          map.invalidateSize({ pan: false, animate: false });
+        } catch (_) {}
+        try {
+          if (center && zoom != null) {
+            map.setView(center, zoom, { animate: false });
+          }
+        } catch (_) {}
+        resizeMaplibreBasemap();
+      }
+      window.setTimeout(restoreView, 80);
+      window.setTimeout(restoreView, 280);
+      window.setTimeout(restoreView, 500);
+    }
+
+    function enterPseudoFs(viaParent) {
+      /* Zakleni viewport PRED spremembo layouta, da resize ne resetira zooma. */
+      try {
+        fsSavedCenter = map.getCenter();
+        fsSavedZoom = map.getZoom();
+      } catch (_) {
+        fsSavedCenter = null;
+        fsSavedZoom = null;
+      }
+      mobUserViewportLocked = true;
+      deskUserViewportLocked = true;
+      if (isPublicMapEmbed()) publicUserViewportLocked = true;
+      cancelMobileMapViewportRetries();
+      document.documentElement.classList.add("map-fs-pseudo");
+      if (viaParent) {
+        document.documentElement.classList.add("map-fs-parent");
+        stage.classList.add("map-stage--fs-embed");
+        stage.classList.remove("map-stage--fs");
+      } else {
+        stage.classList.add("map-stage--fs");
+        stage.classList.remove("map-stage--fs-embed");
+      }
+      syncFsUi();
+    }
+
+    function exitPseudoFs() {
+      stage.classList.remove("map-stage--fs");
+      stage.classList.remove("map-stage--fs-embed");
+      document.documentElement.classList.remove("map-fs-pseudo");
+      document.documentElement.classList.remove("map-fs-parent");
+      parentFsActive = false;
+      syncFsUi();
+    }
+
+    function requestNativeFs() {
+      if (stage.requestFullscreen) return stage.requestFullscreen();
+      if (stage.webkitRequestFullscreen) return stage.webkitRequestFullscreen();
+      return Promise.reject(new Error("no-fs"));
+    }
+
+    function exitNativeFs() {
+      if (document.exitFullscreen) return document.exitFullscreen();
+      if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+      return Promise.resolve();
+    }
+
+    function enterFs() {
+      if (preferParentFullscreen()) {
+        parentFsActive = true;
+        enterPseudoFs(true);
+        notifyParentFs(true);
+        return;
+      }
+      Promise.resolve(requestNativeFs())
+        .then(function () {
+          syncFsUi();
+        })
+        .catch(function () {
+          if (isEmbedded()) {
+            parentFsActive = true;
+            enterPseudoFs(true);
+            notifyParentFs(true);
+          } else {
+            enterPseudoFs(false);
+          }
+        });
+    }
+
+    function exitFs() {
+      if (
+        document.fullscreenElement === stage ||
+        document.webkitFullscreenElement === stage
+      ) {
+        Promise.resolve(exitNativeFs()).catch(function () {
+          exitPseudoFs();
+          notifyParentFs(false);
+        });
+        return;
+      }
+      exitPseudoFs();
+      notifyParentFs(false);
+    }
+
+    btn.addEventListener("click", function () {
+      if (isFsActive()) exitFs();
+      else enterFs();
+    });
+
+    window.addEventListener("message", function (ev) {
+      const data = ev && ev.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "strele-map-fullscreen-state") return;
+      parentFsActive = !!data.active;
+      if (parentFsActive) enterPseudoFs(true);
+      else exitPseudoFs();
+    });
+
+    document.addEventListener("fullscreenchange", syncFsUi);
+    document.addEventListener("webkitfullscreenchange", syncFsUi);
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape" && isFsActive()) {
+        exitFs();
+      }
+    });
+  })();
 
   if (USE_OPENFREEMAP_BASE && typeof baseTileLayer.getMaplibreMap === "function") {
     const glMap = baseTileLayer.getMaplibreMap();
@@ -3011,6 +3479,18 @@
     requestAnimationFrame(() => {
       map.invalidateSize({ pan: false });
       resizeMaplibreBasemap();
+      const fsLayout =
+        document.documentElement.classList.contains("map-fs-parent") ||
+        document.documentElement.classList.contains("map-fs-pseudo") ||
+        !!(document.getElementById("map-stage") &&
+          (document.getElementById("map-stage").classList.contains("map-stage--fs") ||
+            document.getElementById("map-stage").classList.contains("map-stage--fs-embed")));
+      /* Fullscreen: ne fitBounds / ne reset zoom — samo prilagodi velikost. */
+      if (fsLayout) {
+        notifyResize();
+        resizeDailyChart();
+        return;
+      }
       if (isPublicMapEmbed()) {
         /* Do ročnega zooma/premika: ponovno fitBounds + boost po širini vsebnika. */
         if (!publicUserViewportLocked) schedulePublicMapViewport();
@@ -3313,6 +3793,7 @@
     document.querySelectorAll("#mapViewTabs .map-mode-btn").forEach((b) => {
       b.classList.toggle("map-mode-btn--active", b.dataset.view === view);
     });
+    if (typeof syncPlacesOverlayForView === "function") syncPlacesOverlayForView();
   }
 
   function showFeatureLockOverlay() {

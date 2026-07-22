@@ -1682,10 +1682,11 @@ def serve_data_file(filename: str) -> FileResponse:
         "meje_drzav.geojson",
         "meje_drzav_brez_si.geojson",
         "strelko-dark.json",
+        "strelko-places.json",
     }
     if safe not in allowed:
         raise HTTPException(status_code=404, detail="Datoteka ni dostopna")
-    if safe == "strelko-dark.json":
+    if safe in {"strelko-dark.json", "strelko-places.json"}:
         # MapLibre slog živi v web/public/styles/; nginx že proxy-ja /arhiv/public/data/
         path = _WEB_PUBLIC_DIR / "styles" / safe
         media_type = "application/json"
@@ -1693,7 +1694,7 @@ def serve_data_file(filename: str) -> FileResponse:
         if path.exists() and path.stat().st_size == 0:
             raise HTTPException(
                 status_code=503,
-                detail="strelko-dark.json je prazen — obnovi slog (ne docker cp na bind-mount)",
+                detail=f"{safe} je prazen — obnovi slog (ne docker cp na bind-mount)",
             )
     else:
         path = _DATA_DIR / safe
@@ -1733,7 +1734,7 @@ def serve_map_embed() -> FileResponse:
 def serve_public_style(filename: str) -> FileResponse:
     """MapLibre slogi za map-embed (brez MapTiler ključa)."""
     safe = filename.strip("/")
-    allowed = {"strelko-dark.json"}
+    allowed = {"strelko-dark.json", "strelko-places.json"}
     if safe not in allowed:
         raise HTTPException(status_code=404, detail="Slog ni dostopen")
     path = _WEB_PUBLIC_DIR / "styles" / safe
@@ -1742,7 +1743,7 @@ def serve_public_style(filename: str) -> FileResponse:
     if path.stat().st_size == 0:
         raise HTTPException(
             status_code=503,
-            detail="strelko-dark.json je prazen — obnovi slog (ne docker cp na bind-mount)",
+            detail=f"{safe} je prazen — obnovi slog (ne docker cp na bind-mount)",
         )
     return FileResponse(
         str(path),
